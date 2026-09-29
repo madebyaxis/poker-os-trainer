@@ -1,0 +1,2935 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kangwon Limit Hold'em Trainer v4.0.1</title>
+<style>
+:root{--bg:#0e100f;--panel:#171a18;--panel2:#202420;--line:#363b36;--text:#f5f5f2;--muted:#a9b0aa;--felt:#1f4f37;--felt2:#153523;--gold:#e2c77e;--red:#d96e67;--green:#8fc79b}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(#0b0d0c,#141815);color:var(--text);font-family:Inter,system-ui,-apple-system,"Noto Sans KR",sans-serif}
+button,select{font:inherit}
+button{cursor:pointer}
+.app{max-width:1180px;margin:auto;padding:16px}
+.header{display:flex;justify-content:space-between;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
+.header h1{font-size:21px;margin:0 0 4px}.sub{font-size:12px;color:var(--muted)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.field{display:grid;gap:4px}.field label{font-size:11px;color:var(--muted)}
+select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);background:#171b18;color:var(--text);padding:9px 12px}
+.btn.primary{background:var(--gold);color:#16140f;border-color:var(--gold);font-weight:900}.btn:disabled{opacity:.35;cursor:not-allowed}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 315px;gap:14px}
+.game,.sidecard{background:var(--panel);border:1px solid var(--line);border-radius:18px}
+.game{padding:14px}.table{position:relative;min-height:650px;border-radius:48%/38%;border:9px solid #4d3828;background:radial-gradient(circle,var(--felt),var(--felt2));box-shadow:inset 0 0 45px #0008}
+.table:after{content:"LIMIT HOLD'EM";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#ffffff14;font-weight:900;letter-spacing:.25em;font-size:28px}
+.center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;display:grid;gap:10px;justify-items:center}
+.street{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#dce3dd}
+.board{display:flex;gap:6px;min-height:72px}
+.card{width:50px;height:70px;background:#f8f7f2;color:#151515;border-radius:8px;border:1px solid #d0cec5;display:grid;place-items:center;font-weight:900;font-size:17px;text-align:center;line-height:1.05;box-shadow:0 3px 10px #0006}
+.red{color:#b8242d}.back{background:repeating-linear-gradient(45deg,#26334d,#26334d 6px,#415273 6px,#415273 12px);color:transparent}
+.pot{padding:7px 11px;border:1px solid #ffffff22;background:#0d120ecc;border-radius:999px;font-size:12px;font-weight:900}
+.seat{position:absolute;width:128px;min-height:98px;border:1px solid #ffffff25;background:#101510ee;border-radius:13px;padding:8px;z-index:4;display:grid;gap:3px}
+.seat.hero{border-color:var(--gold);background:#181b16}.seat.active{outline:3px solid var(--gold);outline-offset:2px}.seat.folded{opacity:.42}.seat.winner{outline:4px solid #f3df8e;outline-offset:3px;background:#263322;box-shadow:0 0 0 3px #0008}
+.s1{left:50%;bottom:10px;transform:translateX(-50%)}
+.s2{left:14%;bottom:30px}.s3{left:1%;top:55%}.s4{left:3%;top:20%}
+.s5{left:27%;top:4px}.s6{right:27%;top:4px}.s7{right:3%;top:20%}
+.s8{right:1%;top:55%}.s9{right:14%;bottom:30px}
+.seat-top{display:flex;justify-content:space-between;gap:6px;align-items:center}.name{font-size:11px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pos{font-size:10px;color:var(--gold)}.stack{font-size:12px;font-weight:900}.act{font-size:10px;color:#d1d6d1;min-height:14px}
+.dealer{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#eee;color:#111;font-size:9px;font-weight:900}
+.minicards{display:flex;gap:3px}.mini{width:24px;height:32px;background:#f7f5ee;color:#151515;border-radius:4px;display:grid;place-items:center;font-size:9px;font-weight:900;line-height:1}.mini.back{background:#394764;color:transparent}
+.winnerBanner{display:none;margin-top:12px;border:2px solid #e2c77e;background:linear-gradient(90deg,#2a2d1d,#3d3a20);border-radius:14px;padding:14px 16px;text-align:center}.winnerBanner.show{display:block}.winnerTitle{font-size:20px;font-weight:950;color:#f6e6a7}.winnerSub{margin-top:4px;font-size:12px;color:#e7e0c6}.heroPanel{margin-top:12px;border:1px solid var(--line);background:#101410;border-radius:14px;padding:12px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.heroCards{display:flex;gap:6px}.heroInfo{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.status{font-size:13px}.hint{font-size:11px;color:var(--muted);margin-top:4px;max-width:460px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.action{min-width:95px;font-weight:900}.fold{background:#2a1817;border-color:#68403d}.raise{background:var(--gold);border-color:var(--gold);color:#17130d}
+.side{display:grid;gap:14px}.sidecard{padding:14px}.sidecard h2{font-size:14px;margin:0 0 10px}.kv{display:grid;grid-template-columns:1fr auto;gap:7px 10px;font-size:12px}.kv span:nth-child(odd){color:var(--muted)}.kv span:nth-child(even){font-weight:850;text-align:right}
+.log{height:310px;overflow:auto;background:#0e120f;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:11px;line-height:1.5}.log div{border-bottom:1px solid #ffffff0c;padding:3px 0}.log .heroLog{color:#f2d88d}.log .sys{color:var(--green)}
+.review{display:grid;gap:7px}.reviewItem{border:1px solid var(--line);background:#111511;border-radius:10px;padding:8px}.reviewItem b{font-size:11px;display:block;margin-bottom:3px}.reviewItem p{font-size:10px;line-height:1.45;color:var(--muted);margin:0}
+.note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:10px}
+.analysisGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px}
+.metric{background:#101410;border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}
+.metric strong{display:block;font-size:16px}.metric span{font-size:9px;color:var(--muted)}
+.simpleReview{border-radius:11px;padding:10px;border:1px solid var(--line)}
+.simpleReview.good{background:#132018;border-color:#335b3d}.simpleReview.fix{background:#261918;border-color:#683c38}
+.simpleReview .tag{font-size:10px;font-weight:900;margin-bottom:5px}.simpleReview.good .tag{color:#9bd2a7}.simpleReview.fix .tag{color:#e99b95}
+.simpleReview .main{font-size:12px;font-weight:850;line-height:1.5}.simpleReview .why{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.45}
+.ruleSource{display:inline-block;margin-top:6px;padding:3px 6px;border-radius:999px;background:#ffffff0d;border:1px solid var(--line);font-size:9px;color:var(--muted)}
+.blindNote{color:#f0d990;font-weight:800}
+.historyList{max-height:240px;overflow:auto;display:grid;gap:6px}
+.historyRow{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;background:#101410;border:1px solid var(--line);border-radius:9px;padding:7px;font-size:10px}
+.historyRow .result{font-weight:900}.historyRow .meta{color:var(--muted)}
+.smallBtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.smallBtn{border:1px solid var(--line);background:#111511;color:var(--text);border-radius:8px;padding:7px 9px;font-size:10px}
+.exportPanel{margin-top:9px;border:1px solid var(--line);border-radius:10px;padding:9px;background:#0f120f}
+.exportPanel[hidden]{display:none}.exportPanel textarea{width:100%;min-height:180px;resize:vertical;background:#090c0a;color:#e8ece8;border:1px solid var(--line);border-radius:8px;padding:8px;font:10px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+.exportStatus{font-size:10px;color:var(--muted);margin:6px 0}
+.reviewDecision{border:1px solid var(--line);border-radius:12px;padding:10px;background:#111511}
+.reviewDecision.good{border-color:#335b3d;background:#132018}.reviewDecision.fix{border-color:#683c38;background:#261918}.reviewDecision.hold{border-color:#5b5540;background:#211f16}
+.reviewDecision .headline{font-size:12px;font-weight:950;margin-bottom:6px}.reviewDecision .situation{font-size:10px;color:var(--muted);line-height:1.5;margin-bottom:7px}
+.choiceLine{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:7px 0}.choiceBox{border:1px solid #ffffff14;border-radius:9px;padding:8px}.choiceBox span{display:block;font-size:9px;color:var(--muted)}.choiceBox b{font-size:13px}
+.plainWhy,.plainNext{font-size:11px;line-height:1.55;margin-top:6px}.plainNext{font-weight:850;color:#efe0a6}
+.ruleDetails{margin-top:7px;font-size:9px;color:var(--muted)}.ruleDetails summary{cursor:pointer}
+.auditOK{color:#9bd2a7}.auditBad{color:#e99b95}
+.regradeBadge{display:inline-block;padding:2px 6px;border-radius:999px;font-size:9px;font-weight:900}
+.regrade-good{background:#173321;color:#9bd2a7}.regrade-fix{background:#3a1e1b;color:#efaaa4}
+.regrade-engine{background:#332c17;color:#e8d28f}.regrade-legacy{background:#25282a;color:#afb5b8}
+.engineNote{font-size:10px;color:var(--muted);line-height:1.5;margin-top:5px}
+.autoOn{background:#23452f!important;border-color:#3e7550!important}.autoOff{background:#2a1817!important;border-color:#68403d!important}
+.rebuyBtn{background:#26331f;border-color:#55714c;color:#dcebd6;font-weight:900}.rebuyBtn:not(:disabled){box-shadow:0 0 0 2px #6b8a6040 inset}
+.allinBadge{display:inline-block;margin-left:4px;padding:1px 5px;border-radius:999px;background:#702d29;color:#ffd6d2;border:1px solid #b75b53;font-size:8px;font-weight:950;letter-spacing:.05em;vertical-align:1px}
+.seatChangeBadge{display:inline-block;margin-left:4px;padding:1px 5px;border-radius:999px;background:#2a3427;color:#dcebd6;border:1px solid #526a4d;font-size:8px;font-weight:900;vertical-align:1px}
+.seat.busted{border-color:#7a4944;background:#211513}.seat.pending{border-style:dashed}
+
+.v3grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px}
+.v3metric{background:#101410;border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}.v3metric strong{display:block;font-size:15px}.v3metric span{font-size:9px;color:var(--muted)}
+.labBox{border:1px solid var(--line);background:#0f130f;border-radius:11px;padding:10px;display:grid;gap:7px}.labTitle{font-size:12px;font-weight:950}.labSituation{font-size:11px;line-height:1.55}.labMeta{font-size:9px;color:var(--muted)}
+.labActions{display:flex;gap:6px;flex-wrap:wrap}.labAction{border:1px solid var(--line);background:#171b18;color:var(--text);border-radius:8px;padding:7px 9px;font-size:10px;font-weight:850}.labAction.correct{border-color:#477553;background:#173321}.labAction.wrong{border-color:#7b403a;background:#3a1e1b}
+.progress{height:7px;background:#0b0e0c;border:1px solid var(--line);border-radius:999px;overflow:hidden}.progress>span{display:block;height:100%;background:var(--gold)}
+.masteryRow{display:grid;grid-template-columns:1fr auto;gap:5px 8px;align-items:center;font-size:10px}.masteryRow .mname{font-weight:800}.masteryRow .mval{color:var(--muted)}
+.readGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.readGrid select{width:100%;min-height:36px;padding:6px 8px;font-size:10px}.readResult{font-size:10px;line-height:1.5;color:var(--muted);margin-top:6px}
+.debrief{border:1px solid #5b5540;background:#211f16;border-radius:11px;padding:10px;font-size:10px;line-height:1.55}.debrief b{color:#efe0a6}
+.confidenceWrap{display:flex;gap:6px;align-items:center;font-size:10px;color:var(--muted)}.confidenceWrap select{min-height:34px;padding:5px 7px;font-size:10px}.timerChip{border:1px solid var(--line);border-radius:999px;padding:4px 7px;font-size:9px;color:var(--muted)}
+.modeNote{font-size:9px;color:var(--muted);line-height:1.4;margin-top:4px}
+.edgeTable{width:100%;border-collapse:collapse;font-size:9px}.edgeTable th,.edgeTable td{border-bottom:1px solid #ffffff12;padding:5px 3px;text-align:right}.edgeTable th:first-child,.edgeTable td:first-child{text-align:left}.edgeTable th{color:var(--muted);font-weight:700}
+.systemBadge{display:inline-block;padding:2px 6px;border-radius:999px;background:#1e2b22;border:1px solid #3f664a;color:#a9d8b4;font-size:8px;font-weight:900}
+@media(max-width:650px){.analysisGrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{grid-template-columns:1fr 1fr}.table{min-height:610px}}
+@media(max-width:650px){.app{padding:9px}.side{grid-template-columns:1fr}.table{min-height:560px;border-width:7px;border-radius:35%/27%}.seat{width:102px;min-height:83px;padding:6px}.s2{left:1%;bottom:48px}.s3{left:0;top:52%}.s4{left:1%;top:19%}.s5{left:22%;top:2px}.s6{right:22%;top:2px}.s7{right:1%;top:19%}.s8{right:0;top:52%}.s9{right:1%;bottom:48px}.card{width:39px;height:56px;font-size:14px}.heroPanel{grid-template-columns:1fr}.actions{justify-content:stretch}.action{flex:1;min-width:0}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v4.2</h1><div class="sub">Full Decision Engine · Field Realism AI · Natural Postflop Pressure · Result Pause · 2026-09-29 · Canonical + Model + Equity MC + EV</div></div>
+    <div class="tools">
+      <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
+      <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
+      <div class="field"><label>리뷰</label><select id="reviewMode"><option value="after">핸드 종료 후</option><option value="live">즉시 코치</option></select></div>
+      <div class="field"><label>훈련 모드</label><select id="trainingMode"><option value="adaptive">Adaptive</option><option value="simulation">실전 시뮬</option><option value="exam">시험 모드</option></select></div>
+      <div class="field"><label>세션 목표</label><select id="sessionTarget"><option value="50">50핸드</option><option value="100" selected>100핸드</option><option value="200">200핸드</option></select></div>
+      <button class="btn primary" id="start">새 세션</button>
+      <button class="btn autoOn" id="autoToggle" type="button">자동 진행 ON</button>
+      <button class="btn rebuyBtn" id="rebuyHero" type="button" disabled>리바인</button>
+      <button class="btn" id="endSession" type="button" disabled>세션 리포트</button>
+      <button class="btn" id="next" disabled>다음 핸드</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <section class="game">
+      <div class="table">
+        <div class="center">
+          <div class="street" id="street">대기</div>
+          <div class="board" id="board"></div>
+          <div class="pot" id="pot">POT 0</div>
+        </div>
+        <div id="seats"></div>
+      </div>
+
+      <div class="winnerBanner" id="winnerBanner" aria-live="polite">
+        <div class="winnerTitle" id="winnerTitle"></div>
+        <div class="winnerSub" id="winnerSub"></div>
+      </div>
+
+      <div class="heroPanel">
+        <div class="heroInfo">
+          <div class="heroCards" id="heroCards"></div>
+          <div>
+            <div class="status" id="status">새 세션을 시작하세요.</div>
+            <div class="hint" id="hint"></div>
+            <div class="confidenceWrap"><span>내 확신</span><select id="heroConfidence"><option value="low">낮음</option><option value="medium" selected>중간</option><option value="high">높음</option></select><span class="timerChip" id="decisionClock">결정시간 -</span></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn action fold" id="fold" disabled>폴드</button>
+          <button class="btn action" id="call" disabled>체크</button>
+          <button class="btn action raise" id="raise" disabled>벳</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="sidecard">
+        <h2>세션</h2>
+        <div class="kv">
+          <span>Hand</span><span id="handNo">0</span>
+          <span>BTN</span><span id="btn">-</span>
+          <span>내 포지션</span><span id="position">-</span>
+          <span>내 스택</span><span id="stack">0</span>
+          <span>세션 P/L</span><span id="pl">0</span>
+          <span>활성 플레이어</span><span id="alive">-</span>
+          <span>누적 레이크</span><span id="sessionRake">0</span>
+          <span>회계 검증</span><span id="audit">-</span>
+        </div>
+        <div class="note" id="rules"></div>
+      </div>
+
+      <div class="sidecard">
+        <h2>액션 로그</h2>
+        <div class="log" id="log"></div>
+      </div>
+
+      <div class="sidecard">
+        <h2>Poker OS 리뷰</h2>
+        <div class="review" id="review"><div class="reviewItem"><b>대기</b><p>핸드 종료 후 실제 선택과 훈련 기준을 비교합니다.</p></div></div>
+      </div>
+
+      <div class="sidecard">
+        <h2>누적 플레이 분석</h2>
+        <div class="analysisGrid">
+          <div class="metric"><strong id="histHands">0</strong><span>저장 핸드</span></div>
+          <div class="metric"><strong id="histMatch">-</strong><span>신뢰 채점 일치율</span></div>
+          <div class="metric"><strong id="histPL">0</strong><span>누적 P/L</span></div>
+        </div>
+        <div class="analysisGrid">
+          <div class="metric"><strong id="classGood">0</strong><span>정상</span></div>
+          <div class="metric"><strong id="classFix">0</strong><span>실제 교정</span></div>
+          <div class="metric"><strong id="classInvalid">0</strong><span>엔진/구버전 제외</span></div>
+        </div>
+        <div id="analysisSummary" class="review">
+          <div class="reviewItem"><b>기록 없음</b><p>플레이하면 자동으로 이 브라우저에 저장됩니다.</p></div>
+        </div>
+        <div class="smallBtns">
+          <button class="smallBtn" id="exportHistory" type="button">기록 JSON 열기/저장</button>
+          <button class="smallBtn" id="importHistoryBtn" type="button">JSON 기록 가져오기</button>
+          <input id="importHistoryFile" type="file" accept=".json,application/json" hidden>
+          <button class="smallBtn" id="clearHistory" type="button">기록 초기화</button>
+        </div>
+        <div class="exportPanel" id="exportPanel" hidden>
+          <div class="exportStatus" id="exportStatus">자동 기록은 현재 브라우저에만 저장됩니다. JSON 파일 저장 시 브라우저 기본 다운로드 폴더로 내려받습니다. Notion이나 ChatGPT로 자동 전송되지 않습니다.</div>
+          <textarea id="jsonOutput" readonly aria-label="플레이 기록 JSON"></textarea>
+          <div class="smallBtns">
+            <button class="smallBtn" id="downloadJson" type="button">JSON 파일 저장</button>
+            <button class="smallBtn" id="selectJson" type="button">전체 선택</button>
+            <button class="smallBtn" id="closeJson" type="button">닫기</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidecard">
+        <h2>Edge Measurement <span class="systemBadge">v3</span></h2>
+        <div class="v3grid">
+          <div class="v3metric"><strong id="edgeBB100">-</strong><span>훈련 BB/100</span></div>
+          <div class="v3metric"><strong id="leakBB">0.0</strong><span>누수 위험 BB</span></div>
+          <div class="v3metric"><strong id="decisionAvg">-</strong><span>중앙 결정시간</span></div>
+        </div>
+        <div id="edgeBreakdown" class="review"><div class="reviewItem"><b>표본 없음</b><p>핸드가 저장되면 Skill/Style별 훈련 귀속 성과를 계산합니다.</p></div></div>
+        <div class="modeNote">BB/100과 Skill별 귀속값은 이 시뮬레이터 내부 훈련지표이며 실제 강원랜드 시간당 기대수익을 뜻하지 않습니다.</div>
+      </div>
+
+      <div class="sidecard">
+        <h2>Adaptive Curriculum / Decision Lab</h2>
+        <div id="curriculumSummary" class="review"></div>
+        <div id="trainingGateStatus" class="modeNote"></div>
+        <div id="decisionLab" class="labBox"></div>
+        <div class="smallBtns"><button class="smallBtn" id="nextDrill" type="button">다음 훈련 상황</button></div>
+      </div>
+
+      <div class="sidecard">
+        <h2>상대 읽기 테스트</h2>
+        <div class="readGrid">
+          <select id="readSeat"></select>
+          <select id="readSkill"><option value="">실력 추정</option><option>Recreational</option><option>Average</option><option>Regular</option><option>Strong</option></select>
+          <select id="readStyle"><option value="">스타일 추정</option><option>Calling Station</option><option>Tight-Aggressive</option><option>Loose-Passive</option><option>Maniac</option><option>Tight-Passive</option><option>Loose-Aggressive</option><option>Regular</option><option>Nit</option><option>Tricky-Aggressive</option></select>
+          <button class="smallBtn" id="checkRead" type="button">판정</button>
+          <button class="smallBtn" id="skipRead" type="button">건너뛰기</button>
+        </div>
+        <div class="readResult" id="readResult">선택 훈련입니다. 최소 8핸드 관찰 후 추정하거나 건너뛰어도 됩니다. 플레이 중 실제 성향·실력은 숨겨집니다.</div>
+      </div>
+
+      <div class="sidecard">
+        <h2>세션 디브리프</h2>
+        <div id="sessionDebrief" class="debrief">세션 종료 또는 목표 핸드 도달 시 테이블 구성, 신뢰 채점, 고확신 오류, Skill별 성과를 요약합니다.</div>
+      </div>
+
+      <div class="sidecard">
+        <h2>최근 플레이</h2>
+        <div class="historyList" id="historyList"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $=id=>document.getElementById(id);
+const SUITS=['♠','♥','♦','♣'], RANKS=['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
+const RV=Object.fromEntries(RANKS.map((r,i)=>[r,i+2]));
+const CFG={
+  100:{label:'10만',sb:2000,bb:5000,small:5000,big:10000,preCap:15000,flopCap:15000,turnCap:30000,riverCap:40000,buyin:500000},
+  300:{label:'30만',sb:10000,bb:20000,small:20000,big:30000,preCap:60000,flopCap:60000,turnCap:90000,riverCap:90000,buyin:3000000}
+};
+const OPP=[
+ ['김민수','Calling Station',.78,.22],['이준호','Tight-Aggressive',.32,.66],['박성우','Loose-Passive',.68,.24],
+ ['최현석','Maniac',.84,.84],['정우진','Loose-Passive',.63,.22],['한도윤','Tight-Passive',.29,.26],
+ ['서재민','Loose-Aggressive',.62,.72],['오지훈','Tight-Passive',.25,.20],
+ ['강태영','Regular',.46,.52],['문지호','Nit',.19,.27],['배성진','Loose-Aggressive',.65,.76],
+ ['윤도현','Calling Station',.81,.18],['임재훈','Tight-Aggressive',.29,.74],['조민규','Tricky-Aggressive',.48,.70],
+ ['노승우','Loose-Passive',.72,.21],['신재원','Regular',.43,.55],['류정민','Maniac',.87,.90],
+ ['백승호','Tight-Passive',.23,.18],['황준영','Loose-Aggressive',.69,.73],['차우석','Calling Station',.76,.20],
+ ['남기현','Nit',.17,.24],['송현우','Tight-Aggressive',.31,.69],['유성민','Regular',.49,.48],
+ ['권도훈','Tricky-Aggressive',.51,.67]
+];
+const MAX_AI_REBUYS=2;
+const STYLE_REBUY={
+  'Maniac':.82,'Loose-Aggressive':.74,'Calling Station':.70,'Tricky-Aggressive':.66,
+  'Regular':.58,'Loose-Passive':.56,'Tight-Aggressive':.52,'Tight-Passive':.43,'Nit':.36
+};
+// v2.2: 플레이 스타일과 실력을 분리한다. 실제 화면에서는 둘 다 비공개다.
+const SKILL_CFG={
+  Recreational:{noise:.17,position:.25,potOdds:.18,board:.18,memory:.03,adapt:.02,bluff:.025,value:.38},
+  Average:{noise:.115,position:.52,potOdds:.42,board:.42,memory:.16,adapt:.08,bluff:.040,value:.55},
+  Regular:{noise:.072,position:.78,potOdds:.72,board:.70,memory:.43,adapt:.28,bluff:.060,value:.72},
+  Strong:{noise:.042,position:1.00,potOdds:.92,board:.92,memory:.72,adapt:.58,bluff:.085,value:.88}
+};
+function randInt(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+function shuffled(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function weightedSkill(trainingMode=(S?.trainingMode||'simulation')){
+  const r=Math.random();
+  // 교체 플레이어도 현재 모드의 테이블 강도 분포를 유지한다.
+  if(trainingMode==='exam')return r<.125?'Average':r<.625?'Regular':'Strong';
+  if(trainingMode==='adaptive')return r<.125?'Recreational':r<.375?'Average':r<.750?'Regular':'Strong';
+  // Simulation: 실제 필드 혼합형. Regular+Strong 50%, 나머지는 recreational/average.
+  return r<.25?'Recreational':r<.50?'Average':r<.875?'Regular':'Strong';
+}
+function initialSkillBag(trainingMode='adaptive'){
+  // Skill과 Style은 독립이다. 잘하는 플레이어가 반드시 LAG인 것은 아니다.
+  if(trainingMode==='exam')return shuffled(['Average','Regular','Regular','Regular','Regular','Strong','Strong','Strong']);
+  if(trainingMode==='adaptive')return shuffled(['Recreational','Average','Average','Regular','Regular','Regular','Strong','Strong']);
+  return shuffled(['Recreational','Recreational','Average','Average','Regular','Regular','Regular','Strong']);
+}
+function lifecycleDefaults(){return {allinCount:0,rebuys:0,busts:0,handsAtTable:0,targetHands:randInt(28,72),allinLeaveThreshold:randInt(2,5),pendingAction:null,allinThisHand:false,obs:{preflopSeen:0,vpip:0,pfr:0,calls:0,postActions:0,postAgg:0,showdowns:0},obsPreflopSeenThisHand:false,obsEnteredThisHand:false,obsRaisedThisHand:false}}
+function makeOpponent(seat,excludeNames=[],forcedSkill=null){
+  const pool=OPP.filter(o=>!excludeNames.includes(o[0]));
+  const src=pool.length?pool:OPP;
+  const o=src[Math.floor(Math.random()*src.length)];
+  return {seat,name:o[0],type:o[1],loose:o[2],agg:o[3],skill:forcedSkill||weightedSkill(S?.trainingMode||'simulation'),stack:S?S.cfg.buyin:0,...lifecycleDefaults()};
+}
+function hydratePlayer(p){
+  const d=lifecycleDefaults();
+  for(const [k,v] of Object.entries(d))if(p[k]===undefined||p[k]===null)p[k]=v;
+  if(p.type!=='Hero'&&!p.skill)p.skill=weightedSkill(S?.trainingMode||'simulation');
+  return p;
+}
+function skillCfg(p){return SKILL_CFG[p?.skill]||SKILL_CFG.Average}
+function markAllIn(p,label='ALL-IN'){
+  if(p.stack!==0)return;
+  if(!p.allin){
+    p.allin=true;
+    if(!p.allinThisHand){p.allinThisHand=true;p.allinCount=(p.allinCount||0)+1}
+    log(`${p.name} ${label}`,'sys');
+  }
+}
+function playerStatusBadge(p){
+  if(p.allin&&!S?.handOver)return '<span class=\"allinBadge\">ALL-IN</span>';
+  if(S?.handOver&&p.stack===0&&p.seat===S.hero)return '<span class=\"seatChangeBadge\">REBUY 가능</span>';
+  if(S?.handOver&&p.pendingAction==='rebuy')return '<span class=\"seatChangeBadge\">REBUY 예정</span>';
+  if(S?.handOver&&p.pendingAction==='replace')return '<span class=\"seatChangeBadge\">교체 예정</span>';
+  return '';
+}
+let S=null;
+const HISTORY_KEY='kangwon_limit_holdem_trainer_history_v30';
+const SESSION_STATE_KEY='kangwon_limit_holdem_trainer_active_session_v30';
+const OLD_HISTORY_KEY='kangwon_limit_holdem_trainer_history_v15';
+const ACTION_KO={
+  fold:'폴드',check:'체크',call:'콜',raise:'레이즈/벳',
+  Fold:'폴드',Check:'체크',Call:'콜',Bet:'벳',Raise:'레이즈','Re-raise':'리레이즈','3-bet':'3-벳',Cap:'캡',Review:'재평가'
+};
+const STREET_KO={preflop:'프리플랍',flop:'플랍',turn:'턴',river:'리버'};
+const RAKE_RATE=0.05;
+const RAKE_CAP={'10만':10000,'30만':20000};
+const ACCOUNTING_VERSION='v4.2-field-realism-20260929-sidepot';
+const REVIEW_ENGINE_VERSION='Poker OS Full Decision Engine v4.2 · Field Realism AI · Natural Postflop Pressure · Result Pause · Strategy v1.1 · Matrix v0.9 · Equity MC · Action EV · True Regrade v2 · 2026-09-29';
+const STRATEGY_VERSION='10만 Strategy v1.1';
+const FULL_DECISION_ENGINE_VERSION='Poker OS Full Decision Engine v4.2';
+const MODEL_EQUITY_TRIALS=360;
+const REGRADE_SCHEMA_VERSION='snapshot-canonical-regrade-v2';
+const TRAINING_PROFILE_KEY='kangwon_limit_holdem_training_profile_v30';
+const ADAPTIVE_BLOCK_EVERY=20;
+const ADAPTIVE_BLOCK_SIZE=5;
+const READ_CHECKPOINTS=[20,40,60,80];
+const EDGE_MIN_HANDS=500;
+const COHORT_MIN_EXPOSURE=50;
+const ACTION_HEAT_MIN_HANDS=8;
+const ACTION_HEAT_WINDOW=20;
+const ACTION_HEAT_THRESHOLD=.50;
+const ACTION_HEAT_HARD=.70;
+const ADAPTIVE_CHALLENGE_DEAL_RATE=.82;
+// v4.1: Adaptive mode deliberately creates more Turn/River decisions.
+// Simulation/Exam stay natural so their P/L and decision frequencies are not contaminated.
+const POSTFLOP_PRESSURE_PLAN={both:.25,turn:.25,river:.25,none:.25};
+const ADAPTIVE_TARGET_BASE={Unopened:.30,Limpers:.40,Raised:.25,Capped:.05};
+const PERSONAL_BASE_MISS_CODES=['44','22','55','A9s','88'];
+const PERSONAL_OPEN_LIMP_CODES=['44','55','66','A9s'];
+const PERSONAL_SMALL_PAIR_BOUNDARY_CODES=['22','33','44','55','66'];
+const PERSONAL_TURN_STICKY_CODES=['66','77','88','99','AJs','ATs','QJs','JTs','T9s','98s','87s','76s'];
+const PERSONAL_WEIGHT_FLOOR={river:8.0,turn:8.5,strong_value:7.5,preflop:6.5,blind:4.5,facing_raise:1.8};
+const TRAINING_PROFILE_DEFAULT={
+  drills:{
+    river:{name:'River cheap-call 차단',weight:5,seen:0,correct:0,streak:0},
+    turn:{name:'Turn 재계산',weight:4,seen:0,correct:0,streak:0},
+    strong_value:{name:'Strong made hand value',weight:3,seen:0,correct:0,streak:0},
+    preflop:{name:'Preflop / Small-pair 진입 규율',weight:2.5,seen:0,correct:0,streak:0},
+    blind:{name:'Blind / 가격 판단',weight:2.5,seen:0,correct:0,streak:0},
+    facing_raise:{name:'Facing raise 경계',weight:3,seen:0,correct:0,streak:0}
+  },
+  read:{attempts:0,styleCorrect:0,skillCorrect:0},
+  drillTotal:0,drillCorrect:0
+};
+let trainingProfile=null;
+let drillScenario=null;
+let drillAnswered=false;
+let autoNext=true;
+let autoTimer=null;
+let restoringSession=false;
+
+/*
+  Canonical training rules mirrored from Notion Poker Decision Rule DB
+  (Active + Training Eligible). The app uses these before any fallback logic.
+*/
+const CANON={
+  '10만':{
+    open:{
+      EP:{positions:['UTG','UTG+1'],range:['77+','ATs+','AJo+','KQs','KJs','QJs'],rule:'P10-PF01 | EP Open',action:'Raise',
+          explain:'앞자리는 강한 패만 먼저 레이즈합니다. 약한 패로 먼저 들어가면 뒤에서 여러 명이 따라와 어려워집니다.'},
+      MPHJ:{positions:['MP','HJ'],range:['55+','A8s+','ATo+','KTs+','KJo+','QTs+','QJo','JTs'],hjAdd:['A7s','K9s','J9s','T9s','98s'],rule:'P10-PF02 | MP/HJ Open',action:'Raise',
+          explain:'중간 자리는 앞자리보다 조금 넓게 열되, 약한 오프수트 브로드웨이는 줄입니다.'},
+      CO:{positions:['CO'],range:['44+','A5s+','A9o+','K9s+','KTo+','Q9s+','QTo+','J9s+','JTo','T9s','98s'],rule:'P10-PF03 | CO Open',action:'Raise',
+          explain:'CO는 포지션 이점이 커서 범위를 넓혀 먼저 레이즈할 수 있습니다.'},
+      BTN:{positions:['BTN'],range:['33+','A2s+','A8o+','K8s+','KTo+','Q9s+','QTo+','J9s+','JTo','T8s+','98s','87s'],rule:'P10-PF04 | BTN Open',action:'Raise',
+          explain:'BTN은 가장 좋은 포지션이라 가장 넓게 오픈 레이즈합니다.'}
+    },
+    limp1:{base:['88+','AJs+','AQo+','KQs'],late:['77','ATs','AJo','KJs','KQo','QJs'],rule:'P10-PF05 | 1 Limper Value Raise',
+      explain:'림퍼가 한 명이면 좋은 패는 그냥 따라가지 말고 레이즈해서 밸류를 받습니다.'},
+    limp23:{range:['TT+','AQs+','AQo+','AK','KQs'],rule:'P10-PF06 | 2-3 Limpers Value Raise',
+      explain:'림퍼가 2~3명이면 레이즈 범위를 더 강하게 잡습니다.'},
+    limp4:{range:['JJ+','AK','AQs+'],rule:'P10-PF07 | 4+ Limpers Value Raise',
+      explain:'이미 여러 명이 들어왔으면 아주 강한 패만 크게 키웁니다.'},
+    vsEP3bet:{range:['QQ+','AK'],rule:'P10-PF08 | vs EP Raise Premium',action:'Cap',
+      explain:'10만 프리플랍은 첫 레이즈 다음이 바로 캡입니다. QQ+와 AK는 앞자리 레이즈에 캡으로 밸류를 받습니다.'},
+    vsEPFold:{exact:['ATo','KJo','QJo','KTo'],rule:'P10-PF09 | vs EP Raise Dominated Fold',action:'Fold',
+      explain:'앞자리 레이즈에 이런 오프수트 패는 지배당하기 쉬워 싸 보여도 폴드가 낫습니다.'}
+  },
+  '30만':{
+    open:{
+      EP:{positions:['UTG','UTG+1'],range:['88+','AJs+','KQs','AQo+'],rule:'P30-PF01 | EP Open',action:'Raise',
+          explain:'30만 앞자리는 10만보다 더 강한 패 위주로 시작합니다.'},
+      MPHJ:{positions:['MP','HJ'],range:['66+','ATs+','KJs+','QJs','JTs','AJo+','KQo'],hjAdd:['A9s','KTs','QTs','T9s'],rule:'P30-PF02 | MP/HJ Open',action:'Raise',
+          explain:'30만 중간 자리는 약한 오프수트 진입을 줄이고 강한 브로드웨이와 페어 중심으로 엽니다.'},
+      CO:{positions:['CO'],range:['44+','A8s+','ATo+','KTs+','KJo+','QTs+','QJo','J9s+','JTo','T9s','98s'],rule:'P30-PF03 | CO Open',action:'Raise',
+          explain:'CO에서는 포지션을 활용하되 10만보다 하단을 조금 줄입니다.'},
+      BTN:{positions:['BTN'],range:['33+','A2s+','A9o+','K8s+','KTo+','Q9s+','QTo+','J9s+','JTo','T8s+','98s','87s'],rule:'P30-PF04 | BTN Open',action:'Raise',
+          explain:'BTN은 넓게 오픈하되 30만에서는 약한 오프수트 하단을 줄입니다.'}
+    },
+    limp1:{base:['TT+','AQs+','AQo+','KQs'],late:[],rule:'P30-PF05 | 1 Limper Value Raise',
+      explain:'30만에서는 한 명의 림퍼 뒤에서도 좋은 패 위주로 레이즈합니다.'},
+    vsEP3bet:{range:['QQ+','AK'],rule:'P30-PF07 | vs EP Premium Aggression',action:'3-bet',
+      explain:'앞자리 레이즈 상대 QQ+와 AK는 프리미엄 밸류 재공격 구간입니다.'}
+  }
+};
+
+function fmt(n){n=Math.round(Number(n)||0);return (n<0?'-':'')+Math.abs(n).toLocaleString('ko-KR')}
+function deck(){const d=[];for(const s of SUITS)for(const r of RANKS)d.push({r,s,v:RV[r]});for(let i=d.length-1;i;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]}return d}
+function card(c,mini=false,back=false){const cls=mini?'mini':'card';if(back)return `<span class="${cls} back">?</span>`;return `<span class="${cls} ${(c.s==='♥'||c.s==='♦')?'red':''}">${c.r}<br>${c.s}</span>`}
+function pos(seat){return ['BTN','SB','BB','UTG','UTG+1','UTG+2','MP','HJ','CO'][(seat-S.btn+9)%9]}
+function live(){return S.players.filter(p=>!p.folded)}
+function active(){return S.players.filter(p=>!p.folded&&!p.allin)}
+function step(){return (S.street==='turn'||S.street==='river')?S.cfg.big:S.cfg.small}
+function cap(){return S.street==='preflop'?S.cfg.preCap:S.street==='flop'?S.cfg.flopCap:S.street==='turn'?S.cfg.turnCap:S.cfg.riverCap}
+function log(t,c=''){const e=document.createElement('div');e.textContent=t;if(c)e.className=c;$('log').appendChild(e);$('log').scrollTop=$('log').scrollHeight}
+function setup(){for(let i=0;i<9;i++)$('heroSeat').insertAdjacentHTML('beforeend',`<option value="${i}">S${i+1}</option>`)}
+function deepClone(x){return JSON.parse(JSON.stringify(x))}
+function loadTrainingProfile(){
+  try{
+    const raw=localStorage.getItem(TRAINING_PROFILE_KEY);const got=raw?JSON.parse(raw):null;
+    const base=deepClone(TRAINING_PROFILE_DEFAULT);
+    if(got&&got.drills){for(const k of Object.keys(base.drills)){base.drills[k]={...base.drills[k],...(got.drills[k]||{})}}}
+    if(got&&got.read)base.read={...base.read,...got.read};
+    for(const [k,w] of Object.entries(PERSONAL_WEIGHT_FLOOR))if(base.drills[k])base.drills[k].weight=Math.max(Number(base.drills[k].weight)||0,w);
+
+    // Patch 9: rebalance from the 500-hand / 96-drill audit without treating
+    // training P/L as edge. Mastered facing-raise gets less repetition; blind,
+    // river and under-sampled turn stay prioritized.
+    const acc=k=>{const v=base.drills[k];return v&&v.seen?Number(v.correct||0)/Math.max(1,Number(v.seen||0)):0};
+    if(base.drills.facing_raise?.seen>=7 && acc('facing_raise')>=.95 && base.drills.facing_raise.streak>=5)
+      base.drills.facing_raise.weight=Math.max(PERSONAL_WEIGHT_FLOOR.facing_raise,Math.min(Number(base.drills.facing_raise.weight)||3,2.0));
+    if(base.drills.blind?.seen>=5 && acc('blind')<.75)
+      base.drills.blind.weight=Math.max(Number(base.drills.blind.weight)||0,5.2);
+    if(base.drills.river?.seen>=8 && acc('river')<.85)
+      base.drills.river.weight=Math.max(Number(base.drills.river.weight)||0,8.4);
+    if((base.drills.turn?.seen||0)<5)
+      base.drills.turn.weight=Math.max(Number(base.drills.turn.weight)||0,8.5);
+
+    if(got){
+      const seenSum=Object.values(base.drills).reduce((a,v)=>a+(Number(v.seen)||0),0);
+      const correctSum=Object.values(base.drills).reduce((a,v)=>a+(Number(v.correct)||0),0);
+      base.drillTotal=Math.max(Number(got.drillTotal)||0,seenSum);
+      base.drillCorrect=Math.max(Number(got.drillCorrect)||0,correctSum);
+    }
+    return base;
+  }catch(e){return deepClone(TRAINING_PROFILE_DEFAULT)}
+}
+function saveTrainingProfile(){try{localStorage.setItem(TRAINING_PROFILE_KEY,JSON.stringify(trainingProfile))}catch(e){}}
+function mode(){return $('trainingMode')?.value||S?.trainingMode||'adaptive'}
+function bbForLimit(label){return label==='30만'?20000:5000}
+function median(arr){if(!arr.length)return null;const a=[...arr].sort((x,y)=>x-y),m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2}
+function firstPreflopDecision(hand){return (hand?.decisions||[]).find(d=>d.street==='preflop')||null}
+function sessionNaturalStats(sessionId){
+  const hist=loadHistory().filter(h=>!sessionId||h.sessionId===sessionId);let seen=0,raised=0,vpip=0,pfr=0;
+  for(const h of hist){const d=firstPreflopDecision(h);if(!d)continue;seen++;const f=d.facing||h.heroFirstFacing||'';if(f==='Raised'||f==='Capped')raised++;if(d.actualSemantic!=='Fold')vpip++;if(['Raise','Cap','3-bet'].includes(d.actualSemantic))pfr++;}
+  return {seen,actionHeat:seen?raised/seen:0,vpip:seen?vpip/seen:0,pfr:seen?pfr/seen:0};
+}
+function recentActionHeat(sessionId,window=ACTION_HEAT_WINDOW){
+  const hist=loadHistory().filter(h=>!sessionId||h.sessionId===sessionId);const rows=[];
+  for(const h of hist){const d=firstPreflopDecision(h);if(!d)continue;const f=d.facing||h.heroFirstFacing||'';rows.push(f==='Raised'||f==='Capped'?1:0)}
+  const a=rows.slice(-window);return {seen:a.length,rate:a.length?a.reduce((x,y)=>x+y,0)/a.length:0};
+}
+function adaptiveHeatPressure(){
+  if(!S||S.trainingMode!=='adaptive')return 0;const x=recentActionHeat(S.sessionId);
+  if(x.seen<ACTION_HEAT_MIN_HANDS||x.rate<=ACTION_HEAT_THRESHOLD)return 0;
+  return Math.max(0,Math.min(1,(x.rate-ACTION_HEAT_THRESHOLD)/(ACTION_HEAT_HARD-ACTION_HEAT_THRESHOLD)));
+}
+function adaptiveAggressionDamp(){return .22*adaptiveHeatPressure()}
+function allowNonPremiumTrainingRaise(group){
+  const q=adaptiveHeatPressure();if(q<=0||group==='premium')return true;
+  return Math.random()>(.70*q);
+}
+function weightedChoice(obj){
+  const rows=Object.entries(obj).filter(([,w])=>Number(w)>0);let t=rows.reduce((a,[,w])=>a+Number(w),0),r=Math.random()*t;
+  for(const [k,w] of rows){r-=Number(w);if(r<=0)return k}return rows[0]?.[0]||null;
+}
+function chooseAdaptivePreflopTarget(){
+  if(!S||S.trainingMode!=='adaptive')return '';
+  const ps=pos(S.hero);
+  if(ps==='UTG')return 'Unopened';
+  if(ps==='UTG+1')return weightedChoice({Unopened:.50,Limpers:.25,Raised:.25});
+  if(ps==='UTG+2')return weightedChoice({Unopened:.38,Limpers:.34,Raised:.25,Capped:.03});
+  if(ps==='MP')return weightedChoice({Unopened:.32,Limpers:.40,Raised:.25,Capped:.03});
+  return weightedChoice(ADAPTIVE_TARGET_BASE);
+}
+function recentCanonicalPreflopMissCodes(){
+  const out=[...PERSONAL_BASE_MISS_CODES];
+  for(const h of loadHistory().slice(-220)){
+    for(const d of h.decisions||[]){
+      if(d.street==='preflop'&&(d.tier==='canonical'||d.source==='Poker Decision Rule DB')&&d.actualSemantic!==d.rec&&d.hole)out.push(d.hole);
+    }
+  }
+  return out.slice(-10);
+}
+function choosePostflopPressurePlan(){
+  const base={label:'none',turn:false,river:false,used:{turn:false,river:false},responseUsed:{turn:false,river:false}};
+  if(!S||S.trainingMode!=='adaptive')return base;
+  const pick=weightedChoice(POSTFLOP_PRESSURE_PLAN)||'none';
+  base.label=pick;base.turn=pick==='turn'||pick==='both';base.river=pick==='river'||pick==='both';
+  return base;
+}
+function pressurePlanActive(street=S?.street){
+  return !!(S&&S.trainingMode==='adaptive'&&S.postflopPressurePlan&&['turn','river'].includes(street)&&S.postflopPressurePlan[street]);
+}
+function ensurePressurePlan(){
+  if(!S.postflopPressurePlan)S.postflopPressurePlan={label:'none',turn:false,river:false,used:{turn:false,river:false},responseUsed:{turn:false,river:false}};
+  if(!S.postflopPressurePlan.used)S.postflopPressurePlan.used={turn:false,river:false};
+  if(!S.postflopPressurePlan.responseUsed)S.postflopPressurePlan.responseUsed={turn:false,river:false};
+  return S.postflopPressurePlan;
+}
+function adaptivePressureBetChance(p,hc,draw,strongMade,mediumMade,weakMade,sty){
+  // v4.2: Pressure target은 공격을 강제하지 않는다. 이미 자연스럽게 공격할 만한
+  // value/draw/initiative spot에서만 작은 추가 노출을 준다.
+  if(!pressurePlanActive())return 0;
+  const plan=ensurePressurePlan(),st=S.street;if(plan.used[st])return 0;
+  const n=live().length,risk=boardRisk();
+  let q=0;
+  if(strongMade)q=st==='turn'?.20:.16;
+  else if(mediumMade&&risk.count<=1)q=(st==='turn'?.09:.05)*postflopMultiwayFactor(n,'mediumValue');
+  else if(st==='turn'&&draw.comboDraw)q=.14*postflopMultiwayFactor(n,'semi');
+  else if(st==='turn'&&(draw.flushDraw||draw.straightDraw))q=.07*postflopMultiwayFactor(n,'semi');
+  else if(weakMade&&n<=2&&['CO','BTN'].includes(pos(p.seat))&&S.prevStreetAggressorSeat===p.seat)
+    q=.025*(sty.bluff||0);
+  return Math.max(0,Math.min(.24,q));
+}
+function adaptivePressureRaiseBackChance(p,hc,draw,strongMade,mediumMade,sty,tc){
+  // Hero bet에 대한 raise-back도 value/combo-draw가 있는 경우에만 소폭 추가한다.
+  if(!pressurePlanActive()||tc<=0||S.lastAggressorSeat!==S.hero)return 0;
+  const plan=ensurePressurePlan(),st=S.street;if(plan.responseUsed[st])return 0;
+  const n=live().length,risk=boardRisk();
+  let q=0;
+  if(strongMade)q=.18*postflopMultiwayFactor(n,'strongValue');
+  else if(mediumMade&&risk.count===0&&n<=3)q=.045*(sty.valueRaise||sty.value||0);
+  else if(st==='turn'&&draw.comboDraw)q=.08*(sty.semi||0)*postflopMultiwayFactor(n,'semi');
+  return Math.max(0,Math.min(.20,q));
+}
+function markPostflopPressureAction(a,tc){
+  if(!pressurePlanActive()||a!=='raise')return;
+  const plan=ensurePressurePlan(),st=S.street;plan.used[st]=true;
+  if(tc>0&&S.lastAggressorSeat===S.hero)plan.responseUsed[st]=true;
+}
+function adaptiveHolePool(ps,target){
+  const byPos={
+    UTG:['22','55','66','77','A9s','ATs','AJo','KJs','QJs','KQo'],
+    'UTG+1':['22','55','66','77','A9s','ATs','AJo','KJs','QJs','KQo'],
+    'UTG+2':['44','55','66','A7s','A8s','A9s','ATo','K9s','KTs','KJo','QTs','QJo','JTs','T9s','98s'],
+    MP:['44','55','66','A7s','A8s','A9s','ATo','K9s','KTs','KJo','QTs','QJo','JTs','T9s','98s'],
+    HJ:['44','55','66','A7s','A8s','A9s','ATo','K9s','KTs','KJo','QTs','QJo','J9s','JTs','T9s','98s'],
+    CO:['33','44','A5s','A8o','A9o','K8s','K9s','KTo','Q9s','QTo','J9s','JTo','T8s','T9s','98s','87s'],
+    BTN:['33','44','A2s','A8o','A9o','K8s','K9s','KTo','Q9s','QTo','J9s','JTo','T8s','T9s','98s','87s'],
+    SB:['22','33','44','A2s','A5s','A8o','K8s','KTo','Q9s','J9s','T9s','98s','87s','76s'],
+    BB:['22','33','44','A2s','A5s','K8s','Q9s','J9s','T9s','98s','87s','76s','65s']
+  };
+  const facing={
+    Raised:['ATo','AJo','KJo','QJo','KTo','AJs','AQs','99','TT','JJ','QQ','AKs','AKo','87s','76s'],
+    Capped:['88','99','TT','JJ','QQ','AQs','AJs','KQs','AKs','AKo','87s'],
+    Limpers:['55','66','77','88','ATs','AJo','KJs','KQo','QJs','A5s','98s','87s','76s'],
+    Unopened:[]
+  };
+  let pool=[...(byPos[ps]||byPos.MP),...(facing[target]||[])];
+  // Patch 8: Strategy v1.1 prioritizes small-pair discipline. The same pair can
+  // be Fold or Raise when unopened depending on position; limped pots are Review Only
+  // unless a direct value-raise rule matches.
+  if(target==='Unopened'){
+    pool.push(...PERSONAL_OPEN_LIMP_CODES,...PERSONAL_OPEN_LIMP_CODES);
+    const pairBoundary={
+      UTG:['22','44','55','66'], 'UTG+1':['22','44','55','66'],
+      MP:['33','44','55','66'], HJ:['33','44','55','66'],
+      CO:['22','33','44','55'], BTN:['22','33','44','55'],
+      SB:['22','33','44','55'], BB:['22','33','44','55']
+    };
+    const pb=pairBoundary[ps]||PERSONAL_SMALL_PAIR_BOUNDARY_CODES;
+    pool.push(...pb,...pb,...pb);
+  }
+  const misses=recentCanonicalPreflopMissCodes();
+  if(misses.length)pool.push(...misses,...misses,...misses);
+  const sv=trainingProfile?.drills?.strong_value;
+  const tv=trainingProfile?.drills?.turn;
+  // Keep strong-hand defense exposure without increasing global AI aggression.
+  pool.push('99','TT','JJ','QQ','QQ','KK','AA','AQs','AKs','AKo');
+  if(['Raised','Capped'].includes(target))pool.push('JJ','QQ','QQ','KK','AA','AKs','AKo');
+  if(sv&&sv.seen>=5&&sv.correct/Math.max(1,sv.seen)<.98)pool.push('99','TT','JJ','QQ','KK','AA','AQs','AKs','AKo');
+  // Turn-sticky exposure is increased through hole-card selection, not by making
+  // opponents globally more aggressive. These hands more often create flop-call →
+  // turn-recalc decisions in natural play.
+  if(['Limpers','Raised'].includes(target) && (!tv || tv.seen<4 || tv.correct/Math.max(1,tv.seen)<.85)){
+    pool.push(...PERSONAL_TURN_STICKY_CODES,...PERSONAL_TURN_STICKY_CODES);
+  }
+  if(S?.postflopPressurePlan?.turn||S?.postflopPressurePlan?.river){
+    const postflopPool=['77','88','99','TT','JJ','QQ','ATs','AJs','AQs','KQs','QJs','JTs','T9s','98s'];
+    pool.push(...postflopPool,...postflopPool);
+  }
+  return pool;
+}
+function chooseAdaptiveHeroHoleCode(){
+  if(!S||S.trainingMode!=='adaptive'||Math.random()>ADAPTIVE_CHALLENGE_DEAL_RATE)return '';
+  const pool=adaptiveHolePool(pos(S.hero),S.trainingPreflopTarget);
+  const recent=S.adaptiveRecentCodes||[],fresh=pool.filter(x=>!recent.includes(x)),src=fresh.length?fresh:pool;
+  const code=src[Math.floor(Math.random()*src.length)]||'';
+  if(code)S.adaptiveRecentCodes=[...recent,code].slice(-4);
+  return code;
+}
+function cardSpecsForCode(code){
+  const m=String(code||'').match(/^([2-9TJQKA])([2-9TJQKA])(s|o)?$/);if(!m)return null;
+  const [,r1,r2,t]=m,suits=shuffled([...SUITS]);
+  if(r1===r2)return [{r:r1,s:suits[0]},{r:r2,s:suits[1]}];
+  if(t==='s')return [{r:r1,s:suits[0]},{r:r2,s:suits[0]}];
+  return [{r:r1,s:suits[0]},{r:r2,s:suits[1]}];
+}
+function rigHeroHoleOnDeck(code){
+  const specs=cardSpecsForCode(code);if(!specs||!S?.deck?.length)return false;
+  const targets=[S.deck.length-1-(S.hero*2),S.deck.length-2-(S.hero*2)];
+  for(let n=0;n<2;n++){
+    const sp=specs[n],idx=S.deck.findIndex(c=>c.r===sp.r&&c.s===sp.s);if(idx<0||targets[n]<0)return false;
+    [S.deck[idx],S.deck[targets[n]]]=[S.deck[targets[n]],S.deck[idx]];
+  }
+  return true;
+}
+function actorsUntilHeroIncluding(seat){
+  if(!S)return 1;let cur=seat,count=1;
+  for(let i=0;i<8;i++){const n=nextSeat(cur);if(n==null||n===S.hero)return count;count++;cur=n}
+  return count;
+}
+function shapeAdaptivePreflopAction(p,a,tc){
+  if(!S||S.trainingMode!=='adaptive'||S.street!=='preflop'||S.heroPreflopFacingRecorded||p.seat===S.hero)return a;
+  const target=S.trainingPreflopTarget||'',canRaise=S.currentBet<cap()&&p.stack>tc,remain=actorsUntilHeroIncluding(p.seat);
+  if(target==='Unopened')return tc>0?'fold':'check';
+  if(target==='Limpers'){
+    if(a==='raise')a=tc>0?'call':'check';
+    if(remain===1&&S.preflopLimpers===0&&tc>0)return 'call';
+    return a;
+  }
+  if(target==='Raised'){
+    if(S.preflopRaiseCount>=1)return a==='raise'?(tc>0?'call':'check'):a;
+    if(remain===1&&canRaise&&tc>0)return 'raise';
+    return a;
+  }
+  if(target==='Capped'){
+    const need=Math.max(0,2-S.preflopRaiseCount);
+    if(S.preflopRaiseCount>=2)return a==='raise'?(tc>0?'call':'check'):a;
+    if(canRaise&&tc>0&&remain<=need)return 'raise';
+    return a;
+  }
+  return a;
+}
+function decisionLeakRiskBB(d,hand){
+  if(!d||!(d.tier==='canonical'||d.source==='Poker Decision Rule DB')||d.actualSemantic===d.rec)return 0;
+  const bb=Number(hand?.bb)||bbForLimit(hand?.limit||'10만'),tc=Math.max(0,Number(d.toCall)||0);
+  if(d.actualSemantic==='Call'&&d.rec==='Fold')return tc/Math.max(1,bb);
+  if(d.actualSemantic==='Check'&&['Bet','Raise'].includes(d.rec))return .6;
+  if(d.actualSemantic==='Call'&&['Raise','Cap','Bet'].includes(d.rec))return .5;
+  if(d.actualSemantic==='Fold'&&d.rec==='Call')return .35;
+  return .4;
+}
+function styleSkillSnapshot(){return S.players.filter(p=>p.seat!==S.hero).map(p=>({seat:p.seat,name:p.name,style:p.type,skill:p.skill||'Average',totalBet:Number(p.totalBet)||0,handsAtTable:Number(p.handsAtTable)||0}))}
+function tableSkillMix(){const m={Recreational:0,Average:0,Regular:0,Strong:0};S.players.forEach(p=>{if(p.seat!==S.hero)m[p.skill||'Average']=(m[p.skill||'Average']||0)+1});return m}
+function tableStyleMix(){const m={};S.players.forEach(p=>{if(p.seat!==S.hero)m[p.type]=(m[p.type]||0)+1});return m}
+function readSeatOptions(){
+  const sel=$('readSeat');if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">좌석 선택</option>';
+  if(S)S.players.forEach(p=>{if(p.seat!==S.hero)sel.insertAdjacentHTML('beforeend',`<option value="${p.seat}">S${p.seat+1} · ${p.name}</option>`)});
+  if([...sel.options].some(o=>o.value===cur))sel.value=cur;
+}
+function ensureObs(p){
+  if(!p.obs)p.obs={preflopSeen:0,vpip:0,pfr:0,calls:0,postActions:0,postAgg:0,showdowns:0};
+  return p.obs;
+}
+function emptyAIHandActionStats(){
+  return {
+    flop:{check:0,call:0,betRaise:0,fold:0},
+    turn:{check:0,call:0,betRaise:0,fold:0},
+    river:{check:0,call:0,betRaise:0,fold:0}
+  };
+}
+function ensureAIHandActionStats(){
+  if(!S.aiHandActionStats)S.aiHandActionStats=emptyAIHandActionStats();
+  return S.aiHandActionStats;
+}
+
+function trackOpponentAction(p,a,tc){
+  if(!p||p.seat===S.hero)return;const o=ensureObs(p);
+  if(S.street==='preflop'){
+    if(!p.obsPreflopSeenThisHand){p.obsPreflopSeenThisHand=true;o.preflopSeen++}
+    if((a==='call'&&tc>0)||a==='raise'){if(!p.obsEnteredThisHand){p.obsEnteredThisHand=true;o.vpip++}}
+    if(a==='raise'&&!p.obsRaisedThisHand){p.obsRaisedThisHand=true;o.pfr++}
+    if(a==='call'&&tc>0)o.calls++;
+  }else{
+    o.postActions++;if(a==='raise')o.postAgg++;if(a==='call'&&tc>0)o.calls++;
+    const hs=ensureAIHandActionStats(),st=hs[S.street];
+    if(st){
+      if(a==='raise')st.betRaise++;
+      else if(a==='check')st.check++;
+      else if(a==='call')st.call++;
+      else if(a==='fold')st.fold++;
+    }
+  }
+}
+function opponentEvidence(p){
+  if(!p)return '관찰 정보 없음';const o=ensureObs(p),pf=Math.max(1,o.preflopSeen||0),hands=Math.max(1,p.handsAtTable||0),post=Math.max(1,o.postActions||0);
+  const vpip=100*(o.vpip||0)/pf,pfr=100*(o.pfr||0)/pf,agg=100*(o.postAgg||0)/post,sd=100*(o.showdowns||0)/hands;
+  return `관찰 ${p.handsAtTable||0}핸드 · VPIP≈${vpip.toFixed(0)}% · PFR≈${pfr.toFixed(0)}% · Post Agg≈${agg.toFixed(0)}% · Showdown≈${sd.toFixed(0)}%`;
+}
+function observedAggressionRead(p){
+  if(!p)return {enough:false,aggressive:false,pfr:0,postAgg:0,hands:0};
+  const o=ensureObs(p),pf=Number(o.preflopSeen)||0,post=Number(o.postActions)||0,hands=Number(p.handsAtTable)||0;
+  const pfr=pf?(Number(o.pfr)||0)/pf:0, postAgg=post?(Number(o.postAgg)||0)/post:0;
+  // Patch 8: coaching may use only actions actually observed in this session.
+  // Hidden p.type / p.skill must never decide Hero's canonical recommendation.
+  const enough=hands>=10 && pf>=8 && post>=6;
+  const aggressive=enough && (postAgg>=.45 || (pfr>=.28 && postAgg>=.33));
+  return {enough,aggressive,pfr,postAgg,hands};
+}
+function showSelectedReadEvidence(){
+  if(!S)return;const seat=Number($('readSeat')?.value);if(!Number.isInteger(seat))return;const p=S.players[seat];if(!p||seat===S.hero)return;
+  $('readResult').innerHTML=`<b>${p.name} 관찰 근거</b><br>${opponentEvidence(p)}<br><span class="modeNote">실제 Style/Skill은 답 제출 전 공개되지 않습니다.</span>`;
+}
+
+function serializableSession(){
+  if(!S)return null;
+  const copy={...S};
+  copy.acted=[...(S.acted||[])];
+  copy.activeDrillScenario=drillScenario?deepClone(drillScenario):null;
+  return {
+    version:30,
+    savedAt:new Date().toISOString(),
+    autoNext,
+    limitValue:$('limit')?.value||'100',
+    heroSeatValue:$('heroSeat')?.value||String(S.hero??0),
+    reviewModeValue:$('reviewMode')?.value||'after',
+    trainingModeValue:$('trainingMode')?.value||S.trainingMode||'adaptive',
+    sessionTargetValue:$('sessionTarget')?.value||String(S.sessionTarget||100),
+    state:copy
+  };
+}
+function persistSession(){
+  if(restoringSession||!S)return;
+  try{
+    localStorage.setItem(SESSION_STATE_KEY,JSON.stringify(serializableSession()));
+  }catch(e){
+    console.warn('세션 저장 실패',e);
+  }
+}
+function clearPersistedSession(){
+  try{localStorage.removeItem(SESSION_STATE_KEY)}catch(e){}
+}
+function restoreSession(){
+  let saved=null;
+  try{
+    const raw=localStorage.getItem(SESSION_STATE_KEY);
+    if(!raw)return false;
+    saved=JSON.parse(raw);
+  }catch(e){
+    clearPersistedSession();
+    return false;
+  }
+  if(!saved||!saved.state)return false;
+  restoringSession=true;
+  try{
+    S=saved.state;
+    S.acted=new Set(Array.isArray(S.acted)?S.acted:[]);
+    S.players=(S.players||[]).map(hydratePlayer);
+    if(!S.heroProfile)S.heroProfile={actions:0,folds:0,calls:0,checks:0,raises:0,facedBet:0,foldsToBet:0,callsVsBet:0,raisesVsBet:0};
+    if(S.prevStreetAggressorSeat===undefined)S.prevStreetAggressorSeat=null;
+    if(!S.aiHandActionStats)S.aiHandActionStats=emptyAIHandActionStats();
+    (S.players||[]).forEach(hydratePlayer);
+    if(!Number.isFinite(S.chipsAdded))S.chipsAdded=0;
+    if(!Number.isFinite(S.chipsRemoved))S.chipsRemoved=0;
+    if(!Number.isFinite(S.heroTotalBuyin))S.heroTotalBuyin=S.cfg?.buyin||S.startStack||0;
+    if(typeof S.heroNeedsRebuy!=='boolean')S.heroNeedsRebuy=!!(S.players?.[S.hero]&&S.players[S.hero].stack<=0);
+    if(typeof S.resumeAutoAfterRebuy!=='boolean')S.resumeAutoAfterRebuy=true;
+    if(!S.trainingMode)S.trainingMode=saved.trainingModeValue||'adaptive';
+    if(!Number.isFinite(S.sessionTarget))S.sessionTarget=Number(saved.sessionTargetValue)||100;
+    if(typeof S.sessionEnded!=='boolean')S.sessionEnded=false;
+    if(typeof S.endAfterHand!=='boolean')S.endAfterHand=false;
+    if(!S.sessionId)S.sessionId='S-'+Date.now();
+    if(!Number.isFinite(S.heroDecisionStartedAt))S.heroDecisionStartedAt=0;
+    if(!Number.isFinite(S.heroDecisionActiveMs))S.heroDecisionActiveMs=0;
+    if(!Number.isFinite(S.heroDecisionLastTick))S.heroDecisionLastTick=0;
+    S.heroDecisionLastTick=0; // 브라우저를 닫아둔 시간은 결정시간에 포함하지 않는다.
+    drillScenario=S.activeDrillScenario||null;
+    // v3.0 uninterrupted migration: legacy 20-hand hard gates are always released.
+    S.trainingGateActive=false;
+    S.forcedDrillQueue=[];
+    S.trainingGateRemaining=0;
+    S.endAfterTrainingGate=false;
+    if(typeof S.readGateActive!=='boolean')S.readGateActive=false;
+    S.readGateActive=false;
+    if(!Array.isArray(S.adaptiveRecentCodes))S.adaptiveRecentCodes=[];
+    if(typeof S.trainingPreflopTarget!=='string')S.trainingPreflopTarget='';
+    if(typeof S.trainingHeroHoleCode!=='string')S.trainingHeroHoleCode='';
+    ensurePressurePlan();
+    if(!Number.isFinite(S.lastAdaptiveBlockHand))S.lastAdaptiveBlockHand=0;
+    if(!Number.isFinite(S.pendingReadCheckpoint))S.pendingReadCheckpoint=0;
+    if(typeof S.endAfterTrainingGate!=='boolean')S.endAfterTrainingGate=false;
+    if(typeof S.heroReachedRiver!=='boolean'){
+      S.heroReachedRiver=(S.street==='river' && S.players && S.players[S.hero] && !S.players[S.hero].folded);
+    }
+    if(!Number.isFinite(S.streetAggressionCount)){
+      if(S.street==='preflop') S.streetAggressionCount=Number(S.preflopRaiseCount)||0;
+      else{
+        const unit=(S.street==='turn'||S.street==='river')?S.cfg.big:S.cfg.small;
+        S.streetAggressionCount=unit?Math.round((Number(S.currentBet)||0)/unit):0;
+      }
+    }
+    autoNext=saved.autoNext!==false;
+    if(saved.limitValue!=null)$('limit').value=String(saved.limitValue);
+    if(saved.heroSeatValue!=null)$('heroSeat').value=String(saved.heroSeatValue);
+    if(saved.reviewModeValue!=null)$('reviewMode').value=String(saved.reviewModeValue);
+    if(saved.trainingModeValue!=null)$('trainingMode').value=String(saved.trainingModeValue);
+    if(saved.sessionTargetValue!=null)$('sessionTarget').value=String(saved.sessionTargetValue);
+    updateAutoButton();readSeatOptions();renderCurriculum();renderEdgeMetrics();
+    $('log').innerHTML='';
+    log(`이전 세션 복원 · Hand ${S.hand} · 저장 ${saved.savedAt?new Date(saved.savedAt).toLocaleString('ko-KR'):''}`,'sys');
+    if(S.handOver){
+      render(true);
+      renderReview();
+      $('next').disabled=autoNext;
+      if(autoNext)scheduleNextHand();
+    }else{
+      render(false);
+      if(S.actor===S.hero){
+        enableHero();
+      }else{
+        disableHero();
+        $('status').textContent='이전 세션 복원 · 상대 액션 진행 중…';
+        setTimeout(()=>advance(),180);
+      }
+    }
+    return true;
+  }catch(e){
+    console.warn('세션 복원 오류',e);
+    clearPersistedSession();
+    S=null;
+    return false;
+  }finally{
+    restoringSession=false;
+  }
+}
+
+function startSession(){
+ if(S&&S.trainingGateActive){
+   $('hint').textContent='훈련 체크포인트 진행 중입니다. 필수 Drill/상대 읽기를 완료한 뒤 새 세션을 시작할 수 있습니다.';
+   return;
+ }
+ if(autoTimer){clearTimeout(autoTimer);autoTimer=null}
+ clearPersistedSession();
+ autoNext=true;updateAutoButton();
+ const hero=+$('heroSeat').value,cfg=CFG[$('limit').value];
+ const players=[];const initialPool=shuffled(OPP).slice(0,8),skills=initialSkillBag($('trainingMode').value);let oi=0,si=0;
+ for(let i=0;i<9;i++){
+   if(i===hero)players.push({seat:i,name:'J',type:'Hero',loose:.45,agg:.55,stack:cfg.buyin,...lifecycleDefaults()});
+   else{const o=initialPool[oi++];players.push({seat:i,name:o[0],type:o[1],loose:o[2],agg:o[3],skill:skills[si++],stack:cfg.buyin,...lifecycleDefaults()})}
+ }
+ S={cfg,hero,btn:Math.floor(Math.random()*9),hand:0,startStack:cfg.buyin,heroTotalBuyin:cfg.buyin,heroNeedsRebuy:false,resumeAutoAfterRebuy:true,players,deck:[],board:[],pot:0,street:'idle',currentBet:0,actor:null,acted:new Set(),handOver:true,decisions:[],fastForward:false,winnerSeats:[],winnerText:'',historySaved:false,preflopLimpers:0,preflopRaised:false,preflopRaiseCount:0,preflopRaiserSeat:null,lastAggressorSeat:null,prevStreetAggressorSeat:null,streetAggressionCount:0,heroReachedRiver:false,heroParticipatedHand:false,heroProfile:{actions:0,folds:0,calls:0,checks:0,raises:0,facedBet:0,foldsToBet:0,callsVsBet:0,raisesVsBet:0},sessionRake:0,handRake:0,lastPotGross:0,lastPotNet:0,lastUncalledRefund:0,initialChips:cfg.buyin*9,chipsAdded:0,chipsRemoved:0,trainingMode:$('trainingMode').value,sessionTarget:Number($('sessionTarget').value)||100,sessionEnded:false,endAfterHand:false,sessionId:'S-'+Date.now(),sessionStartedAt:new Date().toISOString(),heroDecisionStartedAt:0,heroDecisionActiveMs:0,heroDecisionLastTick:0,heroPreflopFacingRecorded:false,heroFirstFacing:'',trainingGateActive:false,forcedDrillQueue:[],trainingGateRemaining:0,readGateActive:false,pendingReadCheckpoint:0,endAfterTrainingGate:false,resumeAutoAfterGate:true,lastAdaptiveBlockHand:0,trainingPreflopTarget:'',trainingHeroHoleCode:'',adaptiveRecentCodes:[],postflopPressurePlan:{label:'none',turn:false,river:false,used:{turn:false,river:false},responseUsed:{turn:false,river:false}},aiHandActionStats:emptyAIHandActionStats()};
+ $('log').innerHTML='';$('review').innerHTML='<div class="reviewItem"><b>세션 시작</b><p>가상칩 훈련입니다. 실제 베팅/결제 기능은 없습니다.</p></div>';
+ log(`${cfg.label} 세션 시작 · 가상 스택 ${fmt(cfg.buyin)} · ${S.trainingMode} · 목표 ${S.sessionTarget}핸드`,'sys');$('next').disabled=false;$('endSession').disabled=false;readSeatOptions();renderCurriculum();renderEdgeMetrics();persistSession();newHand();
+}
+function resetP(p){p.hole=[S.deck.pop(),S.deck.pop()];p.folded=false;p.allin=false;p.allinThisHand=false;p.streetBet=0;p.totalBet=0;p.last='';p.obsPreflopSeenThisHand=false;p.obsEnteredThisHand=false;p.obsRaisedThisHand=false;ensureObs(p);delete p.eval}
+function blind(seat,amt,label){const p=S.players[seat],pay=Math.min(amt,p.stack);p.stack-=pay;p.streetBet=pay;p.totalBet=pay;S.pot+=pay;p.last=label;if(p.stack===0)markAllIn(p,`${label} ALL-IN`)}
+function replaceSeat(seat){
+  const old=S.players[seat];
+  if(old.stack>0){S.chipsRemoved+=old.stack;log(`S${seat+1} ${old.name} ${fmt(old.stack)}원 캐시아웃 후 퇴장`,'sys')}
+  const exclude=S.players.filter((_,i)=>i!==seat).map(p=>p.name);
+  const otherStrong=S.players.some((p,i)=>i!==seat&&i!==S.hero&&p.skill==='Strong');
+  const forced=(S.trainingMode==='exam'&&!otherStrong)?'Strong':null;
+  const np=makeOpponent(seat,exclude,forced);np.stack=S.cfg.buyin;S.chipsAdded+=np.stack;S.players[seat]=np;
+  log(`S${seat+1} ${old.name} 퇴장 · 대기자 ${np.name} 착석`,'sys');
+}
+function applyPendingSeatChanges(){
+  for(let i=0;i<S.players.length;i++){
+    if(i===S.hero)continue;
+    const p=S.players[i];
+    if(p.pendingAction==='rebuy'){
+      const amt=S.cfg.buyin;p.stack+=amt;p.rebuys=(p.rebuys||0)+1;p.pendingAction=null;S.chipsAdded+=amt;
+      log(`S${i+1} ${p.name} 리바인 +${fmt(amt)}원 · ${p.rebuys}회차`,'sys');
+    }else if(p.pendingAction==='replace'){
+      replaceSeat(i);
+    }
+  }
+}
+function lifecycleDecision(){
+  for(const p of S.players){
+    p.handsAtTable=(p.handsAtTable||0)+1;
+    if(p.seat===S.hero){
+      if(p.stack<=0){
+        p.busts=(p.busts||0)+1;p.pendingAction='hero_rebuy';S.heroNeedsRebuy=true;
+        S.resumeAutoAfterRebuy=autoNext;autoNext=false;updateAutoButton();
+        log('J 스택 0 · 리바인 대기','sys');
+      }
+      continue;
+    }
+    if(p.stack<=0){
+      p.busts=(p.busts||0)+1;
+      const base=STYLE_REBUY[p.type]??.55;
+      const fatiguePenalty=Math.max(0,(p.allinCount||0)-(p.allinLeaveThreshold||3))*.12;
+      const canRebuy=(p.rebuys||0)<MAX_AI_REBUYS;
+      p.pendingAction=(canRebuy&&Math.random()<Math.max(.15,base-fatiguePenalty))?'rebuy':'replace';
+      log(`${p.name} BUST · ${p.pendingAction==='rebuy'?'리바인 검토':'테이블 이탈 예정'}`,'sys');
+      continue;
+    }
+    let leaveChance=0;
+    if((p.handsAtTable||0)>=(p.targetHands||50))leaveChance+=.16;
+    if((p.allinCount||0)>=(p.allinLeaveThreshold||3))leaveChance+=.16;
+    if((p.rebuys||0)>=2)leaveChance+=.18;
+    if(p.stack>=S.cfg.buyin*2.2 && (p.handsAtTable||0)>=18)leaveChance+=.08;
+    if(p.stack<=S.cfg.buyin*.22 && (p.handsAtTable||0)>=12)leaveChance+=.06;
+    if(leaveChance>0 && Math.random()<Math.min(.55,leaveChance)){
+      p.pendingAction='replace';
+      log(`${p.name} 세션 종료 결정 · 다음 핸드 전 교체 예정`,'sys');
+    }
+  }
+}
+function heroRebuy(){
+  if(!S||!S.handOver)return;
+  const p=S.players[S.hero];if(p.stack>0)return;
+  const amt=S.cfg.buyin;p.stack+=amt;p.rebuys=(p.rebuys||0)+1;p.pendingAction=null;
+  S.heroTotalBuyin=(S.heroTotalBuyin||S.cfg.buyin)+amt;S.chipsAdded+=amt;S.heroNeedsRebuy=false;
+  log(`J 리바인 +${fmt(amt)}원 · 누적 바이인 ${fmt(S.heroTotalBuyin)}원`,'sys');
+  $('rebuyHero').disabled=true;$('next').disabled=false;
+  if(S.resumeAutoAfterRebuy){autoNext=true;updateAutoButton();scheduleNextHand()}
+  render(true);persistSession();
+}
+function newHand(){
+ if(!S)return;if(!S.handOver)return;
+ if(S.trainingGateActive){$('hint').textContent='현재 Decision Drill 체크포인트를 완료한 뒤 다음 핸드로 진행합니다.';$('next').disabled=true;return}
+ if(S.sessionEnded){$('hint').textContent='세션 리포트가 생성되었습니다. 새 세션을 시작하세요.';$('next').disabled=true;return}
+ if(S.heroNeedsRebuy||S.players[S.hero].stack<=0){$('hint').textContent='스택이 0원입니다. 리바인 후 다음 핸드를 진행하세요.';$('rebuyHero').disabled=false;$('next').disabled=true;return}
+ applyPendingSeatChanges();
+ $('next').disabled=true;S.hand++;if(S.hand>1)S.btn=(S.btn+1)%9;S.deck=deck();S.board=[];S.pot=0;S.street='preflop';S.currentBet=0;S.actor=null;S.acted=new Set();S.handOver=false;S.decisions=[];S.fastForward=false;S.winnerSeats=[];S.winnerText='';S.historySaved=false;S.handRake=0;S.lastPotGross=0;S.lastPotNet=0;S.lastUncalledRefund=0;S.preflopLimpers=0;S.preflopRaised=false;S.preflopRaiseCount=0;S.preflopRaiserSeat=null;S.lastAggressorSeat=null;S.prevStreetAggressorSeat=null;S.streetAggressionCount=0;S.heroReachedRiver=false;S.heroParticipatedHand=false;S.heroDecisionStartedAt=0;S.heroDecisionActiveMs=0;S.heroDecisionLastTick=0;S.heroPreflopFacingRecorded=false;S.heroFirstFacing='';S.aiHandActionStats=emptyAIHandActionStats();S.trainingPreflopTarget=chooseAdaptivePreflopTarget();S.postflopPressurePlan=choosePostflopPressurePlan();S.trainingHeroHoleCode=chooseAdaptiveHeroHoleCode();if(S.trainingHeroHoleCode)rigHeroHoleOnDeck(S.trainingHeroHoleCode);$('heroConfidence').value='medium';$('winnerBanner').classList.remove('show');
+ for(const p of S.players)resetP(p);
+ S.heroStart=S.players[S.hero].stack;$('winnerBanner').classList.remove('show');$('winnerTitle').textContent='';$('winnerSub').textContent='';
+ const sb=(S.btn+1)%9,bb=(S.btn+2)%9;blind(sb,S.cfg.sb,'SB');blind(bb,S.cfg.bb,'BB');S.currentBet=S.cfg.bb;
+ log(`— Hand ${S.hand} · BTN S${S.btn+1} —`,'sys');log(`S${sb+1} SB ${fmt(S.cfg.sb)} / S${bb+1} BB ${fmt(S.cfg.bb)}`);
+ render();persistSession();startRound((bb+1)%9);
+}
+function nextSeat(x){for(let i=1;i<=9;i++){const s=(x+i)%9,p=S.players[s];if(!p.folded&&!p.allin)return s}return null}
+function complete(){if(live().length<=1)return true;const a=active();return a.length===0||a.every(p=>S.acted.has(p.seat)&&p.streetBet===S.currentBet)}
+function startRound(s){S.acted=new Set();S.actor=s;disableHero();$('status').textContent='상대 액션 진행 중…';persistSession();advance()}
+function advance(){
+ if(S.handOver)return;
+ if(live().length<=1){winByFold();return}
+ if(complete()){nextStreet();return}
+ if(S.actor==null||!S.players[S.actor]){const a=active();if(!a.length){nextStreet();return}S.actor=a[0].seat}
+ let guard=0;while(S.players[S.actor].folded||S.players[S.actor].allin){S.actor=nextSeat(S.actor);if(S.actor==null){if(complete())nextStreet();return}if(++guard>12){console.warn('advance guard exceeded');return}}
+ render();
+ if(S.actor===S.hero){enableHero();return}
+ disableHero();setTimeout(()=>aiAct(S.actor),S.fastForward?8:260);
+}
+
+function pfScore(h){
+ const [a,b]=h.slice().sort((x,y)=>y.v-x.v);let x=(a.v+b.v)/28;
+ if(a.v===b.v)x+=.28+(a.v-2)/55;if(a.s===b.s)x+=.06;if(a.v-b.v<=1)x+=.05;if(a.v-b.v>=4)x-=.05;
+ if(a.v===14)x+=.05;if(a.v>=12&&b.v>=10)x+=.08;return Math.max(0,Math.min(1,x))
+}
+function ev5(cs){
+ const vs=cs.map(c=>c.v).sort((a,b)=>b-a),cnt={};vs.forEach(v=>cnt[v]=(cnt[v]||0)+1);
+ const fl=cs.every(c=>c.s===cs[0].s),u=[...new Set(vs)];if(u[0]===14)u.push(1);let st=0;for(let i=0;i<=u.length-5;i++)if(u[i]-u[i+4]===4){st=u[i];break}
+ const g=Object.entries(cnt).map(([v,n])=>({v:+v,n})).sort((a,b)=>b.n-a.n||b.v-a.v);
+ if(fl&&st)return[8,st];if(g[0].n===4)return[7,g[0].v,g[1].v];if(g[0].n===3&&g[1].n===2)return[6,g[0].v,g[1].v];
+ if(fl)return[5,...vs];if(st)return[4,st];if(g[0].n===3)return[3,g[0].v,...g.filter(z=>z.n===1).map(z=>z.v).sort((a,b)=>b-a)];
+ if(g[0].n===2&&g[1].n===2){const p=[g[0].v,g[1].v].sort((a,b)=>b-a);return[2,...p,g.find(z=>z.n===1).v]}
+ if(g[0].n===2)return[1,g[0].v,...g.filter(z=>z.n===1).map(z=>z.v).sort((a,b)=>b-a)];return[0,...vs]
+}
+function cmp(a,b){for(let i=0;i<Math.max(a.length,b.length);i++){const x=a[i]||0,y=b[i]||0;if(x!==y)return x-y}return 0}
+function ev7(cs){let best=null;for(let a=0;a<cs.length-4;a++)for(let b=a+1;b<cs.length-3;b++)for(let c=b+1;c<cs.length-2;c++)for(let d=c+1;d<cs.length-1;d++)for(let e=d+1;e<cs.length;e++){const v=ev5([cs[a],cs[b],cs[c],cs[d],cs[e]]);if(!best||cmp(v,best)>0)best=v}return best}
+function strength(p){if(S.street==='preflop')return pfScore(p.hole);const e=ev7([...p.hole,...S.board]);return Math.min(1,[.15,.34,.50,.64,.75,.85,.92,.97,1][e[0]]+(e[1]||0)/220)}
+
+
+function holeCode(h){
+  const a=h[0],b=h[1];
+  if(a.v===b.v)return a.r+a.r;
+  const hi=a.v>b.v?a:b,lo=a.v>b.v?b:a;
+  return hi.r+lo.r+(hi.s===lo.s?'s':'o');
+}
+function rankIndex(r){return RANKS.indexOf(r)}
+function rangeCodeParts(code){
+  const m=String(code||'').match(/^([2-9TJQKA])([2-9TJQKA])(s|o)?$/);if(!m)return null;
+  return {hi:m[1],lo:m[2],suf:m[3]||'',hiI:rankIndex(m[1]),loI:rankIndex(m[2]),pair:m[1]===m[2]};
+}
+function rangeIntervalMatch(code,tok){
+  if(!tok.includes('-'))return false;
+  const [a,b]=tok.split('-'),x=rangeCodeParts(code),p=rangeCodeParts(a),q=rangeCodeParts(b);
+  if(!x||!p||!q)return false;
+  if(p.pair&&q.pair){
+    if(!x.pair)return false;const lo=Math.min(p.hiI,q.hiI),hi=Math.max(p.hiI,q.hiI);return x.hiI>=lo&&x.hiI<=hi;
+  }
+  if(x.suf!==p.suf||p.suf!==q.suf||x.pair||p.pair||q.pair)return false;
+  if(p.hi===q.hi && x.hi===p.hi){
+    const lo=Math.min(p.loI,q.loI),hi=Math.max(p.loI,q.loI);return x.loI>=lo&&x.loI<=hi;
+  }
+  const gapP=p.hiI-p.loI,gapQ=q.hiI-q.loI,gapX=x.hiI-x.loI;
+  if(gapP===gapQ&&gapX===gapP){
+    const lo=Math.min(p.hiI,q.hiI),hi=Math.max(p.hiI,q.hiI);return x.hiI>=lo&&x.hiI<=hi;
+  }
+  return false;
+}
+function rangeMatch(code,tokens){
+  return tokens.some(tok=>{
+    if(tok.includes('-'))return rangeIntervalMatch(code,tok);
+    if(tok==='AK') return code==='AKs'||code==='AKo';
+    if(!tok.endsWith('+')) return code===tok;
+    const base=tok.slice(0,-1);
+    if(base.length===2 && base[0]===base[1]){
+      return code.length===2 && code[0]===code[1] && rankIndex(code[0])>=rankIndex(base[0]);
+    }
+    const suited=base.endsWith('s'), off=base.endsWith('o');
+    const core=(suited||off)?base.slice(0,-1):base;
+    if(core.length!==2 || code.length!==3)return false;
+    if((suited&&code[2]!=='s')||(off&&code[2]!=='o'))return false;
+    if(code[0]!==core[0])return false;
+    const min=rankIndex(core[1]), cur=rankIndex(code[1]), max=rankIndex(core[0])-1;
+    return cur>=min && cur<=max;
+  });
+}
+function preflopFacing(){
+  if(S.preflopRaised && S.currentBet>=cap())return 'Capped';
+  if(S.preflopRaised)return 'Raised';
+  if(S.preflopLimpers>0)return 'Limpers';
+  return 'Unopened';
+}
+function actualSemantic(raw,ctx){
+  if(raw==='fold')return 'Fold';
+  if(raw==='check')return 'Check';
+  if(raw==='call')return 'Call';
+  if(raw!=='raise')return raw;
+
+  const limit=ctx.limit||S?.cfg?.label;
+  const aggr=Number(ctx.streetAggressionCount??ctx.raiseCount??0);
+
+  if(ctx.street==='preflop'){
+    if(limit==='10만'){
+      // 10만 PF: BB → Raise → Cap. 3-bet 단계 없음.
+      return aggr===0?'Raise':'Cap';
+    }
+    if(aggr===0)return 'Raise';
+    if(aggr===1)return '3-bet';
+    return 'Cap';
+  }
+
+  if(ctx.toCall===0)return 'Bet';
+
+  if(limit==='10만'){
+    // 10만 Flop/Turn: Bet → Raise → Cap
+    // 10만 River: Bet → Raise → Re-raise → Cap
+    if(ctx.street==='river'){
+      if(aggr<=1)return 'Raise';
+      if(aggr===2)return 'Re-raise';
+      return 'Cap';
+    }
+    if(aggr<=1)return 'Raise';
+    return 'Cap';
+  }
+
+  if(aggr<=1)return 'Raise';
+  if(aggr===2)return '3-bet';
+  return 'Cap';
+}
+function boardRisk(){
+  const board=S.board;
+  const ranks=board.map(c=>c.v), suitsCount={};
+  board.forEach(c=>suitsCount[c.s]=(suitsCount[c.s]||0)+1);
+  const paired=new Set(ranks).size<ranks.length;
+  const flushComplete=Math.max(0,...Object.values(suitsCount))>=3;
+  const u=[...new Set(ranks)].sort((a,b)=>b-a);if(u.includes(14))u.push(1);
+  let straightRisk=false;
+  for(let hi=14;hi>=5;hi--){
+    const need=[hi,hi-1,hi-2,hi-3,hi-4];
+    if(need.filter(v=>u.includes(v)).length>=4){straightRisk=true;break}
+  }
+  const count=(paired?1:0)+(flushComplete?1:0)+(straightRisk?1:0);
+  return {paired,flushComplete,straightRisk,count};
+}
+function handClass(p){
+  if(S.board.length<3)return 'preflop';
+  const e=ev7([...p.hole,...S.board]),cat=e[0],risk=boardRisk();
+  if(cat===8)return 'straight_flush';
+  if(cat===7)return 'quads';
+  if(cat===6)return 'full_house';
+  if(cat===5){
+    const suitCounts={};[...p.hole,...S.board].forEach(c=>suitCounts[c.s]=(suitCounts[c.s]||0)+1);
+    const fs=Object.keys(suitCounts).find(s=>suitCounts[s]>=5);
+    const heroSuit=p.hole.filter(c=>c.s===fs);
+    const boardSuit=S.board.filter(c=>c.s===fs);
+    const highestAvailable=Math.max(...[...p.hole,...S.board].filter(c=>c.s===fs).map(c=>c.v));
+    const heroMax=heroSuit.length?Math.max(...heroSuit.map(c=>c.v)):0;
+    if(heroMax===14)return 'nut_flush';
+    if(heroMax===highestAvailable && heroMax>=13)return 'near_nut';
+    return 'flush';
+  }
+  if(cat===4)return 'straight';
+  if(cat===3){
+    const pairHole=p.hole[0].v===p.hole[1].v;
+    if(pairHole && S.board.some(c=>c.v===p.hole[0].v))return 'set';
+    return 'trips';
+  }
+  if(cat===2){
+    const bothPairBoard=S.board.some(c=>c.v===p.hole[0].v)&&S.board.some(c=>c.v===p.hole[1].v);
+    return bothPairBoard?'strong_two_pair':'weak_two_pair';
+  }
+  if(cat===1){
+    const maxBoard=Math.max(...S.board.map(c=>c.v));
+    if(p.hole[0].v===p.hole[1].v && p.hole[0].v>maxBoard)return 'overpair';
+    const topPair=p.hole.find(c=>c.v===maxBoard);
+    const other=p.hole.find(c=>c!==topPair);
+    if(topPair&&other&&other.v===14)return 'TPTK';
+    return 'one_pair';
+  }
+  return 'high_card';
+}
+function friendlyRuleResult(action,rule,why,confidence='High',gradeable=true,source='Rule DB',tier=null){
+  const finalTier=tier||(gradeable?(source==='Poker Decision Rule DB'?'canonical':'derived'):'hold');
+  return {action,rule,why,confidence,gradeable,source,tier:finalTier};
+}
+
+function potOddsPct(toCall,pot){
+  const tc=Math.max(0,Number(toCall)||0), p=Math.max(0,Number(pot)||0);
+  return tc<=0?0:tc/(p+tc);
+}
+function isPairCode(code){return code.length===2 && code[0]===code[1]}
+function isSuitedCode(code){return code.endsWith('s')}
+function preflopGroup(code){
+  if(rangeMatch(code,['QQ+','AK']))return 'premium';
+  if(rangeMatch(code,['99+','AQs+','AJs','AQo+','KQs']))return 'strong';
+  if(isPairCode(code))return 'pair';
+  if(rangeMatch(code,['A2s+','KTs+','QTs+','JTs','T9s','98s','87s','76s','65s']))return 'speculative';
+  if(rangeMatch(code,['ATo+','KJo+','QJo']))return 'broadway';
+  return 'weak';
+}
+function preflopPositionRank(x){
+  const order=['UTG','UTG+1','UTG+2','MP','HJ','CO','BTN','SB','BB'];
+  return order.indexOf(x);
+}
+function provisionalPreflopMatrixReview(p,code,ps,tc){
+  if(S.cfg.label!=='10만')return null;
+  const facing=preflopFacing();
+  if(!['Raised','Capped'].includes(facing))return null;
+  const currentRaiser=currentPreflopAggressorSeat();
+  const rp=currentRaiser==null?'':pos(currentRaiser);
+  if(!rp)return null;
+  const matrix={
+    EP:{raisers:['UTG','UTG+1'],aggr:['QQ+','AK'],call:['TT','JJ','AQs','99','AJs','KQs'],bb:['77+','AJs+','KQs']},
+    MP:{raisers:['UTG+2','MP'],aggr:['JJ+','AQs+','AKo'],call:['99','TT','AJs','KQs','77','88'],bb:['66+','ATs+','KQs','QJs']},
+    HJ:{raisers:['HJ'],aggr:['TT+','AJs+','AQo+','KQs'],call:['77+','ATs','KJs','QJs','JTs','KQo'],bb:['55+','A8s+','KTs+','QTs+','JTs','T9s','AJo','KQo']},
+    CO:{raisers:['CO'],aggr:['88+','ATs+','AJo+','KQs','KJs','QJs'],call:['55+','A8s','A9s','KTs','QTs','JTs','T9s','98s','KQo'],bb:['22+','A2s+','K9s+','Q9s+','J9s+','T8s+','98s','87s','76s','ATo','KJo','QJo']},
+    BTN:{raisers:['BTN'],aggrSB:['77+','A9s+','ATo+','KJs+','KQo','QJs'],aggrBB:['66+','A8s+','ATo+','KJs+','KQo','QJs'],bbCall:['22-55','A2s-A7s','A8o-A9o','K9s-KTs','KTo-KJo','Q9s-QTs','QTo','J9s-JTs','JTo','T8s+','98s','87s','76s']},
+    SB:{raisers:['SB'],aggrBB:['55+','A7s+','A9o+','KTs+','KQo','QTs+','JTs'],bbCall:['22-44','A2s-A6s','A2o-A8o','K8s-K9s','KTo-KJo','Q9s+','QTo','J9s+','JTo','T8s+','98s','87s','76s']}
+  };
+  let key=null,row=null;
+  for(const [k,v] of Object.entries(matrix)){if(v.raisers.includes(rp)){key=k;row=v;break}}
+  if(!row)return null;
+  const isBlind=['SB','BB'].includes(ps);
+  const ip=!isBlind && preflopPositionRank(ps)>preflopPositionRank(rp);
+  let direction='Fold 쪽', detail='현재 v0.9 매트릭스의 명시적 continue 후보 밖입니다.';
+  if(key==='BTN'){
+    const aggr=ps==='SB'?row.aggrSB:(ps==='BB'?row.aggrBB:[]);
+    if(rangeMatch(code,aggr)){direction=facing==='Capped'?'Call/계속 후보':'Cap 후보';detail='BTN 오픈에 대한 blind value 재공격 후보입니다.'}
+    else if(ps==='BB'&&rangeMatch(code,row.bbCall)){direction='Call 후보';detail='BB 가격을 이용한 잠정 방어 범위입니다.'}
+  }else if(key==='SB'){
+    if(ps==='BB'&&rangeMatch(code,row.aggrBB)){direction=facing==='Capped'?'Call/계속 후보':'Cap 후보';detail='SB 오픈에 대한 BB value 재공격 후보입니다.'}
+    else if(ps==='BB'&&rangeMatch(code,row.bbCall)){direction='Call 후보';detail='blind-vs-blind 잠정 방어 범위입니다.'}
+  }else{
+    if(rangeMatch(code,row.aggr)){direction=facing==='Capped'?'Call/계속 후보':'Cap 후보';detail=`${key} raiser 상대로 잠정 value 재공격 범위입니다.`}
+    else if(ps==='BB'&&rangeMatch(code,row.bb)){direction='Call 후보';detail='BB의 가격 기반 추가 방어 후보입니다.'}
+    else if(ip&&rangeMatch(code,row.call)){direction='Call 후보';detail='포지션과 multiway 잠재가치를 감안한 잠정 cold-call 후보입니다.'}
+    else if(rangeMatch(code,row.call)){direction='Review/Fold 쪽';detail='같은 패라도 OOP에서는 cold-call 하단을 한 단계 축소합니다.'}
+  }
+  const opp=currentRaiser==null?null:S.players[currentRaiser];
+  const read=observedAggressionRead(opp);
+  const readText=read&&read.hands>=8?` 관찰 ${read.hands}핸드, PFR≈${Math.round(read.pfr*100)}%.`:'';
+  return friendlyRuleResult('Review',`PF Matrix v0.9 | vs ${rp}`,
+    `잠정 방향: ${direction}. ${detail}${readText} 이 매트릭스는 Test 상태라 KPI/정답 채점에는 사용하지 않습니다.`,
+    'Low',false,'Poker OS Engine v3','hold');
+}
+function provisionalUTG2OpenReview(code){
+  if(S.cfg.label!=='10만'||pos(S.hero)!=='UTG+2'||preflopFacing()!=='Unopened')return null;
+  const raise=['66+','A9s+','AJo+','KQs','KJs','QJs','JTs','KQo'];
+  const dir=rangeMatch(code,raise)?'Raise 후보':'Fold/Review 후보';
+  return friendlyRuleResult('Review','PF Matrix v0.9 | UTG+2 Open Boundary',
+    `Strategy v1.1의 UTG+2 공백을 메우는 Test 범위입니다. ${code}의 잠정 방향은 ${dir}이며, v1.0 승격 전에는 오답 채점하지 않습니다.`,
+    'Low',false,'Poker OS Engine v3','hold');
+}
+
+function isCanonicalRecommendation(r){return !!r&&(r.tier==='canonical'||r.source==='Poker Decision Rule DB')}
+function publicDeck(){const d=[];for(const su of SUITS)for(const r of RANKS)d.push({r,s:su,v:RV[r]});return d}
+function cardKey(c){return `${c.r}${c.s}`}
+function hash32(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function seededRng(seed){let a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296}}
+function removeKnownCards(d,cards){const keys=new Set(cards.map(cardKey));return d.filter(c=>!keys.has(cardKey(c)))}
+function randomPairFromPool(pool,rng,rangeTokens=null){
+  if(pool.length<2)return null;
+  let chosen=null;
+  for(let a=0;a<28;a++){
+    const i=Math.floor(rng()*pool.length),j0=Math.floor(rng()*(pool.length-1)),j=j0>=i?j0+1:j0;
+    const pair=[pool[i],pool[j]];
+    if(!rangeTokens||!rangeTokens.length||rangeMatch(holeCode(pair),rangeTokens)){chosen=[i,j,pair];break}
+  }
+  if(!chosen){const i=Math.floor(rng()*pool.length),j0=Math.floor(rng()*(pool.length-1)),j=j0>=i?j0+1:j0;chosen=[i,j,[pool[i],pool[j]]]}
+  let [i,j,pair]=chosen;if(i<j)[i,j]=[j,i];pool.splice(i,1);pool.splice(j,1);return pair;
+}
+function positionOpenRangeTokens(ps){
+  const m={
+    UTG:['77+','ATs+','AJo+','KQs','KJs','QJs'],
+    'UTG+1':['77+','ATs+','AJo+','KQs','KJs','QJs'],
+    'UTG+2':['66+','A9s+','AJo+','KQs','KJs','QJs','JTs','KQo'],
+    MP:['55+','A8s+','ATo+','KTs+','KJo+','QTs+','QJo','JTs'],
+    HJ:['55+','A7s+','ATo+','K9s+','KJo+','QTs+','QJo','J9s+','T9s','98s'],
+    CO:['44+','A5s+','A9o+','K9s+','KTo+','Q9s+','QTo+','J9s+','JTo','T9s','98s'],
+    BTN:['33+','A2s+','A8o+','K8s+','KTo+','Q9s+','QTo+','J9s+','JTo','T8s+','98s','87s'],
+    SB:['33+','A2s+','A8o+','K8s+','KTo+','Q9s+','QTo+','J9s+','JTo','T8s+','98s','87s']
+  };return m[ps]||null;
+}
+function observedOpponentProfile(p){
+  if(!p)return {label:'Unknown',enough:false,pfr:0,postAgg:0,callRate:0};
+  const o=ensureObs(p),pf=Number(o.preflopSeen)||0,post=Number(o.postActions)||0,hands=Math.max(1,Number(p.handsAtTable)||0);
+  const pfr=pf?(Number(o.pfr)||0)/pf:0,postAgg=post?(Number(o.postAgg)||0)/post:0,callRate=(Number(o.calls)||0)/hands;
+  const enough=hands>=10&&pf>=8;
+  let label='Unknown';if(enough&&post>=6&&postAgg>=.45)label='Observed Aggressive';else if(enough&&post>=6&&postAgg<=.15&&pfr<=.15)label='Observed Passive';else if(enough&&callRate>=.75&&postAgg<.30)label='Observed Call-heavy';else if(enough)label='Observed Regular-ish';
+  return {label,enough,pfr,postAgg,callRate,hands};
+}
+function opponentSamplingRange(p){
+  if(!p)return null;
+  const read=observedOpponentProfile(p);
+  if(S.preflopRaiserSeat===p.seat){
+    let ps=pos(p.seat),tokens=positionOpenRangeTokens(ps)||positionOpenRangeTokens('MP');
+    // Only observed actions may widen/tighten the public model; hidden style/skill is never used.
+    if(read.enough&&read.pfr>=.30){const later={UTG:'UTG+2','UTG+1':'MP','UTG+2':'HJ',MP:'HJ',HJ:'CO',CO:'BTN',BTN:'BTN',SB:'BTN'};tokens=positionOpenRangeTokens(later[ps]||ps)||tokens}
+    if(read.enough&&read.pfr<=.10){const earlier={BTN:'CO',CO:'HJ',HJ:'MP',MP:'UTG+2','UTG+2':'UTG+1',SB:'CO'};tokens=positionOpenRangeTokens(earlier[ps]||ps)||tokens}
+    return tokens;
+  }
+  if(read.enough&&read.pfr<=.12&&read.callRate<.55)return ['55+','A8s+','ATo+','KTs+','QTs+','JTs','KQo'];
+  return null;
+}
+function boardRiskFor(board){
+  const ranks=board.map(c=>c.v),sc={};board.forEach(c=>sc[c.s]=(sc[c.s]||0)+1);const paired=new Set(ranks).size<ranks.length;
+  const flushComplete=Math.max(0,...Object.values(sc))>=3;const u=[...new Set(ranks)].sort((a,b)=>b-a);if(u.includes(14))u.push(1);let straightRisk=false;
+  for(let hi=14;hi>=5;hi--){const need=[hi,hi-1,hi-2,hi-3,hi-4];if(need.filter(v=>u.includes(v)).length>=4){straightRisk=true;break}}
+  return {paired,flushComplete,straightRisk,count:(paired?1:0)+(flushComplete?1:0)+(straightRisk?1:0)};
+}
+function boardChangeProfile(){
+  if(S.board.length<4)return {label:'Flop',newRisk:0};const now=boardRiskFor(S.board),prev=boardRiskFor(S.board.slice(0,-1)),last=S.board[S.board.length-1],prevMax=Math.max(...S.board.slice(0,-1).map(c=>c.v));
+  let label='Blank';if(now.flushComplete&&!prev.flushComplete)label='Flush Complete';else if(now.paired&&!prev.paired)label='Paired';else if(now.straightRisk&&!prev.straightRisk)label='Straight Pressure';else if(last.v>prevMax)label='Overcard';
+  return {label,newRisk:Math.max(0,now.count-prev.count),now,prev};
+}
+function estimateImprovementOuts(p){
+  if(S.street==='river'||S.board.length<3)return {raw:0,clean:0};const cur=ev7([...p.hole,...S.board]),known=[...p.hole,...S.board],rem=removeKnownCards(publicDeck(),known);let raw=0;
+  for(const c of rem){const nxt=ev7([...p.hole,...S.board,c]);if((nxt?.[0]||0)>(cur?.[0]||0))raw++}
+  const r=boardRisk(),discount=r.count>=2?.65:r.count===1?.82:1;return {raw,clean:Math.max(0,Math.round(raw*discount))};
+}
+function publicStateSeed(p){return hash32([S.hand,S.street,S.pot,S.currentBet,pos(S.hero),holeCode(p.hole),S.board.map(cardKey).join(''),S.preflopRaiserSeat,S.lastAggressorSeat,live().length].join('|'))}
+function estimateShowdownEquity(p,trials=MODEL_EQUITY_TRIALS){
+  const opps=live().filter(x=>x.seat!==S.hero);if(!opps.length)return {equity:1,win:1,tie:0,trials:0,rangeSummary:'No opponent'};
+  const rng=seededRng(publicStateSeed(p)),known=[...p.hole,...S.board];let share=0,wins=0,ties=0,done=0;
+  for(let t=0;t<trials;t++){
+    const pool=removeKnownCards(publicDeck(),known),oppH=[];let ok=true;
+    for(const o of opps){const h=randomPairFromPool(pool,rng,opponentSamplingRange(o));if(!h){ok=false;break}oppH.push(h)}if(!ok)continue;
+    const b=[...S.board];while(b.length<5&&pool.length){const i=Math.floor(rng()*pool.length);b.push(pool.splice(i,1)[0])}if(b.length<5)continue;
+    const hv=ev7([...p.hole,...b]),vals=oppH.map(h=>ev7([...h,...b]));let best=hv;for(const v of vals)if(cmp(v,best)>0)best=v;
+    const heroBest=cmp(hv,best)===0;if(heroBest){const tied=1+vals.filter(v=>cmp(v,best)===0).length;share+=1/tied;if(tied===1)wins++;else ties++}done++;
+  }
+  const raiser=S.preflopRaiserSeat==null?'none':pos(S.preflopRaiserSeat),aggr=S.lastAggressorSeat==null?null:observedOpponentProfile(S.players[S.lastAggressorSeat]);
+  return {equity:done?share/done:0,win:done?wins/done:0,tie:done?ties/done:0,trials:done,rangeSummary:`${opps.length} opp · PF raiser ${raiser}${aggr?` · last aggressor ${aggr.label}`:''}`};
+}
+function estimateOpponentCallProb(p){
+  const read=observedOpponentProfile(p);let q=.48;if(read.label==='Observed Call-heavy')q=.70;else if(read.label==='Observed Passive')q=.55;else if(read.label==='Observed Aggressive')q=.46;else if(read.label==='Observed Regular-ish')q=.43;
+  if(S.street==='river')q-=.06;if(live().length>=5)q+=.04;return Math.max(.15,Math.min(.78,q));
+}
+function actionEVProxy(p,eqObj){
+  const eq=Math.max(0,Math.min(1,eqObj.equity||0)),tc=Math.max(0,S.currentBet-p.streetBet),pot=Math.max(0,S.pot),unit=step(),opps=live().filter(x=>x.seat!==S.hero);
+  const callEV=tc>0?eq*(pot+tc)-tc:null,foldEV=0;let checkEV=null,betEV=null,raiseEV=null,foldAll=1,expCallers=0;
+  for(const o of opps){const q=estimateOpponentCallProb(o);foldAll*=1-q;expCallers+=q}
+  if(tc===0){const realization=S.street==='river'?1:(S.street==='turn'?.96:.91);checkEV=eq*pot*realization;const extra=unit*(1+expCallers);betEV=foldAll*pot+(1-foldAll)*(eq*(pot+extra)-unit)}
+  if(tc>0&&S.currentBet<cap()){const raiseCost=tc+unit,extra=unit*Math.max(.75,expCallers);raiseEV=eq*(pot+raiseCost+extra)-raiseCost}
+  return {foldEV,callEV,checkEV,betEV,raiseEV,foldAll,expectedCallers:expCallers};
+}
+function modelConfidence(eq,need,ev,best,second){
+  const margin=Math.abs(eq-need),gap=Math.abs((best?.v||0)-(second?.v||0));if(margin>=.10&&gap>=step()*.75&&live().length<=4)return 'Medium';return 'Low';
+}
+function bestEVAction(ev,legal){const rows=legal.map(a=>({a,v:Number(ev[`${a.toLowerCase()}EV`]??-1e15)})).sort((x,y)=>y.v-x.v);return {best:rows[0],second:rows[1]||rows[0]}}
+function currentPreflopAggressorSeat(){
+  const hero=S.players[S.hero];
+  if(S.street==='preflop'&&hero&&S.currentBet>hero.streetBet&&S.lastAggressorSeat!=null&&S.lastAggressorSeat!==S.hero)return S.lastAggressorSeat;
+  return S.preflopRaiserSeat;
+}
+function preflopCallerCountBeforeHero(){if(!S.preflopRaised)return 0;const raiser=currentPreflopAggressorSeat();return S.players.filter(x=>x.seat!==S.hero&&x.seat!==raiser&&!x.folded&&x.streetBet===S.currentBet&&x.streetBet>0).length}
+function fullPreflopModelDecision(p){
+  const code=holeCode(p.hole),ps=pos(S.hero),facing=preflopFacing(),tc=Math.max(0,S.currentBet-p.streetBet),currentRaiser=currentPreflopAggressorSeat(),rp=currentRaiser==null?'':pos(currentRaiser),callers=preflopCallerCountBeforeHero();
+  if(facing==='Unopened'){
+    if(ps==='UTG+2'){const raise=['66+','A9s+','AJo+','KQs','KJs','QJs','JTs','KQo'];const a=rangeMatch(code,raise)?'Raise':'Fold';return friendlyRuleResult(a,'Full Model | UTG+2 Open',`MODEL · UTG+2 provisional matrix. ${code} → ${a}. Canonical 승격 전이라 KPI에는 채점하지 않습니다.`,'Medium',false,FULL_DECISION_ENGINE_VERSION,'model')}
+    return null;
+  }
+  if(facing==='Limpers'){
+    const n=S.preflopLimpers,late=['CO','BTN'].includes(ps),pair=isPairCode(code),suited=isSuitedCode(code);let a='Fold',why='marginal offsuit entry를 줄입니다.';
+    if(n===1){if(pair&&((late&&rangeMatch(code,['22-77']))||rangeMatch(code,['55-77']))){a='Call';why='small pair overlimp는 position이 있거나 중간 페어 이상일 때만 허용.'}else if(suited&&rangeMatch(code,['A2s-ATs','KTs','QTs+','JTs','T9s','98s','87s','76s'])&&(late||preflopPositionRank(ps)>=preflopPositionRank('HJ'))){a='Call';why='suited/nut-potential + position으로 overlimp.'}}
+    else if(n<=3){if(pair&&rangeMatch(code,['22-99'])){a='Call';why='2~3 limpers에서 pocket의 multiway value를 사용.'}else if(suited&&rangeMatch(code,['A2s-AJs','KTs+','QTs+','JTs','T9s','98s','87s','76s','65s'])){a='Call';why='multiway suited/nut-potential 후보.'}}
+    else {if(pair||rangeMatch(code,['A2s+','KTs+','QTs+','JTs','T9s','98s','87s','76s','65s'])){a='Call';why='4+ limpers에서는 pocket/suited nut-potential만 제한적으로 overlimp.'}}
+    return friendlyRuleResult(a,`Full Model | ${n} Limper`, `MODEL · ${why} 뒤쪽 cap 위험이 높으면 Call 하단을 한 단계 줄입니다.`,'Low',false,FULL_DECISION_ENGINE_VERSION,'model');
+  }
+  if(!['Raised','Capped'].includes(facing)||!rp)return null;
+  const price=potOddsPct(tc,S.pot);
+  if(facing==='Capped'&&price<=.10&&rangeMatch(code,['88+','AJs+','AQo+','KQs'])){
+    return friendlyRuleResult('Call','Full Model | Capped Price Continue',`MODEL · 현재 cap이지만 추가금액이 콜 후 팟의 약 ${Math.round(price*100)}%이고 ${code}는 강한 continue 후보입니다. Call 우선. Canonical이 아닌 모델 판단이라 KPI에는 채점하지 않습니다.`,'Medium',false,FULL_DECISION_ENGINE_VERSION,'model');
+  }
+  const key=['UTG','UTG+1'].includes(rp)?'EP':rp;const rows={
+    EP:{aggr:['QQ+','AK'],call:['TT','JJ','AQs','AKo'],cond:['77-99','AJs','KQs']},
+    'UTG+2':{aggr:['JJ+','AQs+','AKo'],call:['99','TT','AJs','KQs'],cond:['77','88']},
+    MP:{aggr:['JJ+','AQs+','AKo'],call:['99','TT','AJs','KQs'],cond:['77','88']},
+    HJ:{aggr:['TT+','AJs+','AQo+','KQs'],call:['77-99','ATs','KJs','QJs','JTs','KQo'],cond:[]},
+    CO:{aggr:['88+','ATs+','AJo+','KQs','KJs','QJs'],call:['55-77','A8s-A9s','KTs','QTs','JTs','T9s','98s','KQo'],cond:[]},
+    BTN:{aggrSB:['77+','A9s+','ATo+','KJs+','KQo','QJs'],aggrBB:['66+','A8s+','ATo+','KJs+','KQo','QJs'],bb:['22-55','A2s-A7s','A8o-A9o','K9s-KTs','KTo-KJo','Q9s-QTs','QTo','J9s-JTs','JTo','T8s+','98s','87s','76s']},
+    SB:{aggrBB:['55+','A7s+','A9o+','KTs+','KQo','QTs+','JTs'],bb:['22-44','A2s-A6s','A2o-A8o','K8s-K9s','KTo-KJo','Q9s+','QTo','J9s+','JTo','T8s+','98s','87s','76s']}
+  };const row=rows[key];if(!row)return friendlyRuleResult('Fold','Full Model | Unmapped Raiser','MODEL · raiser position은 확인됐지만 matrix bucket이 없어 보수적으로 Fold.','Low',false,FULL_DECISION_ENGINE_VERSION,'model');
+  let a='Fold',reason='matrix continue 범위 밖';
+  if(key==='BTN'){
+    const ag=ps==='SB'?row.aggrSB:(ps==='BB'?row.aggrBB:[]);if(rangeMatch(code,ag)){a=facing==='Capped'?'Call':'Cap';reason='blind value re-attack'}else if(ps==='BB'&&rangeMatch(code,row.bb)){a='Call';reason='BB price defense'}
+  }else if(key==='SB'){
+    if(ps==='BB'&&rangeMatch(code,row.aggrBB)){a=facing==='Capped'?'Call':'Cap';reason='BB vs SB value re-attack'}else if(ps==='BB'&&rangeMatch(code,row.bb)){a='Call';reason='blind-vs-blind defense'}
+  }else{
+    if(rangeMatch(code,row.aggr)){a=facing==='Capped'?'Call':'Cap';reason='value re-attack'}
+    else if(rangeMatch(code,row.call)){a='Call';reason='core continue range'}
+    else if(rangeMatch(code,row.cond||[])){const ip=preflopPositionRank(ps)>preflopPositionRank(rp),bb=ps==='BB';if((ip||bb)&&callers>=1){a='Call';reason='conditional multiway/position continue'}else {a='Fold';reason='conditional hand but position/multiway support insufficient'}}
+  }
+  return friendlyRuleResult(a,`Full Model | vs ${rp} Raise`,`MODEL · ${code} / Hero ${ps} / ${rp} raise / caller ${callers} → ${a} (${reason}). Canonical이 아닌 계산·매트릭스 판단이라 KPI에는 채점하지 않습니다.`,'Medium',false,FULL_DECISION_ENGINE_VERSION,'model');
+}
+function fullPostflopModelDecision(p){
+  const tc=Math.max(0,S.currentBet-p.streetBet),hc=handClass(p),risk=boardRisk(),change=boardChangeProfile(),outs=estimateImprovementOuts(p),eq=estimateShowdownEquity(p),need=potOddsPct(tc,S.pot),ev=actionEVProxy(p,eq),draw=postflopDrawProfile(p),strong=['straight_flush','quads','full_house','nut_flush','near_nut','straight','set','strong_two_pair'].includes(hc),onePair=['TPTK','overpair','one_pair','weak_two_pair'].includes(hc);
+  let action='Check',alt='Bet',resolution='Model',legal=[];
+  if(tc>0){legal=['Fold','Call'];if(S.currentBet<cap())legal.push('Raise');if(S.currentBet>=cap()){action=(ev.callEV??-1)>0?'Call':'Fold';alt=action==='Call'?'Fold':'Call'}else if(strong){action=(ev.raiseEV??-1)>(ev.callEV??-1)-step()*.15?'Raise':'Call';alt=action==='Raise'?'Call':'Raise'}else{
+      let adjustedNeed=need+(live().length>=4?.02:0)+(risk.count>=1&&onePair?.025:0)+(S.street==='turn'&&change.newRisk>0?.02:0);
+      action=eq.equity>=adjustedNeed?'Call':'Fold';alt=action==='Call'?'Fold':'Call';
+      if(action==='Call'&&onePair&&S.street==='turn'&&S.streetAggressionCount>=2){action='Fold';alt='Call'}
+    }
+  }else{
+    legal=['Check','Bet'];if(strong){action='Bet';alt='Check'}else if(onePair){const valueFloor=live().length<=3&&risk.count<=1?.42:.55;action=eq.equity>=valueFloor?'Bet':'Check';alt=action==='Bet'?'Check':'Bet'}else if(draw.comboDraw&&live().length<=3){action='Bet';alt='Check'}else {const pick=bestEVAction(ev,legal);action=(pick.best&&pick.best.v>pick.second.v+step()*.20)?pick.best.a:'Check';alt=action==='Check'?'Bet':'Check'}
+  }
+  const bestObj={a:action,v:action==='Call'?ev.callEV:action==='Raise'?ev.raiseEV:action==='Bet'?ev.betEV:action==='Check'?ev.checkEV:0},secondObj={a:alt,v:alt==='Call'?ev.callEV:alt==='Raise'?ev.raiseEV:alt==='Bet'?ev.betEV:alt==='Check'?ev.checkEV:0};
+  const conf=modelConfidence(eq.equity,need,ev,bestObj,secondObj),opp=S.lastAggressorSeat==null?null:observedOpponentProfile(S.players[S.lastAggressorSeat]);
+  const strongAction=tc>0&&S.street==='turn'&&S.streetAggressionCount>=2&&onePair;
+  let exploitApplied=false,evSuppressed=false;
+  // Multi-bet Turn action is stronger than the public preflop-only Monte Carlo range model can represent.
+  // Respect the canonical slowdown principle and do not display contradictory raw EV as if it were action-conditioned.
+  if(strongAction){
+    if(opp?.enough&&opp.label==='Observed Aggressive'&&eq.equity>=need-.02){action='Call';alt='Fold';exploitApplied=true}
+    else {action='Fold';alt='Call'}
+    evSuppressed=true;
+  }
+  if(opp?.enough&&!strongAction){
+    if(opp.label==='Observed Aggressive'&&tc>0&&onePair&&eq.equity>=need-.02&&action==='Fold'){action='Call';alt='Fold';exploitApplied=true}
+    if(opp.label==='Observed Passive'&&tc>0&&onePair&&risk.count>=1&&action==='Call'&&eq.equity<=need+.08){action='Fold';alt='Call';exploitApplied=true}
+  }
+  if(exploitApplied)resolution='Exploit';
+  const finalBestV=action==='Call'?ev.callEV:action==='Raise'?ev.raiseEV:action==='Bet'?ev.betEV:action==='Check'?ev.checkEV:0;
+  const finalAltV=alt==='Call'?ev.callEV:alt==='Raise'?ev.raiseEV:alt==='Bet'?ev.betEV:alt==='Check'?ev.checkEV:0;
+  const gap=Math.abs((finalBestV||0)-(finalAltV||0));
+  const mix=(!evSuppressed&&gap<step()*.35)?`${action} 60 / ${alt} 40`:null;
+  const evTxt=evSuppressed?'strong-action context: raw MC EV suppressed (range not action-conditioned)':[ ['Fold',0],['Check',ev.checkEV],['Call',ev.callEV],['Bet',ev.betEV],['Raise',ev.raiseEV] ].filter(x=>x[1]!=null).map(([a,v])=>`${a} ${v>=0?'+':''}${fmt(v)}`).join(' / ');
+  const drawTxt=(draw.flushDraw||draw.straightDraw)?` · draw ${draw.comboDraw?'combo':draw.flushDraw?'FD':'SD'} · clean-outs≈${outs.clean}`:'';
+  const mixTxt=mix?` · mix ${mix}`:'';
+  const why=`${resolution.toUpperCase()} · ${hc} · ${change.label} · Equity≈${Math.round(eq.equity*100)}%${tc>0?` / Need ${Math.round(need*100)}%`:''}${drawTxt}. Range=${eq.rangeSummary}. ${evSuppressed?'현재 multi-bet strong-action에서는 MC equity가 액션 강도를 조건화하지 못하므로 raw equity/EV를 결정 근거로 쓰지 않습니다. ':''}EV proxy: ${evTxt}.${mixTxt} 비정본 모델이므로 KPI에는 채점하지 않습니다.`;
+  const r=friendlyRuleResult(action,`${FULL_DECISION_ENGINE_VERSION} | ${S.street}`,why,conf,false,FULL_DECISION_ENGINE_VERSION,resolution==='Exploit'?'exploit':'model');
+  r.resolution=resolution;r.estimatedEquity=eq.equity;r.requiredEquity=need;r.equityTrials=eq.trials;r.rangeSummary=eq.rangeSummary;r.actionEV=evSuppressed?{suppressed:true,reason:'multi-bet strong action not conditioned in MC range'}:ev;r.rawActionEV=evSuppressed?ev:null;r.alternateAction=alt;r.mix=mix;r.cleanOuts=outs.clean;r.boardChange=change.label;r.strongActionContext=strongAction;return r;
+}
+function fullDecisionModel(){const p=S.players[S.hero];if(S.street==='preflop')return fullPreflopModelDecision(p);return fullPostflopModelDecision(p)}
+function derivedPreflopVsRaise(p,code,ps,tc){
+  const matrix=provisionalPreflopMatrixReview(p,code,ps,tc);if(matrix)return matrix;
+  const group=preflopGroup(code);
+  const price=potOddsPct(tc,S.pot);
+  const multi=live().length>=5;
+  const capped=S.currentBet>=cap();
+
+  if(tc===0){
+    return friendlyRuleResult('Check','P10-M04 | Free Check Legality Guard',
+      '추가로 낼 돈이 0원이므로 체크가 합법적 기본 액션입니다. 이 메타 가드는 실력 KPI에는 채점하지 않습니다.',
+      'High',false,'Poker OS Engine v3','hold');
+  }
+
+  if(capped){
+    if(group==='premium'||group==='strong')
+      return friendlyRuleResult('Call','베팅 상한 도달',
+        `이미 캡입니다. 더 올릴 수 없고, 이 강도의 패는 추가 ${fmt(tc)}원을 콜해서 계속합니다.`,
+        'Medium',true,'Poker OS Engine v2','derived');
+    if((group==='pair'||group==='speculative') && multi && price<=0.10)
+      return friendlyRuleResult('Call','캡 멀티웨이 가격 방어',
+        `캡이지만 멀티웨이이고 추가금액이 팟의 약 ${Math.round(price*100)}%라 페어·수딧 계열은 가격을 보고 콜할 수 있습니다.`,
+        'Medium',true,'Poker OS Engine v2','derived');
+    return friendlyRuleResult('Fold','베팅 상한 도달',
+      `이미 캡까지 올라왔고 현재 패의 상대가치가 낮습니다. 추가 ${fmt(tc)}원을 아낍니다.`,
+      'Medium',true,'Poker OS Engine v2','derived');
+  }
+
+  if(group==='premium'){
+    return friendlyRuleResult(S.cfg.label==='10만'?'Cap':'3-bet','프리미엄 재공격',
+      S.cfg.label==='10만'
+        ?'10만 프리플랍은 첫 레이즈 다음이 바로 캡입니다. 프리미엄은 캡으로 밸류를 받습니다.'
+        :'프리미엄은 재레이즈로 밸류를 받습니다.',
+      'High',true,'Poker OS Engine v2','derived');
+  }
+
+  if(group==='strong'){
+    return friendlyRuleResult('Call','강한 콜 구간',
+      `강한 시작패지만 프리미엄 캡 구간은 아닙니다. 추가 ${fmt(tc)}원을 콜하고 플랍을 봅니다.`,
+      'Medium',true,'Poker OS Engine v2','derived');
+  }
+
+  if((group==='pair'||group==='speculative') && multi && price<=0.12){
+    return friendlyRuleResult('Call','멀티웨이 가격 콜',
+      `페어/수딧 계열이고 멀티웨이입니다. 추가금액이 콜 후 팟의 약 ${Math.round(price*100)}%라 가격이 충분히 쌉니다.`,
+      'Medium',true,'Poker OS Engine v2','derived');
+  }
+
+  if(ps==='BB' && (group==='pair'||group==='speculative') && price<=0.10){
+    return friendlyRuleResult('Call','BB 가격 방어',
+      `BB에서 이미 5천을 냈고 추가금액은 ${fmt(tc)}원입니다. 페어/수딧 계열에 이 가격이면 방어 가능합니다.`,
+      'Medium',true,'Poker OS Engine v2','derived');
+  }
+
+  return friendlyRuleResult('Fold','Facing Raise 기본 방어',
+    `레이즈를 받은 상태에서 현재 패는 콜 구간이 아닙니다. 추가 ${fmt(tc)}원을 넣지 않습니다.`,
+    'Medium',true,'Poker OS Engine v2','derived');
+}
+function derivedLimpDecision(p,code,ps,tc){
+  const group=preflopGroup(code), n=S.preflopLimpers, price=potOddsPct(tc,S.pot);
+  if(tc===0)return friendlyRuleResult('Check','P10-M04 | Free Check Legality Guard',
+    '추가금액이 0원이므로 체크가 기본입니다. 단, 먼저 매칭되는 value-raise 정본이 있으면 그 규칙을 우선합니다.','High',false,'Poker OS Engine v3','hold');
+
+  if(ps==='SB'){
+    if(group==='weak' && price>0.09)
+      return friendlyRuleResult('Fold','SB Complete 가격 판단',
+        `SB 추가금액은 ${fmt(tc)}원이고 콜 후 팟의 약 ${Math.round(price*100)}%입니다. 약한 오프수트 패면 포기합니다.`,
+        'Medium',false,'Poker OS Engine v3','derived');
+    return friendlyRuleResult('Call','SB Complete 가격 판단',
+      `SB는 이미 블라인드를 냈습니다. 추가 ${fmt(tc)}원만 내면 됩니다. 다만 10만 rake cap이 미확정이므로 marginal complete는 Review Only로 유지합니다.`,
+      'Low',false,'Poker OS Engine v3','hold');
+  }
+
+  if(group==='pair'){
+    return friendlyRuleResult('Review','Small-Pair Overlimp Review',
+      `작은 페어는 자동 오버림프하지 않습니다. 현재 ${ps}, limper ${n}명, 추가 ${fmt(tc)}원입니다. 포지션·limper 수·뒤의 raise/cap 위험을 함께 보고 결정하며, 정본 매트릭스가 없는 구간은 Review Only입니다.`,
+      'Low',false,'Poker OS Engine v3','hold');
+  }
+
+  if(group==='speculative')
+    return friendlyRuleResult('Review','Speculative Overlimp Review',
+      `수딧/연결 패도 자동 콜 규칙이 아닙니다. 현재 가격 약 ${Math.round(price*100)}%와 포지션·뒤의 cap 위험을 함께 재평가합니다. 직접 정본이 없는 구간은 Review Only입니다.`,
+      'Low',false,'Poker OS Engine v3','hold');
+
+  return friendlyRuleResult('Fold','오버림프 축소',
+    '레이즈 범위 밖의 약한 오프수트 패는 림퍼가 있어도 따라가지 않습니다.',
+    'Medium',false,'Poker OS Engine v3','derived');
+}
+function provisionalTurnMatrixReview(p){
+  if(S.cfg.label!=='10만'||S.street!=='turn')return null;
+  const tc=Math.max(0,S.currentBet-p.streetBet),hc=handClass(p),risk=boardRisk(),n=live().length,price=potOddsPct(tc,S.pot);
+  const initiative=S.prevStreetAggressorSeat===S.hero;
+  const draw=postflopDrawProfile(p);
+  const strong=['straight_flush','quads','full_house','nut_flush','near_nut','straight','set','strong_two_pair'].includes(hc);
+  const onePair=['TPTK','overpair','one_pair','weak_two_pair'].includes(hc);
+  const opp=S.lastAggressorSeat==null?null:S.players[S.lastAggressorSeat], read=observedAggressionRead(opp);
+  let direction='Recalculate',why='Turn Matrix v0.9: 상대 range → clean outs → 현재 pot odds → 다음 액션 EV 순서로 다시 계산합니다.';
+  if(tc===0){
+    if(strong){direction='Bet 후보';why='Two-pair+ 강한 made hand는 value를 놓치지 않는 쪽이 기본입니다. completion/paired면 nut status를 재확인합니다.'}
+    else if(['TPTK','overpair'].includes(hc)){
+      if(initiative&&n<=3&&risk.count<=1){direction='Bet 후보';why='initiative + HU~3way + safe board라 value barrel 후보입니다.'}
+      else {direction='Check/Review 후보';why='4+way 또는 board risk가 있어 one-pair 자동 barrel을 피합니다.'}
+    }else if(draw.flushDraw||draw.straightDraw){direction='Check 후 가격 확인';why='draw는 먼저 가격을 받고 clean outs 기준으로 continue 여부를 정합니다.'}
+    else {direction='Check 후보';why='강한 value 또는 검증된 bluff 근거가 없는 Turn은 pot control이 기본입니다.'}
+  }else if(S.streetAggressionCount>=2){
+    if(['one_pair','TPTK','overpair'].includes(hc)){direction='Fold 중심';why='Turn의 bet+raise/caller 또는 multiple bets에서 one-pair 이하는 크게 강등합니다.'}
+    else if(hc==='weak_two_pair'){direction='Call/Review';why='two-pair는 자동 cap하지 않고 board completion과 higher-made 가능성을 재평가합니다.'}
+    else if(strong){direction='Continue/Review';why='강한 made hand라도 completion board에서는 자동 cap하지 않습니다.'}
+  }else if(tc>0){
+    if(strong){direction=risk.count<=1?'Raise 후보':'Call/Review 후보';why='강한 made hand의 value는 유지하되 상위 족보가 생긴 board에서는 자동 raise를 줄입니다.'}
+    else if(['TPTK','overpair'].includes(hc)){
+      const danger=(n>=4?1:0)+(risk.count>=1?1:0)+((!read||!read.aggressive)?1:0);
+      if(danger>=2){direction='Fold/Review 쪽';why='multiway/board-risk/Unknown·passive strong action이 겹쳐 bluff-catcher로 강등합니다.'}
+      else {direction='Call 후보';why='HU~3way + 비교적 안전한 board이며 확인된 공격성 예외가 있어 한 번의 Call 후보입니다.'}
+    }else if(draw.flushDraw||draw.straightDraw){
+      let bench='clean-outs 산정 필요';
+      if(draw.flushDraw&&draw.straightDraw)bench='combo draw — raw outs 중복/dirty discount 후 계산';
+      else if(draw.flushDraw)bench='FD raw 9 outs ≈ 4.1:1 필요';
+      else if(draw.straightDraw)bench='straight draw는 OESD/gutshot 구분 후 4.75:1 또는 10.5:1 기준';
+      direction='Odds Review';why=`${bench}. 현재 call 비중은 약 ${Math.round(price*100)}%이며 추가 raise/cap 가능성까지 effective price에 포함합니다.`;
+    }else if(['one_pair','high_card'].includes(hc)){direction='Fold 후보';why='약한 made hand/air는 Turn 한 big bet을 자동으로 더 내지 않습니다.'}
+  }
+  return friendlyRuleResult('Review','Turn Matrix v0.9',`잠정 방향: ${direction}. ${why} Test 상태라 KPI에는 채점하지 않습니다.`,'Low',false,'Poker OS Engine v3','hold');
+}
+function postflopDecisionV2(p){
+  if(S.street==='turn'){
+    const matrix=provisionalTurnMatrixReview(p);if(matrix)return matrix;
+  }
+  const tc=Math.max(0,S.currentBet-p.streetBet);
+  const hc=handClass(p), risk=boardRisk(), n=live().length, price=potOddsPct(tc,S.pot);
+
+  if(tc===0){
+    if(['straight_flush','quads','full_house','nut_flush','near_nut','straight','set','strong_two_pair'].includes(hc))
+      return friendlyRuleResult('Bet','강한 완성패 직접 밸류',
+        `현재 ${hc}급 강한 패입니다. 체크보다 바로 베팅해서 돈을 더 받는 편이 좋습니다.`,
+        'High',true,'Poker OS Engine v2','derived');
+    if(['overpair','TPTK'].includes(hc) && n<=4 && risk.count<=1)
+      return friendlyRuleResult('Bet','안전한 원페어 밸류',
+        `상대가 ${n}명 남았고 보드 위험 신호가 적어 원페어 강한 구간에서도 밸류 베팅이 가능합니다.`,
+        'Medium',true,'Poker OS Engine v2','derived');
+    return friendlyRuleResult('Check','팟 컨트롤',
+      '현재는 강한 밸류 베팅 근거가 부족합니다. 공짜로 다음 카드를 보거나 쇼다운으로 갑니다.',
+      'Medium',true,'Poker OS Engine v2','derived');
+  }
+
+  if(S.currentBet>=cap()){
+    if(['straight_flush','quads','full_house','nut_flush','near_nut','straight','set','strong_two_pair'].includes(hc))
+      return friendlyRuleResult('Call','캡 도달 계속',
+        `이미 캡입니다. 더 올릴 수 없으므로 강한 완성패는 추가 ${fmt(tc)}원을 콜합니다.`,
+        'High',true,'Poker OS Engine v2','derived');
+  }
+
+  if(S.street==='river'){
+    if(['high_card','one_pair'].includes(hc) && (n>=3 || risk.count>=1))
+      return friendlyRuleResult('Fold','리버 블러프캐처 축소',
+        `리버에 ${n}명이 남고 위험 신호가 ${risk.count}개입니다. 한 쌍 이하로 마지막 ${fmt(tc)}원을 내는 콜을 줄입니다.`,
+        'High',true,'Poker OS Engine v2','derived');
+    if(['overpair','TPTK','weak_two_pair'].includes(hc) && n>=3 && risk.count>=1)
+      return friendlyRuleResult('Fold','리버 멀티웨이 강등',
+        `멀티웨이 리버에서 보드 위험도가 올라갔습니다. ${hc}는 블러프캐처로 강등하고 폴드를 우선합니다.`,
+        'High',true,'Poker OS Engine v2','derived');
+    if(['flush','straight','set','strong_two_pair','full_house','quads'].includes(hc))
+      return friendlyRuleResult('Call','리버 강한 쇼다운 밸류',
+        `강한 완성패지만 상대 베팅을 받은 상태입니다. 넛이 확실하지 않으면 우선 콜로 쇼다운합니다.`,
+        'Medium',true,'Poker OS Engine v2','derived');
+  }
+
+  if(['straight_flush','quads','full_house','nut_flush','near_nut','straight','set','strong_two_pair'].includes(hc))
+    return friendlyRuleResult(S.currentBet<cap()?'Raise':'Call','강한 완성패 밸류',
+      `강한 완성패입니다. 캡 전이면 레이즈, 이미 캡이면 콜합니다.`,
+      'High',true,'Poker OS Engine v2','derived');
+
+  if(['high_card','one_pair'].includes(hc) && n>=5)
+    return friendlyRuleResult('Fold','멀티웨이 약한 패 정리',
+      `상대가 ${n}명 남은 멀티웨이에서 ${hc}는 상대가치가 낮습니다. 추가 ${fmt(tc)}원을 아낍니다.`,
+      'High',true,'Poker OS Engine v2','derived');
+
+  if(['overpair','TPTK'].includes(hc) && risk.count<=1 && price<=0.15)
+    return friendlyRuleResult('Call','원페어 가격 콜',
+      `강한 원페어이고 추가금액이 콜 후 팟의 약 ${Math.round(price*100)}%입니다. 한 번은 콜할 수 있습니다.`,
+      'Medium',true,'Poker OS Engine v2','derived');
+
+  return friendlyRuleResult('Fold','약한 계속 구간 정리',
+    `현재 패 강도와 멀티웨이 위험을 감안하면 추가 ${fmt(tc)}원을 넣지 않는 편이 낫습니다.`,
+    'Medium',true,'Poker OS Engine v2','derived');
+}
+
+function canonicalRecommendation(){
+  const p=S.players[S.hero],limit=S.cfg.label,ps=pos(S.hero),code=holeCode(p.hole);
+  const tc=Math.max(0,S.currentBet-p.streetBet);
+  const ctx={street:S.street,toCall:tc,raiseCount:S.preflopRaiseCount,streetAggressionCount:S.streetAggressionCount,limit:S.cfg.label};
+  const cfg=CANON[limit];
+
+  if(S.street==='preflop'){
+    const facing=preflopFacing();
+
+    if(ps==='BB' && tc===0){
+      // Patch 8 / Strategy v1.1: evaluate limper value-raise rules BEFORE the
+      // free-check fallback. This prevents AK/AQ/TT+ style value raises from
+      // being mislabeled merely because BB has no additional call amount.
+      const n=S.preflopLimpers;
+      if(facing==='Limpers' && n>0){
+        if(n===1 && cfg.limp1 && rangeMatch(code,cfg.limp1.base))
+          return friendlyRuleResult('Raise',cfg.limp1.rule,cfg.limp1.explain,'High',true,'Poker Decision Rule DB','canonical');
+        if(n>=2 && n<=3 && cfg.limp23 && rangeMatch(code,cfg.limp23.range))
+          return friendlyRuleResult('Raise',cfg.limp23.rule,cfg.limp23.explain,'High',true,'Poker Decision Rule DB','canonical');
+        if(n>=4 && cfg.limp4 && rangeMatch(code,cfg.limp4.range))
+          return friendlyRuleResult('Raise',cfg.limp4.rule,cfg.limp4.explain,'High',true,'Poker Decision Rule DB','canonical');
+        const boundary=(n>=2&&n<=3)?['99','AJs']:(n>=4?['TT','AQo','99','AJs']:[]);
+        if(boundary.includes(code)){
+          return friendlyRuleResult('Review','BB Value/Free Option Review',
+            `추가 콜 금액은 0원이지만 ${code}는 limper ${n}명에서 Check와 value Raise의 경계입니다. Free Check 단독 정답으로 채점하지 않고 테이블 성향·뒤 cap 위험을 재평가합니다.`,
+            'Low',false,'Poker OS Engine v3','hold');
+        }
+      }
+      return friendlyRuleResult('Check','P10-PF12 | BB Free Check',
+        '먼저 적용할 limper value-raise 정본이 없고 추가로 낼 돈도 0원입니다. BB Free Check를 fallback으로 적용합니다.',
+        'High',true,'Poker Decision Rule DB','canonical');
+    }
+
+    if(ps==='SB' && facing==='Unopened'){
+      const sc=pfScore(p.hole);
+      if(sc>=.72)return friendlyRuleResult('Raise','SB 보조 판단',
+        'SB에서 아주 강한 패는 BB를 상대로 레이즈해 밸류를 받습니다.','Medium',true,'Poker OS Engine v2','derived');
+      return derivedLimpDecision(p,code,ps,tc);
+    }
+
+    if(facing==='Unopened'){
+      for(const k of Object.keys(cfg.open||{})){
+        const r=cfg.open[k];
+        if(r.positions.includes(ps)){
+          const range=[...r.range,...((ps==='HJ'&&r.hjAdd)?r.hjAdd:[])];
+          if(rangeMatch(code,range))return friendlyRuleResult(r.action,r.rule,r.explain,'High',true,'Poker Decision Rule DB');
+          return friendlyRuleResult('Fold',r.rule,r.explain+' 현재 패는 이 오픈 범위 밖입니다.','High',true,'Poker Decision Rule DB');
+        }
+      }
+    }
+
+    if(facing==='Limpers'){
+      const n=S.preflopLimpers;
+      if(n===1 && cfg.limp1){
+        const r=cfg.limp1, range=[...r.base,...((['HJ','CO','BTN'].includes(ps))?r.late:[])];
+        if(rangeMatch(code,range))return friendlyRuleResult('Raise',r.rule,r.explain,'High',true,'Poker Decision Rule DB');
+        // Strategy v1.1: small pairs / speculative hands are contextual, not a
+        // deterministic Call. Keep them Review Only until a direct matrix exists.
+        if(isPairCode(code))return friendlyRuleResult('Review','Small-Pair Overlimp Review','가치 레이즈 범위 밖의 작은 페어는 자동 Call하지 않습니다. 포지션·limper 수·뒤 raise/cap 위험을 재평가합니다.','Low',false,'Poker OS Engine v3','hold');
+        if(code.endsWith('s') && pfScore(p.hole)>=.34)return friendlyRuleResult('Review','Speculative Overlimp Review','수딧 계열도 자동 오버림프 정답으로 채점하지 않습니다. 가격과 포지션, 뒤 cap 위험을 함께 봅니다.','Low',false,'Poker OS Engine v3','hold');
+        return friendlyRuleResult('Fold',r.rule,'한 명이 림프했다고 약한 오프수트 패까지 따라가지는 않습니다.','Medium',false,'Poker OS Engine v3','derived');
+      }
+      if(n>=2 && n<=3 && cfg.limp23){
+        const r=cfg.limp23;
+        if(rangeMatch(code,r.range))return friendlyRuleResult('Raise',r.rule,r.explain,'High',true,'Poker Decision Rule DB');
+        if(isPairCode(code))return friendlyRuleResult('Review','Small-Pair Overlimp Review','2~3 limper에서도 작은 페어를 자동 Call로 채점하지 않습니다. 포지션·limper 수·뒤 cap 위험을 함께 재평가합니다.','Low',false,'Poker OS Engine v3','hold');
+        if(code.endsWith('s') && pfScore(p.hole)>=.36)return friendlyRuleResult('Review','Speculative Overlimp Review','멀티웨이형 수딧 패도 직접 정본이 없는 구간은 Review Only입니다.','Low',false,'Poker OS Engine v3','hold');
+        return friendlyRuleResult('Fold',r.rule,'사람이 많이 들어온 팟에서 약한 오프수트 패는 추가 진입을 줄입니다.','Medium',false,'Poker OS Engine v3','derived');
+      }
+      if(n>=4 && cfg.limp4){
+        const r=cfg.limp4;
+        if(rangeMatch(code,r.range))return friendlyRuleResult('Raise',r.rule,r.explain,'High',true,'Poker Decision Rule DB');
+        if(isPairCode(code)||code.endsWith('s'))
+          return friendlyRuleResult('Review','Multiway Overlimp Review','4명 이상 limped pot에서도 pocket/suited hand를 자동 Call로 정답 처리하지 않습니다. betting cap과 뒤 raise 위험 때문에 Review Only입니다.','Low',false,'Poker OS Engine v3','hold');
+        return friendlyRuleResult('Fold',r.rule,'4명 이상 들어온 팟에서는 약한 오프수트 패를 버려 불필요한 진입을 줄입니다.','Medium',false,'Poker OS Engine v3','derived');
+      }
+    }
+
+    if(facing==='Capped' && limit==='10만'){
+      const rp=S.preflopRaiserSeat==null?'':pos(S.preflopRaiserSeat);
+      const ep=['UTG','UTG+1'].includes(rp);
+      if(ep && cfg.vsEPFold && cfg.vsEPFold.exact.includes(code))
+        return friendlyRuleResult('Fold',cfg.vsEPFold.rule,cfg.vsEPFold.explain,'High',true,'Poker Decision Rule DB');
+      if(ep && cfg.vsEP3bet && rangeMatch(code,cfg.vsEP3bet.range))
+        return friendlyRuleResult('Call','P10-PF08 | vs EP Raise Premium',
+          '이미 프리플랍 캡까지 올라왔기 때문에 더 올릴 수 없습니다. QQ+와 AK는 추가 금액을 콜해서 계속합니다.',
+          'High',true,'Poker OS 보조채점');
+    }
+
+    if(facing==='Raised'){
+      const rp=S.preflopRaiserSeat==null?'':pos(S.preflopRaiserSeat);
+      const ep=['UTG','UTG+1'].includes(rp);
+      if(ep && cfg.vsEP3bet && rangeMatch(code,cfg.vsEP3bet.range))
+        return friendlyRuleResult(cfg.vsEP3bet.action,cfg.vsEP3bet.rule,cfg.vsEP3bet.explain,'High',true,'Poker Decision Rule DB');
+      if(ep && limit==='10만' && cfg.vsEPFold && cfg.vsEPFold.exact.includes(code))
+        return friendlyRuleResult('Fold',cfg.vsEPFold.rule,cfg.vsEPFold.explain,'High',true,'Poker Decision Rule DB');
+    }
+  }
+
+  // Postflop canonical rules currently available for 10만.
+  if(limit==='10만' && S.street!=='preflop'){
+    const hc=handClass(p), risk=boardRisk(), opp=S.lastAggressorSeat==null?null:S.players[S.lastAggressorSeat];
+    if(S.street==='flop' && ['set','straight','strong_two_pair'].includes(hc) && risk.count<=1){
+      return friendlyRuleResult(tc>0?'Raise':'Bet','P10-F01 | Flop Strong Made Value',
+        '플랍에서 강하게 완성된 패는 슬로우플레이보다 바로 돈을 더 받는 것이 기본입니다.','High',true,'Poker Decision Rule DB');
+    }
+    if(S.street==='river'){
+      if(tc===0 && ['straight','set','strong_two_pair','nut_flush','near_nut'].includes(hc) && risk.count<=1){
+        return friendlyRuleResult('Bet','P10-R03 | River Safe Strong Value',
+          '리버까지 강한 패가 안전하게 남아 있으면 체크보다 밸류 베팅이 좋습니다.','High',true,'Poker Decision Rule DB');
+      }
+      if(tc>0 && hc==='flush' && risk.flushComplete){
+        return friendlyRuleResult('Call','P10-R02 | Non-nut Flush No-Raise',
+          '넛이 아닌 플러시는 베팅을 받았을 때 레이즈로 더 키우지 말고 콜 쪽이 기본입니다.','Medium',true,'Poker Decision Rule DB');
+      }
+      if(tc>0 && live().length>=3 && risk.count>=1 && ['one_pair','overpair','TPTK','weak_two_pair'].includes(hc)){
+        const read=observedAggressionRead(opp);
+        if(read.aggressive){
+          return friendlyRuleResult('Review','P10-R04 | Aggressive Opponent Override Review',
+            `멀티웨이 completion이라 기본 Fold 구간이지만, 이 상대는 관찰 ${read.hands}핸드에서 PFR≈${Math.round(read.pfr*100)}% / Post Agg≈${Math.round(read.postAgg*100)}%로 공격성이 충분히 확인됐습니다. 자동 Hard Fold하지 말고 pot odds와 실제 bluff/overvalue 빈도를 재평가합니다.`,
+            'Low',false,'Poker OS Engine v3','hold');
+        }
+        return friendlyRuleResult('Fold','P10-R04 | Completion+Multiway Bluff-catcher Fold',
+          '리버에서 여러 명이 남고 보드가 완성형으로 변했습니다. 공격적 상대라는 충분한 관찰 근거가 없으면 Unknown baseline으로 마지막 bluff-catcher 한 베팅을 줄입니다.','High',true,'Poker Decision Rule DB');
+      }
+      if(tc>0 && ['one_pair','overpair','TPTK'].includes(hc) && risk.count>=1){
+        const read=observedAggressionRead(opp);
+        if(read.aggressive){
+          return friendlyRuleResult('Review','P10-R01 | Aggressive Opponent Review',
+            `위험한 리버 원페어지만 관찰된 공격성이 높습니다(PFR≈${Math.round(read.pfr*100)}%, Post Agg≈${Math.round(read.postAgg*100)}%). 숨겨진 상대 타입이 아니라 실제 관찰치로 Call/Fold를 재평가합니다.`,
+            'Low',false,'Poker OS Engine v3','hold');
+        }
+        return friendlyRuleResult('Fold','P10-R01 | River One-pair vs Strong Bet Fold',
+          '리버 위험 보드에서 공격적 상대라는 충분한 관찰 근거가 없으면 Unknown baseline으로 한 쌍의 마지막 콜을 줄입니다.','High',true,'Poker Decision Rule DB');
+      }
+    }
+  }
+  return null;
+}
+function fallbackRecommendation(){
+  const p=S.players[S.hero],tc=Math.max(0,S.currentBet-p.streetBet),sc=strength(p),mw=live().length>=4;
+  if(S.currentBet>=cap() && tc>0){
+    if(sc>=.55)return friendlyRuleResult('Call','베팅 상한 도달','이미 이 스트리트의 캡까지 올라와 추가 레이즈가 불가능합니다. 계속할 만한 패면 콜만 가능합니다.','Medium',true,'Poker OS 보조채점');
+    return friendlyRuleResult('Fold','베팅 상한 도달','이미 캡까지 올라온 강한 액션입니다. 약한 패로 추가 금액을 내지 않습니다.','Medium',true,'Poker OS 보조채점');
+  }
+  let action='Call',why='중간 강도의 상황이라 필요한 금액만 따라가는 Poker OS 보조 기준입니다.';
+  if(S.street==='preflop'){
+    if(sc>=.76) {action=S.preflopRaised?'3-bet':'Raise';why='Rule DB 직접 매칭은 없지만 시작패 강도가 매우 높아 공격적으로 플레이하는 Poker OS 보조 기준입니다.'}
+    else if(sc<.34){action='Fold';why='직접 Rule DB 매칭이 없고 시작패 강도도 낮아 추가 투입을 줄이는 Poker OS 보조 기준입니다.'}
+    else action='Call';
+  }else{
+    if(tc===0){action=sc>.66?'Bet':'Check';why=sc>.66?'강한 편이라 밸류를 받는 Poker OS 보조 기준입니다.':'애매하면 팟을 키우지 않는 Poker OS 보조 기준입니다.'}
+    else if(sc<.36 || (mw&&sc<.52)){action='Fold';why='약하거나 멀티웨이에서 가치가 떨어져 추가 한 베팅을 줄이는 Poker OS 보조 기준입니다.'}
+    else if(sc>.80){action='Raise';why='강한 완성패라 밸류를 더 받는 Poker OS 보조 기준입니다.'}
+    else action='Call';
+  }
+  return friendlyRuleResult(action,'보조 판단',why,'Low',false,'Poker OS 보조채점','hold');
+}
+
+function heroProfileRates(){
+  const h=S.heroProfile||{actions:0,folds:0,raises:0,calls:0,checks:0,facedBet:0,foldsToBet:0,callsVsBet:0,raisesVsBet:0};
+  const n=Math.max(1,h.actions||0),fb=Math.max(1,h.facedBet||0);
+  return {
+    fold:(h.folds||0)/n,raise:(h.raises||0)/n,call:(h.calls||0)/n,check:(h.checks||0)/n,
+    foldToBet:(h.foldsToBet||0)/fb,callVsBet:(h.callsVsBet||0)/fb,raiseVsBet:(h.raisesVsBet||0)/fb,
+    facedBet:h.facedBet||0
+  };
+}
+function updateHeroProfile(a,tc){
+  if(!S.heroProfile)S.heroProfile={actions:0,folds:0,calls:0,checks:0,raises:0,facedBet:0,foldsToBet:0,callsVsBet:0,raisesVsBet:0};
+  const h=S.heroProfile;h.actions++;
+  if(tc>0){h.facedBet++;if(a==='fold')h.foldsToBet++;else if(a==='call')h.callsVsBet++;else if(a==='raise')h.raisesVsBet++}
+  if(a==='fold')h.folds++;
+  else if(a==='call')h.calls++;
+  else if(a==='check')h.checks++;
+  else if(a==='raise')h.raises++;
+}
+function aiPreflopAction(p,tc,sc,k){
+  const ps=pos(p.seat),code=holeCode(p.hole),group=preflopGroup(code),facing=preflopFacing();
+  const lateBonus=({BTN:.10,CO:.075,HJ:.035,SB:-.015,BB:.015}[ps]||0)*k.position;
+  const heatDamp=adaptiveAggressionDamp();
+  const noise=(Math.random()-.5)*k.noise;
+  const multi=S.preflopLimpers>=3?-.025*k.position:0;
+  const x=sc+lateBonus+multi+noise+(p.loose-.5)*.15;
+  const price=potOddsPct(tc,S.pot);
+  const canRaise=S.currentBet<cap()&&p.stack>tc;
+
+  if(tc<=0){
+    if(canRaise&&group==='premium')return 'raise';
+    if(canRaise&&group==='strong'&&x>.64+heatDamp&&allowNonPremiumTrainingRaise(group))return 'raise';
+    return 'check';
+  }
+
+  // Regular 이상은 포지션/상대 액션/가격을 분리해서 본다.
+  if(k.potOdds>=.70){
+    if(facing==='Raised'||facing==='Capped'){
+      const rp=S.preflopRaiserSeat==null?'':pos(S.preflopRaiserSeat);
+      const ep=['UTG','UTG+1'].includes(rp);
+      if(group==='premium'&&canRaise&&facing!=='Capped')return 'raise';
+      if(ep&&group==='weak')return 'fold';
+      if(group==='strong')return price<=.20?'call':'fold';
+      if((group==='pair'||group==='speculative')&&live().length>=4&&price<=.13)return 'call';
+      if(ps==='BB'&&(group==='pair'||group==='speculative')&&price<=.11)return 'call';
+      return 'fold';
+    }
+    if(facing==='Limpers'){
+      if(group==='premium')return canRaise?'raise':'call';
+      if(group==='strong'&&S.preflopLimpers<=2)return canRaise&&allowNonPremiumTrainingRaise(group)?'raise':'call';
+      if(group==='pair'||group==='speculative')return price<=.18?'call':'fold';
+      if(x>.50&&['CO','BTN'].includes(ps))return 'call';
+      return 'fold';
+    }
+    if(facing==='Unopened'){
+      const openCut=({UTG:.72,'UTG+1':.70,'UTG+2':.66,MP:.62,HJ:.58,CO:.53,BTN:.48,SB:.60,BB:.99}[ps]??.63)+heatDamp;
+      if(x>=openCut)return canRaise&&allowNonPremiumTrainingRaise(group)?'raise':'call';
+      return tc>0?'fold':'check';
+    }
+  }
+
+  // Average / Recreational: 기존 성향 기반 휴리스틱을 유지하되 포지션을 일부 반영.
+  if(x<.30-(p.loose-.5)*.20)return 'fold';
+  if(canRaise&&x>.72-(p.agg-.5)*.18+heatDamp&&allowNonPremiumTrainingRaise(group))return 'raise';
+  if(price>.24&&k.potOdds>.35&&x<.48)return 'fold';
+  return 'call';
+}
+function postflopDrawProfile(p){
+  const cards=[...p.hole,...S.board];
+  const suitCount={};cards.forEach(c=>suitCount[c.s]=(suitCount[c.s]||0)+1);
+  let flushDraw=false;
+  for(const [s,n] of Object.entries(suitCount)){
+    if(n===4 && p.hole.some(c=>c.s===s)){flushDraw=true;break}
+  }
+  const vals=[...new Set(cards.map(c=>c.v))];
+  if(vals.includes(14))vals.push(1);
+  let straightOutsWindows=0;
+  for(let hi=14;hi>=5;hi--){
+    const need=[hi,hi-1,hi-2,hi-3,hi-4];
+    const hit=need.filter(v=>vals.includes(v)).length;
+    if(hit===4)straightOutsWindows++;
+  }
+  const straightDraw=straightOutsWindows>0;
+  const maxBoard=S.board.length?Math.max(...S.board.map(c=>c.v)):0;
+  const overcards=p.hole.filter(c=>c.v>maxBoard).length;
+  return {flushDraw,straightDraw,comboDraw:flushDraw&&straightDraw,overcards};
+}
+function postflopStyleCfg(p){
+  const t=p.type||'Regular';
+  // v4.2: street별 aggression을 분해한다. value는 유지하되 multiway bluff는 빠르게 감소한다.
+  const map={
+    'Calling Station':{cbet:.42,stab:.18,semi:.16,value:.86,valueRaise:.78,barrel:.35,bluff:.06,thinValue:.38,riverBluff:.03},
+    'Tight-Passive':{cbet:.38,stab:.15,semi:.15,value:.80,valueRaise:.75,barrel:.30,bluff:.05,thinValue:.30,riverBluff:.02},
+    'Loose-Passive':{cbet:.40,stab:.18,semi:.17,value:.78,valueRaise:.70,barrel:.32,bluff:.06,thinValue:.32,riverBluff:.03},
+    'Nit':{cbet:.44,stab:.16,semi:.14,value:.88,valueRaise:.85,barrel:.36,bluff:.04,thinValue:.40,riverBluff:.02},
+    'Regular':{cbet:.64,stab:.38,semi:.44,value:.92,valueRaise:.88,barrel:.52,bluff:.18,thinValue:.54,riverBluff:.10},
+    'Tight-Aggressive':{cbet:.72,stab:.42,semi:.50,value:.95,valueRaise:.92,barrel:.60,bluff:.22,thinValue:.58,riverBluff:.12},
+    'Loose-Aggressive':{cbet:.78,stab:.56,semi:.60,value:.91,valueRaise:.86,barrel:.67,bluff:.36,thinValue:.58,riverBluff:.20},
+    'Tricky-Aggressive':{cbet:.70,stab:.50,semi:.58,value:.90,valueRaise:.89,barrel:.63,bluff:.32,thinValue:.55,riverBluff:.18},
+    'Maniac':{cbet:.86,stab:.72,semi:.75,value:.93,valueRaise:.92,barrel:.78,bluff:.58,thinValue:.62,riverBluff:.38}
+  };
+  return map[t]||map.Regular;
+}
+function postflopMultiwayFactor(n,kind='generic'){
+  // Strong value는 multiway에서도 거의 감쇠하지 않지만 bluff/semi-bluff는 빠르게 줄인다.
+  const table={
+    strongValue:[1,1,1,.98,.96,.94],
+    valueRaise:[1,1,.98,.92,.84,.76],
+    mediumValue:[1,1,.93,.82,.70,.60],
+    thinValue:[1,1,.92,.78,.60,.48],
+    semi:[1,1,.87,.67,.50,.38],
+    cbet:[1,1,.85,.68,.52,.40],
+    barrel:[1,1,.82,.62,.45,.33],
+    stab:[1,1,.78,.58,.40,.28],
+    bluff:[1,1,.68,.42,.24,.15],
+    generic:[1,1,.88,.74,.60,.48]
+  };
+  const a=table[kind]||table.generic;
+  return n<=2?a[1]:n===3?a[2]:n===4?a[3]:n===5?a[4]:a[5];
+}
+
+function aiPostflopAction(p,tc,sc,k){
+  const hc=handClass(p),risk=boardRisk(),n=live().length,price=potOddsPct(tc,S.pot);
+  const draw=postflopDrawProfile(p),sty=postflopStyleCfg(p);
+  const strongMade=['straight_flush','quads','full_house','nut_flush','near_nut','straight','set','trips','strong_two_pair'].includes(hc);
+  const mediumMade=['flush','weak_two_pair','overpair','TPTK'].includes(hc);
+  const weakMade=['high_card','one_pair'].includes(hc);
+  const rates=heroProfileRates();
+  const canRaise=S.currentBet<cap()&&p.stack>tc;
+  const noise=(Math.random()-.5)*k.noise;
+  let x=sc+(p.loose-.5)*.12+noise;
+
+  if(['CO','BTN'].includes(pos(p.seat)))x+=.035*k.position;
+  if(n>=5)x-=.025*k.board;
+  if(risk.count>=2&&weakMade)x-=.10*k.board;
+  if(S.street==='river'&&risk.count>=1&&['one_pair','overpair','TPTK','weak_two_pair'].includes(hc))x-=.07*k.board;
+
+  if((S.heroProfile?.actions||0)>=10&&n<=3){
+    if(rates.facedBet>=6&&rates.foldToBet>.42)x+=.045*k.adapt*p.agg;
+    if(rates.raiseVsBet>.24&&tc>0&&!strongMade)x-=.035*k.adapt;
+    if(rates.callVsBet>.55&&strongMade)x+=.040*k.adapt;
+  }
+
+  // Adaptive pressure는 이제 '강제 aggression'이 아니라 credible spot의 작은 보정만 한다.
+  if(canRaise&&pressurePlanActive()){
+    if(tc===0){
+      const pq=adaptivePressureBetChance(p,hc,draw,strongMade,mediumMade,weakMade,sty);
+      if(Math.random()<pq){ensurePressurePlan().used[S.street]=true;return 'raise'}
+    }else if(S.lastAggressorSeat===S.hero){
+      const rq=adaptivePressureRaiseBackChance(p,hc,draw,strongMade,mediumMade,sty,tc);
+      if(Math.random()<rq){const plan=ensurePressurePlan();plan.used[S.street]=true;plan.responseUsed[S.street]=true;return 'raise'}
+    }
+  }
+
+  if(tc>0){
+    if(strongMade){
+      const vr=Math.min(.98,sty.valueRaise*(.70+.30*k.value)*postflopMultiwayFactor(n,'valueRaise'));
+      return canRaise&&Math.random()<vr?'raise':'call';
+    }
+    if(draw.comboDraw&&S.street!=='river'){
+      const semi=Math.min(.72,sty.semi*(.52+.42*k.value)*postflopMultiwayFactor(n,'semi'));
+      if(canRaise&&Math.random()<semi)return 'raise';
+      if(price<=.22+.06*k.potOdds)return 'call';
+    }else if((draw.flushDraw||draw.straightDraw)&&S.street!=='river'){
+      const semi=Math.min(.52,sty.semi*(.38+.36*k.value)*postflopMultiwayFactor(n,'semi'));
+      if(canRaise&&Math.random()<semi)return 'raise';
+      if(price<=.17+.07*k.potOdds)return 'call';
+    }
+    if(S.street==='river'&&n>=3&&risk.count>=1&&['one_pair','overpair','TPTK','weak_two_pair'].includes(hc)&&k.board>=.65)return 'fold';
+    if(mediumMade){
+      const safeRaise=['flush','weak_two_pair','overpair','TPTK'].includes(hc)&&risk.count===0&&n<=3;
+      if(safeRaise&&canRaise&&Math.random()<.14*sty.valueRaise*k.value*postflopMultiwayFactor(n,'valueRaise'))return 'raise';
+      if(price<=.16+.05*k.potOdds)return 'call';
+      return k.potOdds>.65?'fold':(Math.random()<p.loose?'call':'fold');
+    }
+    const equityProxy=Math.max(.08,Math.min(.58,x*.48+((draw.flushDraw||draw.straightDraw)?.08:0)));
+    if(k.potOdds>.35&&price>equityProxy)return 'fold';
+    if(x<.30-(p.loose-.5)*.18)return 'fold';
+    // Pure bluff raise facing a bet is mostly heads-up / 3-way and heavily style dependent.
+    if(canRaise&&n<=3&&x>.80-(p.agg-.5)*.12&&Math.random()<(.12+.20*k.value)*sty.bluff*postflopMultiwayFactor(n,'bluff'))return 'raise';
+    return 'call';
+  }
+
+  if(strongMade){
+    const vbet=Math.min(.99,sty.value*(.86+.14*k.value)*postflopMultiwayFactor(n,'strongValue'));
+    if(canRaise&&Math.random()<vbet)return 'raise';
+    return 'check';
+  }
+
+  if(mediumMade&&canRaise){
+    let v=.20+.30*sty.value+.16*k.value;
+    if(['overpair','TPTK'].includes(hc)&&risk.count<=1)v+=.12;
+    if(hc==='flush'||hc==='weak_two_pair')v+=.10;
+    v*=postflopMultiwayFactor(n,'mediumValue');
+    if(risk.count>=2&&['overpair','TPTK','weak_two_pair'].includes(hc))v*=.58;
+    if(S.street==='river')v*=.78+.35*sty.thinValue;
+    if(Math.random()<Math.min(.88,v))return 'raise';
+  }
+
+  if(canRaise&&S.street!=='river'&&(draw.flushDraw||draw.straightDraw)){
+    let semi=sty.semi*(.50+.32*k.value)*postflopMultiwayFactor(n,'semi');
+    if(draw.comboDraw)semi+=.14;
+    if(['CO','BTN'].includes(pos(p.seat)))semi+=.05*k.position;
+    if(Math.random()<Math.min(.76,semi))return 'raise';
+  }
+
+  if(canRaise&&S.prevStreetAggressorSeat===p.seat&&S.street==='flop'){
+    let cb=sty.cbet*(.56+.28*k.memory)*postflopMultiwayFactor(n,'cbet');
+    if(risk.count===0)cb+=.07;
+    if(draw.flushDraw||draw.straightDraw)cb+=.05;
+    if(weakMade&&n>=4)cb*=.72;
+    if(Math.random()<Math.min(.84,cb))return 'raise';
+  }
+
+  if(canRaise&&S.prevStreetAggressorSeat===p.seat&&S.street==='turn'){
+    let bar=sty.barrel*(.46+.34*k.memory)*postflopMultiwayFactor(n,'barrel');
+    if(mediumMade||draw.comboDraw)bar+=.09;
+    else if(draw.flushDraw||draw.straightDraw)bar+=.05;
+    if(risk.count>=2&&weakMade)bar*=.55;
+    if(Math.random()<Math.min(.76,bar))return 'raise';
+  }
+
+  if(canRaise&&S.acted.size>=1){
+    let stab=sty.stab*(.46+.28*k.position)*postflopMultiwayFactor(n,'stab');
+    if(['CO','BTN'].includes(pos(p.seat)))stab+=.06;
+    if(n<=3)stab+=.04;
+    if(weakMade&&risk.count>=1)stab*=.82;
+    if(Math.random()<Math.min(.62,stab))return 'raise';
+  }
+
+  if(canRaise&&S.street==='river'){
+    if(['overpair','TPTK','weak_two_pair'].includes(hc)&&risk.count===0&&n<=3){
+      const thin=(.18+.34*sty.thinValue*k.value)*postflopMultiwayFactor(n,'thinValue');
+      if(Math.random()<Math.min(.64,thin))return 'raise';
+    }
+    if(weakMade&&n<=2){
+      const bluff=Math.min(.18,sty.riverBluff*(.30+.24*k.bluff)*postflopMultiwayFactor(n,'bluff'));
+      if(Math.random()<bluff)return 'raise';
+    }
+  }
+
+  // v4.2에서는 generic random aggression floor를 제거한다. 공격은 value, draw,
+  // initiative(c-bet/barrel), checked-to stab, river thin value/bluff 근거가 있을 때만 발생한다.
+  return 'check';
+}
+function aiAct(seat){
+  const p=S.players[seat],tc=Math.max(0,S.currentBet-p.streetBet),sc=strength(p),k=skillCfg(p);
+  let a=S.street==='preflop'?aiPreflopAction(p,tc,sc,k):aiPostflopAction(p,tc,sc,k);
+  if(S.street==='preflop')a=shapeAdaptivePreflopAction(p,a,tc);
+  else markPostflopPressureAction(a,tc);
+  act(seat,a,false);
+}
+
+function normalizeRecommendation(r){
+  if(!r)return null;
+  const canonical=isCanonicalRecommendation(r);
+  if(canonical){r.gradeable=true;r.tier='canonical';r.resolution='Canonical';return r}
+  r.gradeable=false;
+  if(['model','exploit'].includes(r.tier)||r.source===FULL_DECISION_ENGINE_VERSION){
+    r.resolution=r.resolution||(r.tier==='exploit'?'Exploit':'Model');return r;
+  }
+  r.tier=r.tier||'hold';r.resolution='Review Only';
+  if(r.action!=='Review'){
+    r.suggestedAction=r.action;const label=ACTION_KO[r.action]||r.action;r.action='Review';
+    r.why=`정본 없음 · Review Only. 참고 휴리스틱은 ${label}였지만 KPI/정답 채점에는 사용하지 않습니다. ${r.why||''}`;
+  }
+  return r;
+}
+function recommendation(){
+  const c=canonicalRecommendation();
+  if(isCanonicalRecommendation(c))return normalizeRecommendation(c);
+  let modelError=null;
+  try{
+    const m=fullDecisionModel();
+    if(m)return normalizeRecommendation(m);
+  }catch(err){
+    modelError=err;
+    console.error('Full Decision Model error; falling back to Review Only',err);
+  }
+  if(c)return normalizeRecommendation(c);
+  const f=fallbackRecommendation();
+  f.gradeable=false;f.tier='hold';f.confidence='Low';
+  if(modelError)f.why=`계산형 Model Layer 오류로 Review Only fallback을 사용합니다. 게임 진행은 계속됩니다. ${f.why||''}`;
+  return normalizeRecommendation(f);
+}
+
+function startHeroDecisionTimer(){
+  if(!S)return;S.heroDecisionStartedAt=Date.now();S.heroDecisionActiveMs=0;S.heroDecisionLastTick=document.visibilityState==='visible'?Date.now():0;
+}
+function pauseHeroDecisionTimer(){if(!S||!S.heroDecisionLastTick)return;S.heroDecisionActiveMs+=Math.max(0,Date.now()-S.heroDecisionLastTick);S.heroDecisionLastTick=0}
+function resumeHeroDecisionTimer(){if(!S||S.handOver||S.actor!==S.hero||document.visibilityState!=='visible'||S.heroDecisionLastTick)return;S.heroDecisionLastTick=Date.now()}
+function consumeHeroDecisionTimer(){if(!S)return null;pauseHeroDecisionTimer();const ms=Number.isFinite(S.heroDecisionActiveMs)?S.heroDecisionActiveMs:null;S.heroDecisionStartedAt=0;S.heroDecisionActiveMs=0;S.heroDecisionLastTick=0;return ms}
+function act(seat,a,hero){
+ const p=S.players[seat],tc=Math.max(0,S.currentBet-p.streetBet),st=step();
+ const beforeBet=p.streetBet;
+ const ctx={street:S.street,toCall:tc,raiseCount:S.preflopRaiseCount,streetAggressionCount:S.streetAggressionCount,limit:S.cfg.label};
+ const semantic=actualSemantic(a,ctx);
+ if(!hero)trackOpponentAction(p,a,tc);
+
+ if(hero){
+   const userConfidence=$('heroConfidence')?.value||'';
+   if(!userConfidence){$('hint').textContent='액션 전에 내 확신(낮음/중간/높음)을 선택하세요.';return}
+   // 참여 판 판정: 프리플랍에서 자발적으로 칩을 추가했거나, 포스트플랍에서 액션한 경우.
+   if(S.street!=='preflop'||a==='call'||a==='raise')S.heroParticipatedHand=true;
+   updateHeroProfile(a,tc);
+   const r=recommendation();
+   const decisionMs=consumeHeroDecisionTimer();
+   if(S.street==='preflop'&&!S.heroPreflopFacingRecorded){S.heroFirstFacing=preflopFacing();S.heroPreflopFacingRecorded=true}
+   const risk=boardRisk();
+   S.decisions.push({
+     street:S.street,pos:pos(seat),actual:a,actualSemantic:semantic,
+     rec:r.action,why:r.why,rule:r.rule,source:r.source,confidence:r.confidence,gradeable:r.gradeable,tier:r.tier,
+     userConfidence,decisionMs,
+     hole:holeCode(p.hole),handClass:S.street==='preflop'?'preflop':handClass(p),boardRisk:risk,
+     facing:S.street==='preflop'?preflopFacing():(tc>0?'Bet':'CheckedTo'),
+     limpers:S.preflopLimpers,playersActive:live().length,board:S.board.map(c=>c.r+c.s).join(' '),pot:S.pot,toCall:tc,potOdds:potOddsPct(tc,S.pot),reviewEngine:REVIEW_ENGINE_VERSION,
+     strategyVersion:STRATEGY_VERSION,suggestedAction:r.suggestedAction||null,
+     resolution:r.resolution||null,engineVersion:r.source===FULL_DECISION_ENGINE_VERSION?FULL_DECISION_ENGINE_VERSION:null,
+     estimatedEquity:Number.isFinite(r.estimatedEquity)?r.estimatedEquity:null,requiredEquity:Number.isFinite(r.requiredEquity)?r.requiredEquity:null,
+     equityTrials:r.equityTrials||null,rangeSummary:r.rangeSummary||null,actionEV:r.actionEV||null,alternateAction:r.alternateAction||null,mix:r.mix||null,cleanOuts:r.cleanOuts??null,boardChange:r.boardChange||null,
+     preflopRaiserPos:S.preflopRaiserSeat==null?'':pos(S.preflopRaiserSeat),
+     opponentReadSnapshot:(S.street==='river'&&S.lastAggressorSeat!=null)?deepClone(observedAggressionRead(S.players[S.lastAggressorSeat])):null
+   });
+   $('decisionClock').textContent=decisionMs!=null?`결정 ${(decisionMs/1000).toFixed(1)}s`:'결정시간 -';
+   $('heroConfidence').value='medium';
+   if($('reviewMode').value==='live'&&mode()!=='exam')$('hint').textContent=`코치${r.resolution?` [${r.resolution}]`:''}: ${ACTION_KO[r.action]||r.action} · ${r.why}`;
+   if(a==='fold'){$('hint').textContent='폴드 완료 · 상대 액션을 빠르게 진행 중입니다.';S.fastForward=true}
+   disableHero();
+ }
+
+ if(a==='fold'){
+   p.folded=true;p.last='Fold';log(`${p.name} Fold`,hero?'heroLog':'')
+ } else if(a==='check'){
+   p.last='Check';S.acted.add(seat);log(`${p.name} Check`,hero?'heroLog':'')
+ } else if(a==='call'){
+   const pay=Math.min(tc,p.stack);
+   p.stack-=pay;p.streetBet+=pay;p.totalBet+=pay;S.pot+=pay;
+   const isSBComplete=S.street==='preflop' && pos(seat)==='SB' && !S.preflopRaised && S.currentBet===S.cfg.bb;
+   p.last=tc?(isSBComplete?`SB Complete +${fmt(pay)} (총 ${fmt(p.streetBet)})`:`Call +${fmt(pay)} (총 ${fmt(p.streetBet)})`):'Check';
+   S.acted.add(seat);if(p.stack===0)markAllIn(p);log(`${p.name} ${p.last}${p.stack===0?' · ALL-IN':''}`,hero?'heroLog':'');
+   if(S.street==='preflop' && !S.preflopRaised && tc>0 && pos(seat)!=='SB')S.preflopLimpers++;
+ } else if(a==='raise'){
+   const target=Math.min(cap(),S.currentBet+st),need=Math.max(0,target-p.streetBet),pay=Math.min(need,p.stack);
+   p.stack-=pay;p.streetBet+=pay;p.totalBet+=pay;S.pot+=pay;
+   const fullRaise=p.streetBet>=target;
+   if(p.streetBet>S.currentBet)S.currentBet=p.streetBet;
+   p.last=fullRaise?`${ACTION_KO[semantic]||semantic} · 총 ${fmt(p.streetBet)}`:`Short ALL-IN · 총 ${fmt(p.streetBet)}`;
+   if(fullRaise){
+     S.acted=new Set([seat]);S.lastAggressorSeat=seat;S.streetAggressionCount++;
+     if(S.street==='preflop'){
+       if(!S.preflopRaised){S.preflopRaised=true;S.preflopRaiserSeat=seat}
+       S.preflopRaiseCount++;
+     }
+   }else{
+     // 강원랜드의 세부 incomplete-raise reopen 기준은 정본 미확인.
+     // 훈련기에서는 full fixed-limit 단위를 채우지 못한 올인은 액션을 다시 열지 않는 보수적 처리.
+     S.acted.add(seat);
+   }
+   if(p.stack===0)markAllIn(p);
+   log(`${p.name} ${p.last}${p.stack===0?' · ALL-IN':''}`,hero?'heroLog':'')
+ }
+ if(live().length<=1){render();winByFold();return}
+ S.actor=nextSeat(seat);
+ if(hero&&a==='fold'){render();$('status').textContent='폴드 완료 · 상대 액션 진행 중…'}
+ else if(!S.fastForward)render();
+ persistSession();
+ setTimeout(advance,S.fastForward?5:120)
+}
+function nextStreet(){
+ if(S.street==='river'){showdown();return}
+ S.street=S.street==='preflop'?'flop':S.street==='flop'?'turn':'river';
+ if(S.street==='flop'&&!S.players[S.hero].folded)S.heroParticipatedHand=true;
+ const n=S.street==='flop'?3:1;for(let i=0;i<n;i++)S.board.push(S.deck.pop());
+ if(S.street==='river' && !S.players[S.hero].folded)S.heroReachedRiver=true;
+ S.prevStreetAggressorSeat=S.lastAggressorSeat;
+ S.players.forEach(p=>p.streetBet=0);S.currentBet=0;S.acted=new Set();S.lastAggressorSeat=null;S.streetAggressionCount=0;
+ log(`*** ${S.street.toUpperCase()} ${S.board.map(c=>c.r+c.s).join(' ')} ***`,'sys');if(!S.fastForward)render();persistSession();startRound((S.btn+1)%9)
+}
+function calcRake(gross){const raw=Math.floor(gross*RAKE_RATE);const cap=RAKE_CAP[S?.cfg?.label]??raw;return Math.min(raw,cap)}
+function buildPots(){
+  const levels=[...new Set(S.players.map(p=>Number(p.totalBet)||0).filter(x=>x>0))].sort((a,b)=>a-b);
+  const pots=[];const refunds=[];let prev=0;
+  for(const level of levels){
+    const contributors=S.players.filter(p=>(Number(p.totalBet)||0)>=level);
+    const amount=(level-prev)*contributors.length;prev=level;if(amount<=0)continue;
+    if(contributors.length===1){refunds.push({player:contributors[0],amount});continue}
+    const eligible=contributors.filter(p=>!p.folded);
+    if(eligible.length)pots.push({amount,eligible,level});
+  }
+  return {pots,refunds};
+}
+function bestWinners(eligible){
+  let best=null,w=[];
+  for(const p of eligible){
+    p.eval=p.eval||ev7([...p.hole,...S.board]);
+    if(!best||cmp(p.eval,best)>0){best=p.eval;w=[p]}else if(cmp(p.eval,best)===0)w.push(p);
+  }
+  return w;
+}
+function settlePots(){
+  const grossRecorded=S.pot;
+  const {pots,refunds}=buildPots();
+  let refundTotal=0;
+  for(const r of refunds){r.player.stack+=r.amount;refundTotal+=r.amount;log(`UNCALLED ${r.player.name} +${fmt(r.amount)} 반환`,'sys')}
+  const contestedGross=pots.reduce((a,p)=>a+p.amount,0);
+  const rake=calcRake(contestedGross);
+  S.handRake=rake;S.sessionRake+=rake;S.lastPotGross=contestedGross;S.lastUncalledRefund=refundTotal;
+  let rakeLeft=rake, paid=0;const winnerSet=new Set();const details=[];
+  pots.forEach((pot,i)=>{
+    let potRake=i===pots.length-1?rakeLeft:Math.min(rakeLeft,Math.floor(rake*pot.amount/Math.max(1,contestedGross)));
+    rakeLeft-=potRake;const net=pot.amount-potRake;const winners=bestWinners(pot.eligible);
+    const base=Math.floor(net/winners.length);let rem=net-base*winners.length;
+    winners.forEach((p,idx)=>{const extra=idx<rem?1:0;p.stack+=base+extra;paid+=base+extra;winnerSet.add(p.seat)});
+    details.push({gross:pot.amount,rake:potRake,net,winners:winners.map(p=>p.name),eligible:pot.eligible.map(p=>p.name)});
+  });
+  S.lastPotNet=paid;S.pot=0;S.winnerSeats=[...winnerSet];
+  if(grossRecorded!==contestedGross+refundTotal)log(`POT AUDIT WARN · recorded ${fmt(grossRecorded)} / settled ${fmt(contestedGross+refundTotal)}`,'sys');
+  persistSession();
+  return {gross:contestedGross,rake,net:paid,refundTotal,details,winnerSeats:[...winnerSet]};
+}
+function accountingAudit(){
+  if(!S)return {ok:true,diff:0};
+  const stacks=S.players.reduce((a,p)=>a+p.stack,0);
+  const tracked=stacks+S.pot+S.sessionRake+(S.chipsRemoved||0);
+  const expected=(S.initialChips||0)+(S.chipsAdded||0);
+  const diff=tracked-expected;
+  return {ok:Math.abs(diff)<0.5,diff,stacks,tracked,expected};
+}
+function updateAutoButton(){
+  const b=$('autoToggle');if(!b)return;
+  b.textContent=autoNext?'자동 진행 ON':'자동 진행 OFF';
+  b.classList.toggle('autoOn',autoNext);b.classList.toggle('autoOff',!autoNext);
+}
+function shouldPauseForResult(){
+  if(!S)return false;
+  const heroWon=Array.isArray(S.winnerSeats)&&S.winnerSeats.includes(S.hero);
+  return !!(S.heroParticipatedHand||S.heroReachedRiver||heroWon||S.heroNeedsRebuy);
+}
+function scheduleNextHand(){
+  if(autoTimer){clearTimeout(autoTimer);autoTimer=null}
+  if(!S||!S.handOver)return;
+  if(S.trainingGateActive){$('next').disabled=true;persistSession();return}
+  if(S.heroNeedsRebuy){
+    autoNext=false;updateAutoButton();$('rebuyHero').disabled=false;$('next').disabled=true;
+    $('hint').textContent='스택 0원 · 리바인 후 계속 플레이할 수 있습니다.';persistSession();return;
+  }
+  if(!autoNext)return;
+  if(shouldPauseForResult()){
+    $('next').disabled=false;
+    $('hint').textContent=S.heroNeedsRebuy
+      ?'스택 0원 · 리바인 후 계속 플레이할 수 있습니다.'
+      :'참여한 핸드의 최종 결과입니다. 결과를 확인한 뒤 “다음 핸드”를 눌러주세요.';
+    persistSession();return;
+  }
+  $('next').disabled=true;
+  $('hint').textContent=($('hint').textContent?$('hint').textContent+' · ':'')+'1.5초 후 다음 핸드 자동 시작';
+  autoTimer=setTimeout(()=>{autoTimer=null;if(autoNext&&S&&S.handOver)newHand()},1500);
+}
+function winByFold(){
+ const w=live()[0],pay=settlePots();
+ S.winnerSeats=pay.winnerSeats.length?pay.winnerSeats:[w.seat];S.winnerText=`${w.name} 승리`;
+ log(`${w.name} fold win · net ${fmt(pay.net)} · rake ${fmt(pay.rake)}`,'sys');
+ showWinnerBanner(`${w.name} 승리`,`경쟁 팟 ${fmt(pay.gross)}원 · 레이크 ${fmt(pay.rake)}원 · 실지급 ${fmt(pay.net)}원${pay.refundTotal?` · 미콜 반환 ${fmt(pay.refundTotal)}원`:''}`);
+ finish(false)
+}
+function showdown(){
+ const ps=live();ps.forEach(p=>{p.eval=ev7([...p.hole,...S.board]);if(p.seat!==S.hero)ensureObs(p).showdowns++});
+ const pay=settlePots();
+ const winNames=[...new Set(pay.details.flatMap(d=>d.winners))];
+ S.winnerText=`${winNames.join(', ')||'쇼다운'} 승리`;
+ pay.details.forEach((d,i)=>log(`${i===0?'MAIN POT':'SIDE POT '+i} · ${d.winners.join(', ')} · gross ${fmt(d.gross)} · net ${fmt(d.net)}`,'sys'));
+ log(`SHOWDOWN · gross ${fmt(pay.gross)} · rake ${fmt(pay.rake)} · net ${fmt(pay.net)}`,'sys');
+ const heroWin=S.winnerSeats.includes(S.hero);
+ showWinnerBanner(`${winNames.join(', ')||'쇼다운'} 승리`,
+   `${pay.details.length>1?`메인+사이드팟 ${pay.details.length}개 · `:''}경쟁 팟 ${fmt(pay.gross)}원 · 레이크 ${fmt(pay.rake)}원 · 실지급 ${fmt(pay.net)}원${pay.refundTotal?` · 미콜 반환 ${fmt(pay.refundTotal)}원`:''}${heroWin?' · Hero 수령 포함':''}`);
+ finish(true)
+}
+function showWinnerBanner(title,sub){
+ $('winnerTitle').textContent='🏆 '+title;
+ $('winnerSub').textContent=sub;
+ $('winnerBanner').classList.add('show');
+}
+function finish(reveal){
+  S.handOver=true;
+  disableHero();
+  lifecycleDecision();
+  $('rebuyHero').disabled=!S.heroNeedsRebuy;
+  $('next').disabled=S.heroNeedsRebuy?true:(shouldPauseForResult()?false:!autoNext);
+  render(reveal);
+  renderReview();
+  persistSession();
+  if(S.endAfterHand){endSession(true);return}
+  const targetReached=S.hand>=Number(S.sessionTarget||100);
+  if(beginAdaptiveBlockIfDue(targetReached))return;
+  beginReadCheckpointIfDue();
+  if(targetReached){endSession(false);return}
+  scheduleNextHand();
+}
+
+function categoryForDecision(d){
+  const rule=String(d.rule||'');
+  if(d.street==='river'||/^P10-R/.test(rule))return 'river';
+  if(d.street==='turn')return 'turn';
+  if(/F01|Strong made|direct value/i.test(rule))return 'strong_value';
+  if(/BB Free|Blind|Free Check/i.test(rule))return 'blind';
+  if(/PF0[89]|Facing Raise|vs EP/i.test(rule))return 'facing_raise';
+  if(d.street==='preflop')return 'preflop';
+  return null;
+}
+function updateCurriculumFromLive(decisions){
+  let changed=false;
+  for(const d of decisions||[]){
+    if(!(d.tier==='canonical'||d.source==='Poker Decision Rule DB'))continue;
+    const k=categoryForDecision(d);if(!k||!trainingProfile.drills[k])continue;
+    const v=trainingProfile.drills[k],ok=d.actualSemantic===d.rec;v.seen++;changed=true;
+    if(ok){
+      v.correct++;v.streak++;
+      if(v.streak>=5)v.weight=Math.max(PERSONAL_WEIGHT_FLOOR[k]||1,Number(v.weight||1)-.12);
+    }else{
+      v.streak=0;v.weight=Math.min(9,Number(v.weight||1)+(d.userConfidence==='high'?.7:.35));
+    }
+  }
+  if(changed)saveTrainingProfile();
+}
+function aggregateEdge(){
+  const raw=loadHistory(),current=raw.map(historyRegrade);
+  if(!raw.length)return {hands:0,bb100:null,leak:0,medianMs:null,p90Ms:null,skill:{},style:{},highConfErrors:0,canonStreet:{preflop:[0,0],flop:[0,0],turn:[0,0],river:[0,0]}};
+  let totalBB=0,leak=0,ms=[],highConfErrors=0;const skill={},style={},canonStreet={preflop:[0,0],flop:[0,0],turn:[0,0],river:[0,0]};
+  for(let i=0;i<raw.length;i++){
+    const h=raw[i],rh=current[i]||h;
+    const bb=Number(h.bb)||bbForLimit(h.limit);const plBB=(Number(h.handPL)||0)/Math.max(1,bb);totalBB+=plBB;
+    for(const d of rh.decisions||[]){
+      leak+=decisionLeakRiskBB(d,h);if(Number.isFinite(d.decisionMs)&&d.decisionMs>=0)ms.push(d.decisionMs);
+      const canon=!!d.currentGradeable;
+      if(canon&&canonStreet[d.street]){canonStreet[d.street][1]++;if(d.matched===true)canonStreet[d.street][0]++}
+      if(d.userConfidence==='high'&&canon&&d.matched===false)highConfErrors++;
+    }
+    const opp=(h.opponents||[]).filter(o=>(Number(o.totalBet)||0)>0);const denom=opp.reduce((a,o)=>a+(Number(o.totalBet)||0),0);
+    if(denom>0){
+      for(const o of opp){const share=(Number(o.totalBet)||0)/denom;
+        const sk=o.skill||'Average',st=o.style||'Unknown';
+        skill[sk]=skill[sk]||{pl:0,exp:0};skill[sk].pl+=plBB*share;skill[sk].exp+=share;
+        style[st]=style[st]||{pl:0,exp:0};style[st].pl+=plBB*share;style[st].exp+=share;
+      }
+    }
+  }
+  const sorted=[...ms].sort((a,b)=>a-b),p90=sorted.length?sorted[Math.min(sorted.length-1,Math.floor(sorted.length*.9))]:null;
+  return {hands:raw.length,bb100:100*totalBB/raw.length,leak,medianMs:median(ms),p90Ms:p90,skill,style,highConfErrors,canonStreet,regradeSchema:REGRADE_SCHEMA_VERSION};
+}
+function fmtEdge(x){return !Number.isFinite(x)?'-':(x>=0?'+':'')+x.toFixed(1)}
+function cohortTable(obj){
+  const rows=Object.entries(obj).filter(([,v])=>v.exp>0).sort((a,b)=>b[1].exp-a[1].exp).slice(0,8);
+  if(!rows.length)return '<div class="reviewItem"><b>표본 축적 중</b><p>상대 Skill 노출을 더 쌓아야 합니다.</p></div>';
+  return `<table class="edgeTable"><tr><th>구간</th><th>노출</th><th>귀속 BB/100</th></tr>${rows.map(([k,v])=>`<tr><td>${k}</td><td>${v.exp.toFixed(1)}</td><td>${v.exp<COHORT_MIN_EXPOSURE?'<span class="muted">표본 부족</span>':fmtEdge(100*v.pl/Math.max(.01,v.exp))}</td></tr>`).join('')}</table><div class="modeNote">Skill별 수치는 노출 ${COHORT_MIN_EXPOSURE} 이상에서만 표시합니다.</div>`;
+}
+function renderEdgeMetrics(){
+  const e=aggregateEdge();if(!$('edgeBB100'))return;
+  $('edgeBB100').textContent=e.hands<EDGE_MIN_HANDS?'표본 부족':(e.bb100==null?'-':fmtEdge(e.bb100));$('leakBB').textContent=e.leak.toFixed(1);$('decisionAvg').textContent=e.medianMs==null?'-':(e.medianMs/1000).toFixed(1)+'s';
+  const cs=e.canonStreet||{},coverage=['preflop','flop','turn','river'].map(st=>`${STREET_KO[st]||st} ${(cs[st]?.[0]||0)}/${(cs[st]?.[1]||0)}`).join(' · ');
+  $('edgeBreakdown').innerHTML=`<div class="reviewItem"><b>훈련 손익 격리</b><p>Raw 훈련 BB/100 ${e.bb100==null?'-':fmtEdge(e.bb100)} · ${e.hands}/${EDGE_MIN_HANDS}핸드. ${e.hands<EDGE_MIN_HANDS?'Edge 판정 보류.':'장기 훈련 표본 기준 충족.'}</p></div><div class="reviewItem"><b>Canonical street coverage</b><p>${coverage}</p></div><div class="reviewItem"><b>Skill별 훈련 귀속</b>${cohortTable(e.skill)}</div><div class="reviewItem"><b>고확신 canonical 오류</b><p>${e.highConfErrors}회 · 맞다고 확신하면서 틀린 결정은 우선 복습 대상으로 올립니다.</p></div>`;
+}
+function masteryRate(x){return x.seen?x.correct/x.seen:0}
+function currentFocus(){
+  let best=null;
+  for(const [k,v] of Object.entries(trainingProfile.drills)){const err=v.seen?1-v.correct/v.seen:.45;const score=v.weight*(1+err*1.8)/(1+Math.min(5,v.streak)*.12);if(!best||score>best.score)best={key:k,score,name:v.name}}
+  return best;
+}
+const DRILL_BANK={
+ river:[
+  {s:'리버 · 4명 남음 · 보드 9♠ 5♠ 9♣ 6♥ 2♠ · Hero 88 · Unknown/Regular의 Bet 10,000 · 큰 멀티웨이 팟',o:['Fold','Call','Raise'],a:'Fold',r:'P10-R04 v1.1',w:'멀티웨이 + completion + bluff-catcher. 공격적 상대라는 충분한 관찰 근거가 없으면 마지막 한 베팅이 싸 보여도 Fold.'},
+  {s:'리버 · Hero JJ · 보드 T♠-9♦-4♠-5♥-9♣ · 4way · Pot 140,000 · Unknown의 Bet 10,000',o:['Fold','Call'],a:'Fold',r:'P10-R04 v1.1',w:'가격이 약 6~7%로 싸 보여도 multiway completion + Unknown baseline에서는 마지막 한 베팅을 자동 지불하지 않는다.'},
+  {s:'리버 · Hero AKo · 보드 5♥-J♦-3♥-3♦-K♥ · 3way · Pot 170,000 · Passive/Unknown의 Bet 10,000',o:['Fold','Call'],a:'Fold',r:'P10-R04 v1.1',w:'K pair가 생겼어도 paired + flush-complete river의 3way bet은 공격적 read가 없으면 단순히 5~6% 가격만 보고 crying call하지 않는다.'},
+  {s:'리버 · 4명 남음 · paired+flush 완성 · Hero 약한 two-pair · Pot 200,000 · Bet 10,000 + 뒤에 2명 남음',o:['Fold','Call'],a:'Fold',r:'P10-R04',w:'뒤 액션이 남은 multiway bluff-catcher는 현재 pot odds보다 reverse-action 위험까지 포함해 Fold 비중을 높인다.'},
+  {s:'리버 · 3명 남음 · flush 완성 보드 · Hero TPTK · Tight-Passive가 Bet, 다른 1명 Call',o:['Fold','Call','Raise'],a:'Fold',r:'P10-R01/P10-R04',w:'수동적 상대의 강한 액션과 콜러까지 있으면 원페어는 크게 강등.'},
+  {s:'리버 · 3way · completion 보드 · Hero TPTK · Pot 170,000 · Bet 10,000 · 상대 관찰 16핸드, PFR≈31%, Post Agg≈55%',o:['자동 Fold','Pot odds+bluff 빈도 재평가'],a:'Pot odds+bluff 빈도 재평가',r:'P10-R04 v1.1 | Observed-Aggro Override',w:'충분히 관찰된 공격적 상대는 population Hard Fold의 예외다. 숨겨진 Style이 아니라 실제 액션 통계로 재평가한다.'},
+  {s:'리버 · Heads-up · 안전한 보드 · Hero nut straight · 상대 Check',o:['Check','Bet'],a:'Bet',r:'P10-R03',w:'안전한 강한 made hand는 결과를 두려워하지 말고 direct value.'}
+ ],
+ turn:[
+  {s:'턴 · 500핸드 Audit · overpair · 4way+ · 상대 Bet · completion 정보 불충분',o:['자동 Fold','자동 Call','재계산'],a:'재계산',r:'P10-TC01 | Coverage Candidate',w:'95개 Turn decision 중 canonical 표본이 0이었다. 실제 로그에서 overpair vs multiway Bet은 Call/Fold가 갈렸으므로 행동을 정답으로 학습하지 말고 board completion·pot odds·action history를 추가해 재계산한다.'},
+  {s:'턴 · OESD 8 clean outs · Pot 80,000 · Call 10,000 · 한 장 남음',o:['Fold','Call'],a:'Call',r:'P10-T01 | Turn Mandatory Recalc',w:'상대 range → clean outs → pot odds → 다음 액션 EV 순서로 다시 계산. 8 clean outs라면 현재 가격은 계속할 수 있는 구간.'},
+  {s:'턴 · 사실상 4 clean outs · Pot 60,000 · Call 10,000 · 보드가 flush까지 완성',o:['Fold','Call'],a:'Fold',r:'P10-T01 | Turn Mandatory Recalc',w:'Flop call은 Turn call의 근거가 아니다. dirty outs를 할인하면 현재 가격을 충족하지 못해 Fold.'},
+  {s:'턴 · Hero 44 · 보드 6♠-5♥-3♣-6♥ · 5way · Flop에서 5,000 Call 후 Turn Bet 10,000',o:['Fold','Call'],a:'Fold',r:'Turn sticky-middle correction',w:'Patch 6 실제 패턴 교정: Flop에서 한 번 콜했다는 사실은 Turn 콜 근거가 아니다. paired board + multiway에서 작은 페어/약한 two-pair는 새 가격으로 다시 계산하고 내려놓는다.'},
+  {s:'턴 · Hero A-high draw가 Flop을 싼 가격에 Call · Turn blank · 4way · Bet 10,000',o:['Fold','Call'],a:'Fold',r:'P10-T01 | Turn Mandatory Recalc',w:'sunk-cost 금지. Flop 가격이 좋았어도 Turn blank 후 clean outs와 현재 pot odds가 안 맞으면 Fold.'},
+  {s:'턴 · Hero AA overpair · 5way · straight 완성 카드 · Tight-Passive의 Bet→Raise + caller',o:['Fold','Call','Raise'],a:'Fold',r:'P10-T02 / P10-M02',w:'multiway + completion + strong action이 겹치면 one-pair를 bluff-catcher로 강등하고 Fold 비중을 크게 높인다.'},
+  {s:'턴 · Hero two-pair · 위험요소 1개 · Regular의 Raise · 상대는 Maniac 아님',o:['Fold','Call','Cap'],a:'Call',r:'P10-T03 | Two-pair Turn Raise No-Cap',w:'Rule DB Test 규칙: 위험 보드의 투페어는 추가 Cap보다 Call 우선. 이 문제는 개념 훈련이며 실력 KPI canonical에는 직접 합산하지 않는다.'},
+  {s:'턴 · Hero QQ overpair · 보드 T-6-3-2 rainbow · 3way · Pot 150,000 · 상대 Bet 10,000',o:['Fold','Call','Raise'],a:'Call',r:'Turn price + hand strength review',w:'강한 원페어를 단순히 액션이 나왔다는 이유로 버리지 않는다. 가격이 매우 좋고 completion 위험이 낮으면 최소 Call로 equity를 실현.'},
+  {s:'턴 · Hero KK overpair · 보드 Q-8-4-J two-tone · 4way · Passive Bet + Regular Raise',o:['Fold','Call','Cap'],a:'Call',r:'Turn aggression discrimination',w:'강한 원페어도 멀티웨이 강한 액션에서는 무조건 Cap하지 않는다. 그러나 자동 Fold도 금지하고 가격·상대·보드로 Call/Fold를 구분.'}
+ ],
+ strong_value:[
+  {s:'플랍 · 500핸드 Audit · TPTK · 4way+ · 앞에서 Check',o:['자동 Check','자동 Bet','정본 후보로 검증'],a:'정본 후보로 검증',r:'P10-FC01 | Coverage Candidate',w:'로그에서 같은 묶음 3건 모두 실제 Bet이었지만 기존 derived는 Check였다. 행동 결과만으로 canonical 승격하지 않고 value/board/opponent 조건을 보강해 Test Rule로 검증한다.'},
+  {s:'플랍 · Hero 99 · board 9-6-2 rainbow · 4way · 앞에서 Check',o:['Check','Bet'],a:'Bet',r:'P10-F01',w:'Set은 trap보다 direct value가 기본.'},
+  {s:'턴 · Hero nut straight · 3way · 상대 Bet · cap 전',o:['Call','Raise'],a:'Raise',r:'Strong made value',w:'강한 made hand는 한 베팅 더 받아내는 것이 핵심 edge.'},
+  {s:'리버 · Hero non-nut flush · 상대가 강하게 Bet · 보드 flush',o:['Fold','Call','Raise'],a:'Call',r:'P10-R02',w:'non-nut flush는 불필요한 raise를 줄이고 showdown value를 실현.'},
+  {s:'플랍 · Hero QQ overpair · board T-4-3 two-tone · 큰 멀티웨이 팟 · Bet 후 추가 Raise · 가격 약 5%',o:['Fold','Call','Raise'],a:'Call',r:'Strong made hand vs aggression review',w:'최근 실제 패턴 교정: overpair는 강한 액션만 보고 자동 Fold하지 않는다. 싼 가격이면 한 번 더 Call하고 다음 street에서 재계산.'},
+  {s:'리버 · Hero A-high nut flush · paired board · 상대 Check',o:['Check','Bet'],a:'Bet',r:'Strong river value',w:'nut/near-nut는 보드가 무섭다는 이유로 체크백하지 않는다. 상대가 체크했으면 받을 수 있는 마지막 한 베팅을 찾는다.'}
+ ],
+ preflop:[
+  {s:'10만 PF · UTG · KJo · unopened',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF01',w:'EP는 weak offsuit broadway를 줄이고 range edge를 만든다.'},
+  {s:'10만 PF · UTG+1 · AJs · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'P10-PF01',w:'정본 open range 안에서는 limp가 아니라 Raise.'},
+  {s:'10만 PF · UTG · 88 · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'Open-vs-Limp correction',w:'최근 세션 교정: 들어갈 수 있는 중간 페어를 수동적으로 limp하지 말고 open raise로 주도권과 value를 확보.'},
+  {s:'10만 PF · MP · 44 · unopened',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF02 | MP/HJ Open',w:'Patch 6 반복 오류 교정: MP의 44는 싸게 limp하는 패가 아니라 현재 정본 open range 밖이므로 Fold.'},
+  {s:'10만 PF · UTG · 55 · unopened',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF01 | EP Open',w:'작은 페어라고 무조건 set-mine limp하지 않는다. EP에서는 정본 범위 밖이면 Fold.'},
+  {s:'10만 PF · CO · 44 · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'P10-PF03 | CO Open',w:'같은 44라도 CO에서는 정본 open range 안이다. 포지션에 따라 Fold/ Raise 경계가 바뀐다.'},
+  {s:'10만 PF · BTN · 33 · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'P10-PF04 | BTN Open',w:'작은 페어 경계훈련: BTN에서는 33부터 open raise. limp로 시작하지 않는다.'},
+  {s:'10만 PF · HJ · A9s · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'Open-vs-Limp correction',w:'최근 세션 교정: open 범위 안의 suited Ace는 Call로 시작하지 않고 Raise.'},
+  {s:'10만 PF · MP · 앞에 1 limper · Hero 44',o:['자동 Call','자동 Fold','포지션·limper·뒤 cap risk 재평가'],a:'포지션·limper·뒤 cap risk 재평가',r:'Small-Pair Overlimp Review',w:'Strategy v1.1: 작은 pocket은 싸다는 이유로 자동 overlimp하지 않는다. 직접 정본이 없는 limped-pot 경계는 Review Only.'},
+  {s:'10만 PF · BTN · 87s · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'P10-PF04',w:'BTN의 position edge를 활용하는 open 범위.'}
+ ],
+ blind:[
+  {s:'10만 PF · BB · 림퍼만 있음 · 이미 BB 5,000 납부 · 추가 Call 0 · 보통 패',o:['Fold','Check','Call'],a:'Check',r:'P10-PF12',w:'추가금액 0이면 Fold/Call이 아니라 Check. 단, 강한 value hand는 별도 Review 경계.'},
+  {s:'10만 PF · BB · 앞에 1 limper · Hero AJs · 추가 Call 0',o:['Check','Raise'],a:'Raise',r:'P10-PF05 | 1 Limper Value Raise',w:'Strategy v1.1 우선순위: BB Free Check보다 limper value-raise 정본을 먼저 적용한다. 1 limper의 AJs는 Raise.'},
+  {s:'10만 PF · BB · 앞에 3 limpers · Hero AJs · 추가 Call 0',o:['자동 Check','자동 Raise','재평가'],a:'재평가',r:'BB Value/Free Option Review',w:'3 limpers의 AJs는 Free Check 단독 정답으로 채점하지 않는다. 테이블 성향과 뒤 cap 위험을 보고 Review Only.'},
+  {s:'10만 PF · SB · 멀티웨이 림프 팟 · suited connector · 추가 3,000만 내면 BB 완성',o:['Fold','Call','Raise'],a:'Call',r:'Blind price',w:'이미 낸 SB와 지금 추가금액을 분리. 싸고 멀티웨이형 패면 complete 후보.'}
+ ],
+ facing_raise:[
+  {s:'10만 PF · MP · EP Raise · Hero KJo',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09',w:'EP raise에 dominated offsuit hand를 싸다는 이유로 따라가지 않는다.'},
+  {s:'10만 PF · HJ · EP Raise · Hero QQ · cap 전',o:['Fold','Call','Cap'],a:'Cap',r:'P10-PF08',w:'10만 PF는 Raise 다음이 바로 Cap. QQ+ / AK는 premium value 구간.'},
+  {s:'10만 PF · CO · EP Raise · Hero ATo',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09',w:'dominance/OOP 위험을 가격보다 먼저 본다.'}
+ ]
+};
+function forcedDrillPlan(blockNo){
+  // Patch 9 audit priorities: Turn coverage first, River cheap-call remains high,
+  // Blind is 3/5, while Facing-Raise is 7/7 and is deprioritized.
+  const cycle=[
+    ['turn','river','blind','preflop','strong_value'],
+    ['river','turn','preflop','blind','strong_value'],
+    ['blind','turn','river','preflop','strong_value']
+  ];
+  return cycle[(Math.max(1,blockNo)-1)%cycle.length];
+}
+function beginAdaptiveBlockIfDue(targetReached=false){
+  if(!S||S.trainingMode!=='adaptive'||S.hand<=0||S.hand%ADAPTIVE_BLOCK_EVERY!==0||S.lastAdaptiveBlockHand===S.hand)return false;
+  const blockNo=Math.floor(S.hand/ADAPTIVE_BLOCK_EVERY);
+  S.lastAdaptiveBlockHand=S.hand;
+
+  // Non-blocking checkpoint: recommend a targeted drill, but never stop the poker session.
+  const plan=forcedDrillPlan(blockNo);
+  S.trainingGateActive=false;
+  S.trainingGateRemaining=0;
+  S.forcedDrillQueue=[];
+  S.endAfterTrainingGate=false;
+
+  if(READ_CHECKPOINTS.includes(S.hand))S.pendingReadCheckpoint=S.hand;
+
+  const label=plan.map(k=>trainingProfile.drills[k]?.name||k).join(' / ');
+  $('trainingGateStatus').textContent=`Hand ${S.hand} 체크포인트 · 선택 Drill 추천: ${label} · 게임은 계속 진행됩니다.`;
+
+  // Surface one relevant scenario in Decision Lab without creating a gate.
+  if(plan.length)nextDrill(plan[0]);
+
+  if(S.pendingReadCheckpoint&&S.trainingMode!=='exam')beginReadCheckpointIfDue(true);
+  persistSession();
+  return false;
+}
+function completeAdaptiveGate(){
+  if(!S)return;
+  S.trainingGateActive=false;S.trainingGateRemaining=0;S.forcedDrillQueue=[];S.endAfterTrainingGate=false;
+  $('trainingGateStatus').textContent='선택 Drill 체크포인트 · 게임 진행과 무관';
+  if(S.pendingReadCheckpoint&&S.trainingMode!=='exam')beginReadCheckpointIfDue(true);
+  updateAutoButton();scheduleNextHand();persistSession();
+}
+function beginReadCheckpointIfDue(force=false){
+  if(!S||S.trainingMode==='exam')return false;
+  const cp=force?S.pendingReadCheckpoint:(READ_CHECKPOINTS.includes(S.hand)?S.hand:0);if(!cp)return false;
+  const eligible=S.players.filter(p=>p.seat!==S.hero&&(p.handsAtTable||0)>=8).sort((a,b)=>(b.handsAtTable||0)-(a.handsAtTable||0));
+  if(!eligible.length){S.pendingReadCheckpoint=0;return false}
+  S.pendingReadCheckpoint=cp;S.readGateActive=false;readSeatOptions();$('readSeat').value=String(eligible[0].seat);$('readStyle').value='';$('readSkill').value='';
+  $('readResult').innerHTML=`<b>Hand ${cp} 상대 읽기 · 선택 훈련</b><br>${eligible[0].name}의 통계를 보고 추정할 수 있습니다. 판정하지 않아도 다음 핸드로 넘어갑니다.<br>${opponentEvidence(eligible[0])}`;
+  persistSession();return false;
+}
+function finishReadCheckpoint(){
+  if(!S)return;S.readGateActive=false;S.pendingReadCheckpoint=0;persistSession();
+}
+function skipReadCheckpoint(){
+  if(!S)return;S.readGateActive=false;S.pendingReadCheckpoint=0;$('readResult').innerHTML='<b>상대 읽기 건너뜀</b><br>선택 훈련이므로 세션 진행에는 영향을 주지 않습니다.';persistSession();
+}
+function weightedDrillKey(){
+  const vals=Object.entries(trainingProfile.drills).map(([k,v])=>{const err=v.seen?1-v.correct/v.seen:.45;return [k,v.weight*(1+err*2)/(1+Math.min(6,v.streak)*.15)]});
+  let total=vals.reduce((a,x)=>a+x[1],0),r=Math.random()*total;for(const [k,w] of vals){r-=w;if(r<=0)return k}return vals[0][0];
+}
+function nextDrill(forcedKey=null){const k=forcedKey||(mode()==='adaptive'?weightedDrillKey():currentFocus().key);const bank=DRILL_BANK[k],t=bank[Math.floor(Math.random()*bank.length)];drillScenario={...t,key:k};if(S)S.activeDrillScenario=deepClone(drillScenario);drillAnswered=false;renderDrill()}
+function renderDrill(){
+  if(!drillScenario){nextDrill();return}const d=drillScenario;
+  $('decisionLab').innerHTML=`<div class="labTitle">${trainingProfile.drills[d.key].name}</div><div class="labSituation">${d.s}</div><div class="labMeta">근거 ${d.r}</div><div class="labActions">${d.o.map(x=>`<button class="labAction" data-drill="${x}" ${drillAnswered?'disabled':''}>${x}</button>`).join('')}</div><div id="drillFeedback" class="readResult"></div>`;
+  $('decisionLab').querySelectorAll('[data-drill]').forEach(b=>b.addEventListener('click',()=>answerDrill(b.dataset.drill)));
+}
+function answerDrill(a){
+  if(drillAnswered)return;drillAnswered=true;const d=drillScenario,v=trainingProfile.drills[d.key],ok=a===d.a;v.seen++;trainingProfile.drillTotal++;if(ok){v.correct++;v.streak++;trainingProfile.drillCorrect++}else v.streak=0;saveTrainingProfile();
+  $('decisionLab').querySelectorAll('[data-drill]').forEach(b=>{if(b.dataset.drill===d.a)b.classList.add('correct');else if(b.dataset.drill===a&&!ok)b.classList.add('wrong');b.disabled=true});
+  $('drillFeedback').innerHTML=`<b>${ok?'정답':'교정 필요'}</b> · 정답 ${d.a}<br>${d.w}`;renderCurriculum();
+  if(S?.trainingGateActive){S.trainingGateRemaining=Math.max(0,S.trainingGateRemaining-1);$('trainingGateStatus').textContent=`선택 Decision Drill`;persistSession();if(S.trainingGateRemaining>0){setTimeout(()=>nextDrill(S.forcedDrillQueue.shift()),450)}else{setTimeout(()=>completeAdaptiveGate(),500)}}
+}
+function renderCurriculum(){
+  if(!trainingProfile)return;const focus=currentFocus();const rows=Object.entries(trainingProfile.drills).sort((a,b)=>masteryRate(a[1])-masteryRate(b[1])).map(([k,v])=>{const pct=v.seen?Math.round(100*v.correct/v.seen):0;return `<div class="masteryRow"><span class="mname">${v.name}</span><span class="mval">${v.seen?`${pct}% · ${v.seen}`:'미측정'}</span><div class="progress" style="grid-column:1/3"><span style="width:${pct}%"></span></div></div>`}).join('');
+  $('curriculumSummary').innerHTML=`<div class="reviewItem"><b>현재 집중: ${focus.name}</b><p>Adaptive는 약 82%의 핸드에서 J의 최근 canonical 오류와 Strategy v1.1 경계범위를 반영한 맞춤 시작패를 배정합니다. v4.2는 Turn/River Pressure를 강제 베팅이 아니라 자연스러운 value·draw·initiative spot의 추가 노출로 바꿨습니다. Turn/River는 각각 약 50%의 핸드를 압박 후보로 지정하되, 실제 액션은 hand class·board·player count·style·skill에 따라 결정됩니다. Simulation은 Rec 2 / Avg 2 / Reg 3 / Strong 1, Adaptive는 Rec 1 / Avg 2 / Reg 3 / Strong 2, Exam은 Avg 1 / Reg 4 / Strong 3을 기본으로 하며 Style과 Skill은 독립입니다. Hero 첫 액션 전 프리플랍 상황은 Unopened 30% / Limpers 40% / Raised 25% / Capped 5%를 목표로 제어합니다.</p></div>${rows}`;
+  if($('trainingGateStatus')&&!S?.trainingGateActive)$('trainingGateStatus').textContent='';
+  if(!drillScenario)nextDrill();
+}
+function checkOpponentRead(){
+  if(!S)return;if(S.trainingMode==='exam'&&!S.sessionEnded){$('readResult').textContent='시험 모드에서는 상대의 실제 성향·실력을 세션 종료 전 공개하지 않습니다.';return}const seat=Number($('readSeat').value),style=$('readStyle').value,skill=$('readSkill').value;if(!Number.isInteger(seat)||!style||!skill){$('readResult').textContent='좌석·스타일·실력을 모두 선택하세요.';return}
+  const p=S.players[seat];if(!p||seat===S.hero)return;if((p.handsAtTable||0)<8){$('readResult').textContent=`${p.name} 관찰 ${p.handsAtTable||0}핸드 · 최소 8핸드 후 판정하세요.`;return}
+  trainingProfile.read.attempts++;const sc=style===p.type,kc=skill===(p.skill||'Average');if(sc)trainingProfile.read.styleCorrect++;if(kc)trainingProfile.read.skillCorrect++;saveTrainingProfile();
+  $('readResult').innerHTML=`${p.name} · 스타일 ${sc?'✓':'✗'} / 실력 ${kc?'✓':'✗'}<br>${opponentEvidence(p)}<br>실제: ${p.type} · ${p.skill||'Average'} · 누적 ${trainingProfile.read.attempts}회`;
+  S.pendingReadCheckpoint=0;S.readGateActive=false;persistSession();
+}
+function renderSessionDebrief(){
+  if(!S)return;const hist=loadHistory().filter(h=>h.sessionId===S.sessionId),dec=hist.flatMap(h=>h.decisions||[]);const canon=dec.filter(d=>d.tier==='canonical'||d.source==='Poker Decision Rule DB'),ok=canon.filter(d=>d.actualSemantic===d.rec),hi=canon.filter(d=>d.userConfidence==='high'&&d.actualSemantic!==d.rec),mix=tableSkillMix();
+  const rate=canon.length?Math.round(100*ok.length/canon.length):null;const pl=S.players[S.hero].stack-(S.heroTotalBuyin||S.startStack),nat=sessionNaturalStats(S.sessionId);
+  let sessionBB=0,sessionLeak=0;for(const h of hist){sessionBB+=(Number(h.handPL)||0)/Math.max(1,Number(h.bb)||bbForLimit(h.limit));for(const d of h.decisions||[])sessionLeak+=decisionLeakRiskBB(d,h)}
+  const bb100=hist.length?100*sessionBB/hist.length:null;const byStreet={preflop:[0,0],flop:[0,0],turn:[0,0],river:[0,0]};for(const d of canon){if(byStreet[d.street]){byStreet[d.street][1]++;if(d.actualSemantic===d.rec)byStreet[d.street][0]++}}
+  const cov=Object.entries(byStreet).map(([k,v])=>`${STREET_KO[k]} ${v[0]}/${v[1]}`).join(' · '),recentHeat=recentActionHeat(S.sessionId),heatWarn=recentHeat.seen>=ACTION_HEAT_MIN_HANDS&&recentHeat.rate>ACTION_HEAT_THRESHOLD?` · 최근 ${recentHeat.seen}핸드 action-heavy ${(recentHeat.rate*100).toFixed(0)}%`:'';
+  const targetMix={};hist.forEach(h=>{const k=h.adaptiveTarget||h.heroFirstFacing||'Unknown';targetMix[k]=(targetMix[k]||0)+1});const biased=hist.filter(h=>h.adaptiveBiasedDeal).length;const targetText=Object.entries(targetMix).map(([k,v])=>`${k} ${v}`).join(' / ');
+  const pressureTarget=hist.filter(h=>['turn','river','both'].includes(h.postflopPressureTarget)).length;
+  const pressureTurn=hist.filter(h=>h.postflopPressureUsed?.turn).length,pressureRiver=hist.filter(h=>h.postflopPressureUsed?.river).length;
+  const raiseBackTurn=hist.filter(h=>h.postflopRaiseBackUsed?.turn).length,raiseBackRiver=hist.filter(h=>h.postflopRaiseBackUsed?.river).length;
+  const aiMon={flop:{check:0,call:0,betRaise:0,fold:0},turn:{check:0,call:0,betRaise:0,fold:0},river:{check:0,call:0,betRaise:0,fold:0}};
+  for(const h of hist){for(const st of ['flop','turn','river']){const x=h.aiPostflopActions?.[st]||{};for(const a of ['check','call','betRaise','fold'])aiMon[st][a]+=Number(x[a])||0}}
+  const aiRate=st=>{const x=aiMon[st],t=x.check+x.call+x.betRaise+x.fold;return t?`${(100*x.betRaise/t).toFixed(1)}% (${x.betRaise}/${t})`:'-'};
+  $('sessionDebrief').innerHTML=`<b>${S.cfg.label} · ${S.hand}핸드 · ${S.trainingMode}</b><br>세션 P/L ${pl>=0?'+':''}${fmt(pl)}원 · canonical ${rate==null?'-':rate+'%'} (${ok.length}/${canon.length}) · 고확신 오류 ${hi.length}회<br>Canonical coverage: ${cov}<br>VPIP ${(nat.vpip*100).toFixed(1)}% · PFR ${(nat.pfr*100).toFixed(1)}% · 내 첫 액션 전 Raise/Cap ${(nat.actionHeat*100).toFixed(1)}%${heatWarn}<br>Adaptive 맞춤딜 ${biased}/${hist.length} · 목표상황 ${targetText||'-'}<br>Turn/River 압박 타깃 ${pressureTarget}/${hist.length} · 실제 압박 Turn ${pressureTurn} / River ${pressureRiver} · raise-back T ${raiseBackTurn} / R ${raiseBackRiver}<br>AI Bet/Raise 비율: Flop ${aiRate('flop')} · Turn ${aiRate('turn')} · River ${aiRate('river')}<br>현재 테이블 Skill: Rec ${mix.Recreational||0} / Avg ${mix.Average||0} / Reg ${mix.Regular||0} / Strong ${mix.Strong||0}<br>세션 누수 위험지수 ${sessionLeak.toFixed(1)} BB · Raw 훈련 BB/100 ${bb100==null?'-':fmtEdge(bb100)}<br><span class="modeNote">Adaptive 맞춤딜·자연형 pressure는 실력 교정을 위한 의도적 표본추출이므로 손익/BB100을 실전 수익성으로 해석하지 않습니다. AI Bet/Raise 비율은 필드 현실성 보정용 모니터이며 승률 지표가 아닙니다.</span>`;
+}
+function endSession(manual=true){
+  if(!S||S.sessionEnded)return;
+  if(manual&&S.trainingGateActive){$('hint').textContent='Decision Drill 체크포인트를 완료해야 세션을 종료할 수 있습니다.';return}
+  if(!S.handOver){S.endAfterHand=true;autoNext=false;updateAutoButton();$('endSession').disabled=true;$('hint').textContent='현재 핸드가 끝나면 세션 리포트를 생성합니다.';persistSession();return}
+  S.sessionEnded=true;S.endAfterHand=false;autoNext=false;updateAutoButton();if(autoTimer){clearTimeout(autoTimer);autoTimer=null}$('next').disabled=true;$('endSession').disabled=true;renderSessionDebrief();renderReview();persistSession();log(`${manual?'사용자 종료':'목표 핸드 도달'} · 세션 리포트 생성`,'sys');
+}
+
+function memoryTip(d){
+  if(d.gradeable===false) return '이 상황은 아직 행동 하나로 확정하기 어려워 채점을 보류합니다.';
+  if(d.actualSemantic==='Call'&&d.rec==='Fold') return '“한 번만 더 보자”는 콜을 줄이기.';
+  if(d.actualSemantic==='Call'&&['Raise','3-bet','Cap','Bet'].includes(d.rec)) return '좋은 패로 그냥 따라가지 말고 한 번 더 올리기.';
+  if(d.actualSemantic==='Check'&&['Bet','Raise'].includes(d.rec)) return '강한 패로 공짜 카드를 주지 말고 바로 돈 받기.';
+  if(d.actualSemantic==='Fold'&&d.rec==='Call') return '이미 낸 돈은 잊고, 지금 추가로 내는 금액이 싼지 다시 보기.';
+  if(d.rec==='Fold') return '애매하면 추가 한 베팅을 아끼기.';
+  if(['Raise','3-bet','Cap','Bet'].includes(d.rec)) return '강할 때는 한 번 더 받아내기.';
+  if(d.rec==='Call') return '필요한 추가 금액만 정확히 보고 따라가기.';
+  if(d.rec==='Check') return '애매하면 팟을 키우지 않고 다음 카드 보기.';
+  return '포지션·앞 액션·남은 사람 수를 먼저 보기.';
+}
+function loadHistory(){
+  try{
+    let raw=localStorage.getItem(HISTORY_KEY);
+    if(!raw){
+      const old=localStorage.getItem(OLD_HISTORY_KEY);
+      if(old){localStorage.setItem(HISTORY_KEY,old);raw=old}
+    }
+    const arr=raw?JSON.parse(raw):[];
+    return Array.isArray(arr)?arr:[];
+  }catch(e){return []}
+}
+function saveHistory(arr){
+  try{localStorage.setItem(HISTORY_KEY,JSON.stringify(arr.slice(-500)));return true}catch(e){return false}
+}
+function saveCurrentHand(){
+  if(!S||S.historySaved)return;
+  const hero=S.players[S.hero];
+  const handPL=hero.stack-S.heroStart;
+  const wins=S.winnerSeats||[];
+  const record={
+    savedAt:new Date().toISOString(),
+    handNo:S.hand,
+    limit:S.cfg.label,
+    position:pos(S.hero),
+    hole:hero.hole.map(c=>c.r+c.s).join(' '),
+    board:S.board.map(c=>c.r+c.s).join(' '),
+    handPL,
+    grossPot:S.lastPotGross||0,
+    rake:S.handRake||0,
+    netPot:S.lastPotNet||0,
+    accountingVersion:ACCOUNTING_VERSION,
+    reviewEngine:REVIEW_ENGINE_VERSION,
+    sessionId:S.sessionId,trainingMode:S.trainingMode||mode(),bb:S.cfg.bb,heroFirstFacing:S.heroFirstFacing||'',
+    adaptiveTarget:S.trainingPreflopTarget||'',adaptiveHoleCode:S.trainingHeroHoleCode||'',adaptiveBiasedDeal:!!S.trainingHeroHoleCode,
+    heroParticipatedHand:!!S.heroParticipatedHand,
+    postflopPressureTarget:S.postflopPressurePlan?.label||'none',postflopPressureUsed:deepClone(S.postflopPressurePlan?.used||{turn:false,river:false}),postflopRaiseBackUsed:deepClone(S.postflopPressurePlan?.responseUsed||{turn:false,river:false}),
+    aiPostflopActions:deepClone(S.aiHandActionStats||emptyAIHandActionStats()),
+    skillMix:tableSkillMix(),styleMix:tableStyleMix(),opponents:styleSkillSnapshot(),
+    heroWon:wins.includes(S.hero),
+    winner:S.winnerText||'',
+    decisions:S.decisions.map(d=>({...d,matched:d.gradeable?(d.actualSemantic===d.rec):null}))
+  };
+  updateCurriculumFromLive(record.decisions);
+  const hist=loadHistory();hist.push(record);saveHistory(hist);S.historySaved=true;renderHistory();renderEdgeMetrics();renderCurriculum();
+}
+
+function snapshotCanonicalRecommendation(d,hand){
+  const limit=hand?.limit||'10만',cfg=CANON[limit];if(!cfg)return null;
+  const st=d.street,ps=d.pos||'',code=d.hole||'',facing=d.facing||'',n=Number(d.limpers)||0,tc=Number(d.toCall)||0;
+  const hold=(rule,why)=>({action:'Review',rule,why,confidence:'Low',gradeable:false,source:'Poker OS Engine v3',tier:'hold'});
+  const canon=(action,rule,why,confidence='High')=>({action,rule,why,confidence,gradeable:true,source:'Poker Decision Rule DB',tier:'canonical'});
+
+  if(st==='preflop'){
+    // Free-check is a fallback after value-raise rules. Raise is legal when tc=0.
+    if(ps==='BB' && tc===0){
+      if(facing==='Limpers' && n>0){
+        if(n===1 && cfg.limp1 && rangeMatch(code,cfg.limp1.base))return canon('Raise',cfg.limp1.rule,cfg.limp1.explain);
+        if(n>=2&&n<=3&&cfg.limp23&&rangeMatch(code,cfg.limp23.range))return canon('Raise',cfg.limp23.rule,cfg.limp23.explain);
+        if(n>=4&&cfg.limp4&&rangeMatch(code,cfg.limp4.range))return canon('Raise',cfg.limp4.rule,cfg.limp4.explain);
+        const boundary=(n>=2&&n<=3)?['99','AJs']:(n>=4?['TT','AQo','99','AJs']:[]);
+        if(boundary.includes(code))return hold('BB Value/Free Option Review','limper 수에 따라 Check/Value Raise 경계라 자동 채점하지 않습니다.');
+      }
+      return canon('Check','P10-PF12 | BB Free Check','먼저 적용할 value-raise 정본이 없고 추가 콜 금액이 0원이므로 Check.');
+    }
+
+    if(facing==='Unopened'){
+      for(const k of Object.keys(cfg.open||{})){
+        const r=cfg.open[k];if(!r.positions.includes(ps))continue;
+        const range=[...r.range,...((ps==='HJ'&&r.hjAdd)?r.hjAdd:[])];
+        return canon(rangeMatch(code,range)?r.action:'Fold',r.rule,r.explain);
+      }
+      return null;
+    }
+
+    if(facing==='Limpers'){
+      if(n===1&&cfg.limp1){
+        const r=cfg.limp1,range=[...r.base,...((['HJ','CO','BTN'].includes(ps))?r.late:[])];
+        if(rangeMatch(code,range))return canon('Raise',r.rule,r.explain);
+        if(isPairCode(code)||isSuitedCode(code))return hold(isPairCode(code)?'Small-Pair Overlimp Review':'Speculative Overlimp Review','Strategy v1.1에서 자동 Call 정본이 없는 limped-pot 경계.');
+        return null;
+      }
+      if(n>=2&&n<=3&&cfg.limp23){
+        if(rangeMatch(code,cfg.limp23.range))return canon('Raise',cfg.limp23.rule,cfg.limp23.explain);
+        if(isPairCode(code)||isSuitedCode(code))return hold(isPairCode(code)?'Small-Pair Overlimp Review':'Speculative Overlimp Review','2~3 limper 경계는 Review Only.');
+        return null;
+      }
+      if(n>=4&&cfg.limp4){
+        if(rangeMatch(code,cfg.limp4.range))return canon('Raise',cfg.limp4.rule,cfg.limp4.explain);
+        if(isPairCode(code)||isSuitedCode(code))return hold('Multiway Overlimp Review','4+ limper pocket/suited hand은 자동 Call로 채점하지 않습니다.');
+        return null;
+      }
+    }
+
+    // Facing-raise canonical rules require the raiser position. Old history did
+    // not store it; future Patch 9 decisions do.
+    if((facing==='Raised'||facing==='Capped') && d.preflopRaiserPos){
+      const ep=['UTG','UTG+1'].includes(d.preflopRaiserPos);
+      if(ep && limit==='10만' && cfg.vsEPFold && cfg.vsEPFold.exact.includes(code))return canon('Fold',cfg.vsEPFold.rule,cfg.vsEPFold.explain);
+      if(ep && cfg.vsEP3bet && rangeMatch(code,cfg.vsEP3bet.range)){
+        if(facing==='Capped'&&limit==='10만')return canon('Call','P10-PF08 | vs EP Raise Premium','이미 캡이므로 QQ+/AK는 추가금액을 Call.');
+        return canon(cfg.vsEP3bet.action,cfg.vsEP3bet.rule,cfg.vsEP3bet.explain);
+      }
+    }
+    return null;
+  }
+
+  if(limit==='10만'){
+    const hc=d.handClass||'',risk=d.boardRisk||{},rc=Number(risk.count)||0,players=Number(d.playersActive)||0;
+    if(st==='flop' && ['set','straight','strong_two_pair'].includes(hc) && rc<=1)
+      return canon(tc>0?'Raise':'Bet','P10-F01 | Flop Strong Made Value','플랍 strong made hand direct value.');
+    if(st==='river'){
+      if(tc===0 && ['straight','set','strong_two_pair','nut_flush','near_nut'].includes(hc) && rc<=1)
+        return canon('Bet','P10-R03 | River Safe Strong Value','안전한 강한 리버 made hand는 value bet.');
+      if(tc>0 && hc==='flush' && !!risk.flushComplete)
+        return canon('Call','P10-R02 | Non-nut Flush No-Raise','non-nut flush는 bet을 받으면 Call 우선.','Medium');
+      if(tc>0 && players>=3 && rc>=1 && ['one_pair','overpair','TPTK','weak_two_pair'].includes(hc)){
+        if(d.opponentReadSnapshot?.aggressive)return hold('P10-R04 | Aggressive Opponent Override Review','관찰 기반 aggressive read가 있어 자동 Fold하지 않습니다.');
+        return canon('Fold','P10-R04 | Completion+Multiway Bluff-catcher Fold','Unknown/passive baseline의 completion+multiway bluff-catcher는 Fold.');
+      }
+      if(tc>0 && ['one_pair','overpair','TPTK'].includes(hc) && rc>=1){
+        if(d.opponentReadSnapshot?.aggressive)return hold('P10-R01 | Aggressive Opponent Review','관찰 기반 aggressive read가 있어 자동 Fold하지 않습니다.');
+        return canon('Fold','P10-R01 | River One-pair vs Strong Bet Fold','위험한 river one-pair vs bet은 Unknown baseline Fold.');
+      }
+    }
+  }
+  return null;
+}
+
+function classifySnapshotRegrade(d,hand,current){
+  const sem=d.actualSemantic||d.actual,tc=Number(d.toCall)||0,is10=hand.limit==='10만';
+  if(tc===0 && ['Fold','Call'].includes(sem))return {cls:'engine_error',label:'엔진 오류',reason:'추가금액 0에서 Fold/Call이 기록됨. Check 또는 합법적 Raise는 가능'};
+  if(is10 && d.street==='preflop' && sem==='3-bet')return {cls:'legacy_invalid',label:'구버전 무효',reason:'10만 프리플랍은 Raise→Cap 구조라 3-bet 단계가 없음'};
+  if(!current)return {cls:'review_only',label:'Review Only',reason:'현재 Strategy v1.1 정본으로 재구성할 정보/규칙이 없음'};
+  if(!current.gradeable)return {cls:'review_only',label:'Review Only',reason:current.why||'현재 전략에서 경계 구간'};
+  return sem===current.action
+    ? {cls:'good',label:'정상',reason:'현재 Strategy v1.1 정본과 일치'}
+    : {cls:'correction',label:'실제 교정',reason:'현재 Strategy v1.1 정본과 불일치'};
+}
+
+function historyRegrade(hand){
+  const decisions=(hand.decisions||[]).map(d=>{
+    const current=snapshotCanonicalRecommendation(d,hand);
+    const currentAction=current?.action||'Review';
+    const sem=d.actualSemantic||d.actual;
+    const regrade=classifySnapshotRegrade(d,hand,current);
+    return {
+      ...d,
+      originalRecommendation:d.rec,
+      originalRule:d.rule,
+      originalSource:d.source,
+      originalTier:d.tier,
+      originalReviewEngine:d.reviewEngine||hand.reviewEngine||'',
+      currentRecommendation:currentAction,
+      currentRule:current?.rule||'No current canonical',
+      currentSource:current?.source||'Poker OS Engine v3',
+      currentTier:current?.tier||'hold',
+      currentGradeable:!!current?.gradeable,
+      regradeStrategyVersion:STRATEGY_VERSION,
+      regradeSchema:REGRADE_SCHEMA_VERSION,
+      rec:currentAction,
+      rule:current?.rule||'No current canonical',
+      source:current?.source||'Poker OS Engine v3',
+      tier:current?.tier||'hold',
+      gradeable:!!current?.gradeable,
+      matched:current?.gradeable?(sem===currentAction):null,
+      regrade
+    };
+  });
+  return {...hand,regradeSchema:REGRADE_SCHEMA_VERSION,regradeStrategyVersion:STRATEGY_VERSION,decisions};
+}
+function regradedHistory(){return loadHistory().map(historyRegrade);}
+
+function buildUpgradeAudit(raw,regraded){
+  const flatten=hs=>hs.flatMap(h=>h.decisions||[]),rd=flatten(raw),rg=flatten(regraded);
+  const rawCanonical=rd.filter(d=>d.tier==='canonical'||d.source==='Poker Decision Rule DB');
+  const rawDerived=rd.filter(d=>!(d.tier==='canonical'||d.source==='Poker Decision Rule DB'));
+  const currentCanonical=rg.filter(d=>d.currentGradeable);
+  const currentCorrect=currentCanonical.filter(d=>d.matched===true);
+  const byStreet={};
+  for(const st of ['preflop','flop','turn','river']){
+    const a=currentCanonical.filter(d=>d.street===st);byStreet[st]={correct:a.filter(d=>d.matched===true).length,total:a.length};
+  }
+  return {
+    sourceHands:raw.length,sourceDecisions:rd.length,
+    rawCanonicalDecisions:rawCanonical.length,rawDerivedOrHoldDecisions:rawDerived.length,
+    rawDerivedMismatchCount:rawDerived.filter(d=>d.matched===false).length,
+    currentCanonicalCoverage:currentCanonical.length,
+    currentCanonicalCorrect:currentCorrect.length,
+    currentCanonicalAccuracy:currentCanonical.length?currentCorrect.length/currentCanonical.length:null,
+    currentByStreet:byStreet,
+    reviewOnly:rg.filter(d=>d.regrade?.cls==='review_only').length,
+    engineErrors:rg.filter(d=>d.regrade?.cls==='engine_error').length,
+    note:'Patch 9 audit: historical behavior is evidence for coverage gaps, not a source of automatic canonical truth.'
+  };
+}
+function renderHistory(){
+  const raw=loadHistory(), h=raw.map(historyRegrade);
+  $('histHands').textContent=h.length;
+
+  const all=h.flatMap(x=>x.decisions||[]);
+  const good=all.filter(x=>x.regrade?.cls==='good');
+  const fix=all.filter(x=>x.regrade?.cls==='correction');
+  const review=all.filter(x=>x.regrade?.cls==='review_only');
+  const invalid=all.filter(x=>['engine_error','legacy_invalid'].includes(x.regrade?.cls));
+  const trusted=good.length+fix.length;
+
+  $('histMatch').textContent=trusted?Math.round(good.length/trusted*100)+'%':'-';
+  $('classGood').textContent=good.length;
+  $('classFix').textContent=fix.length;
+  $('classInvalid').textContent=invalid.length;
+
+  const pl=raw.reduce((a,x)=>a+(Number(x.handPL)||0),0);
+  $('histPL').textContent=(pl>=0?'+':'')+fmt(pl);
+
+  const countBy=(arr,keyFn)=>{
+    const m={};arr.forEach(x=>{const k=keyFn(x);m[k]=(m[k]||0)+1});
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  };
+
+  let blocks=[];
+  blocks.push(`<div class="reviewItem"><b>True Regrade v2</b><p>현재 정본 정상 ${good.length} · 실제 교정 ${fix.length} · Review Only ${review.length} · 엔진/구버전 제외 ${invalid.length}. 과거 추천문을 재사용하지 않고 저장된 상황 스냅샷으로 Strategy v1.1을 다시 적용합니다.</p></div>`);
+
+  if(fix.length){
+    const byRule=countBy(fix,x=>x.rule||x.regrade?.reason||'교정')[0];
+    const byStreet=countBy(fix,x=>STREET_KO[x.street]||x.street)[0];
+    blocks.push(`<div class="simpleReview fix"><div class="tag">교정 1순위</div><div class="main">${byRule?byRule[0]:'신뢰 규칙 불일치'} · ${byRule?byRule[1]:fix.length}회</div><div class="why">${byStreet?byStreet[0]+'에서 실제 교정 '+byStreet[1]+'회':''}</div></div>`);
+  }else if(trusted){
+    blocks.push(`<div class="simpleReview good"><div class="tag">신뢰 채점</div><div class="main">현재 신뢰 가능한 교정 오류가 없습니다.</div></div>`);
+  }
+
+  if(good.length){
+    const gs=countBy(good,x=>STREET_KO[x.street]||x.street)[0];
+    blocks.push(`<div class="simpleReview good"><div class="tag">잘하고 있는 점</div><div class="main">${gs?gs[0]:'전체'}에서 신뢰 규칙 일치가 가장 많습니다.</div></div>`);
+  }
+  $('analysisSummary').innerHTML=blocks.join('');
+
+  const recent=h.slice(-20).reverse();
+  renderEdgeMetrics();
+  $('historyList').innerHTML=recent.length?recent.map(x=>{
+    const ds=x.decisions||[];
+    const corr=ds.filter(d=>d.regrade?.cls==='correction').length;
+    const rev=ds.filter(d=>d.regrade?.cls==='review_only').length;
+    const err=ds.filter(d=>['engine_error','legacy_invalid'].includes(d.regrade?.cls)).length;
+    const cls=corr?'regrade-fix':err?'regrade-legacy':rev?'regrade-engine':'regrade-good';
+    const label=corr?`교정 ${corr}`:err?`제외 ${err}`:rev?`Review ${rev}`:'정상';
+    return `<div class="historyRow">
+      <span class="result">${x.heroWon?'WIN':'HAND'}</span>
+      <span><b>${x.limit} · ${x.position} · ${x.hole}</b><br><span class="meta">${x.board||'보드 없음'} · 결정 ${ds.length}개 · <span class="regradeBadge ${cls}">${label}</span></span></span>
+      <span>${x.handPL>=0?'+':''}${fmt(x.handPL)}</span>
+    </div>`;
+  }).join(''):'<div class="reviewItem"><b>아직 없음</b><p>플레이 기록이 여기에 표시됩니다.</p></div>';
+}
+function exportHistory(){
+  const raw=loadHistory();
+  const h=raw.map(historyRegrade);
+  const json=JSON.stringify({
+    exportedAt:new Date().toISOString(),
+    reviewEngine:REVIEW_ENGINE_VERSION,
+    strategyVersion:STRATEGY_VERSION,
+    regradeSchema:REGRADE_SCHEMA_VERSION,
+    trainingProfile,
+    edgeSummary:aggregateEdge(),
+    upgradeAudit:buildUpgradeAudit(raw,h),
+    rawHands:raw,
+    regradedHands:h
+  },null,2);
+  $('jsonOutput').value=json;
+  $('exportPanel').hidden=false;
+  $('exportStatus').textContent=`${h.length}개 핸드 JSON은 자동으로 외부 전송되지 않습니다. True Regrade v2와 Coverage Audit를 포함합니다. 아래에서 파일 저장 또는 전체 선택 후 복사하세요.`;
+  downloadHistoryJson();
+}
+function downloadHistoryJson(){
+  const json=$('jsonOutput').value||JSON.stringify(loadHistory(),null,2);
+  try{
+    const blob=new Blob([json],{type:'application/json;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='kangwon_holdem_history_'+new Date().toISOString().slice(0,10)+'.json';
+    a.style.display='none';document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    $('exportStatus').textContent='JSON 파일 저장을 요청했습니다. 보통 브라우저의 기본 다운로드 폴더(Windows에서는 대개 다운로드 폴더)로 저장됩니다. 다운로드가 막혀도 아래 JSON은 그대로 사용할 수 있습니다.';
+  }catch(e){
+    $('exportStatus').textContent='브라우저가 파일 저장을 막았습니다. 아래 JSON을 전체 선택해서 복사하세요.';
+  }
+}
+
+
+function decisionSituation(d){
+  let s=`${STREET_KO[d.street]||d.street} · ${d.pos} · ${d.hole||''}`;
+  if(d.street==='preflop'){
+    if(d.facing==='Unopened')s+=' · 앞에서 아무도 진입하지 않음';
+    else if(d.facing==='Limpers')s+=` · 앞에서 ${d.limpers||0}명 림프`;
+    else if(d.facing==='Raised')s+=' · 앞에서 레이즈';
+    else if(d.facing==='Capped')s+=' · 이미 프리플랍 캡까지 올라옴';
+  }else{
+    if(d.board)s+=` · 보드 ${d.board}`;
+    if(d.playersActive)s+=` · ${d.playersActive}명 남음`;
+    if(Number.isFinite(d.toCall))s+=` · 추가 콜 ${fmt(d.toCall)}원`;
+    if(Number.isFinite(d.potOdds)&&d.toCall>0)s+=` · 필요 Pot Odds ${Math.round(d.potOdds*100)}%`;
+    if(d.handClass)s+=` · ${d.handClass}`;
+  }
+  return s;
+}
+
+function renderReview(){
+ if(mode()==='exam'&&!S.sessionEnded){
+   $('review').innerHTML='<div class="reviewItem"><b>시험 모드</b><p>개별 정답은 세션 종료까지 숨깁니다. 결과가 아니라 선택 품질을 기록 중입니다.</p></div>';
+   saveCurrentHand();return;
+ }
+ if(!S.decisions.length){
+   $('review').innerHTML='<div class="reviewItem"><b>내 액션 없음</b><p>이번 핸드는 내가 결정하기 전에 끝났습니다.</p></div>';
+   saveCurrentHand();return;
+ }
+ $('review').innerHTML=S.decisions.map((d,i)=>{
+   const same=d.actualSemantic===d.rec;
+   const graded=d.gradeable!==false;
+   const tier=d.tier||(d.source==='Poker Decision Rule DB'?'canonical':graded?'derived':'hold');
+   const cls=graded?(same?'good':'fix'):'hold';
+   const prefix=tier==='canonical'?'Rule DB 정본':tier==='derived'?'Poker OS Engine v3':'채점 보류';
+   const headline=graded?(same?`✓ ${prefix} — 잘했습니다`:`△ ${prefix} — 교정 필요`):'○ 채점 보류';
+   const actual=ACTION_KO[d.actualSemantic]||d.actualSemantic;
+   const rec=ACTION_KO[d.rec]||d.rec;
+   return `<div class="reviewDecision ${cls}">
+     <div class="headline">${headline}</div>
+     <div class="situation"><b>상황</b> · ${decisionSituation(d)}</div>
+     <div class="choiceLine">
+       <div class="choiceBox"><span>내가 한 선택</span><b>${actual}</b></div>
+       <div class="choiceBox"><span>Poker OS 권장</span><b>${graded?rec:'상황 재계산'}</b></div>
+     </div>
+     <div class="plainWhy"><b>왜?</b> ${d.why}</div>
+     <div class="plainNext"><b>다음엔:</b> ${memoryTip(d)}</div>
+     ${d.street==='preflop'&&d.pos==='SB'&&d.actual==='call'
+        ?'<div class="plainWhy blindNote">SB에서는 이미 낸 블라인드를 다시 내는 게 아닙니다. 화면의 “추가 금액”만 더 냅니다.</div>':''}
+     <div class="plainWhy"><b>메타:</b> 내 확신 ${d.userConfidence||'-'} · 결정 ${Number.isFinite(d.decisionMs)?(d.decisionMs/1000).toFixed(1)+'초':'-'}</div>
+     <details class="ruleDetails"><summary>근거 보기</summary>${tier==='canonical'?'Notion Rule DB 정본':'Poker OS Engine v3'} · ${d.rule||''}${d.confidence?' · 엔진 신뢰도 '+d.confidence:''}</details>
+   </div>`;
+ }).join('');
+ saveCurrentHand();
+}
+function enableHero(){
+ if(!$('heroConfidence').value)$('heroConfidence').value='medium';
+ const p=S.players[S.hero],tc=Math.max(0,S.currentBet-p.streetBet);
+ if(!S.heroDecisionStartedAt)startHeroDecisionTimer();else resumeHeroDecisionTimer();$('decisionClock').textContent='결정 중…';
+ const isSB=S.street==='preflop'&&pos(S.hero)==='SB';
+ $('fold').disabled=(tc===0);$('call').disabled=false;$('raise').disabled=S.currentBet>=cap()||p.stack<=tc;
+ if(tc){
+   $('call').textContent=isSB?`SB 완성 +${fmt(Math.min(tc,p.stack))}`:`콜 +${fmt(Math.min(tc,p.stack))}`;
+ }else $('call').textContent='체크';
+ const raiseTarget=Math.min(cap(),S.currentBet+step());
+ const nextSem=actualSemantic('raise',{
+   street:S.street,toCall:tc,raiseCount:S.preflopRaiseCount,
+   streetAggressionCount:S.streetAggressionCount,limit:S.cfg.label
+ });
+ const nextKo=ACTION_KO[nextSem]||nextSem;
+ $('raise').textContent=tc?`${nextKo} → 총 ${fmt(raiseTarget)}`:`${nextKo} ${fmt(step())}`;
+ if(isSB&&tc){
+   $('status').innerHTML=`<b>SB</b> · 이미 ${fmt(p.streetBet)}원 납부 · 추가 ${fmt(tc)}원 내면 총 ${fmt(S.currentBet)}원`;
+ }else{
+   $('status').innerHTML=`<b>${pos(S.hero)}</b> · 내 차례 · ${tc?`추가 콜 금액 ${fmt(tc)}원`:'체크 가능'}`;
+ }
+ if(!$('heroConfidence').value)$('heroConfidence').value='medium';
+ persistSession();
+}
+function disableHero(){$('fold').disabled=true;$('call').disabled=true;$('raise').disabled=true}
+function render(reveal=false){
+ if(!S)return;readSeatOptions();$('endSession').disabled=!!S.sessionEnded;$('street').textContent=S.street;$('board').innerHTML=S.board.map(c=>card(c)).join('');
+ $('pot').textContent=S.handOver&&S.lastPotGross?`POT ${fmt(S.lastPotGross)} · RAKE ${fmt(S.handRake)} · NET ${fmt(S.lastPotNet)}`:'POT '+fmt(S.pot);
+ $('handNo').textContent=S.hand;$('btn').textContent='S'+(S.btn+1);$('position').textContent=pos(S.hero);$('stack').textContent=fmt(S.players[S.hero].stack);
+ const pl=S.players[S.hero].stack-(S.heroTotalBuyin||S.startStack);$('pl').textContent=(pl>=0?'+':'')+fmt(pl);$('alive').textContent=live().length;
+ $('sessionRake').textContent=fmt(S.sessionRake||0);
+ const au=accountingAudit();$('audit').textContent=au.ok?'정상':'불일치 '+fmt(au.diff);$('audit').className=au.ok?'auditOK':'auditBad';
+ $('heroCards').innerHTML=S.players[S.hero].hole.map(c=>card(c)).join('');
+ $('rules').textContent=S.cfg.label==='10만'
+  ?'Poker OS v4.2 10만 설정: SB 2천 / BB 5천. 프리플랍은 Raise → Cap, Flop/Turn은 Bet → Raise → Cap, River만 Bet → Raise → Re-raise → Cap. 상대 AI는 Style × Skill을 독립적으로 혼합하며, Simulation에서도 Regular+Strong을 50%로 높였습니다. Postflop은 c-bet·barrel·stab·semi-bluff·value·thin value·river bluff를 분리하고, multiway에서는 strong value는 유지하되 bluff/semi-bluff만 빠르게 감쇠합니다. Adaptive Turn/River Pressure는 강제 aggression floor를 사용하지 않고 자연스러운 value/draw/initiative spot에만 작은 보정을 적용합니다. Simulation/Exam에는 pressure 보정을 적용하지 않습니다. canonical Rule DB만 실력 KPI에 채점합니다. 정본이 없는 구간은 Full Decision Engine이 Range·Equity Monte Carlo·Pot Odds·Action EV·관찰 기반 Exploit으로 Model 액션을 제시하지만 KPI 오답으로 채점하지 않습니다. 레이크는 회계 연속성을 위해 훈련 시뮬레이션에서 5%·임시 cap(10만 10,000원 / 30만 20,000원)을 사용합니다. 10만 전용 실제 rake cap은 미확정이며 이 임시값은 전략·marginal defense 판단에 사용하지 않습니다. 올인 시 메인/사이드팟을 분리하고, 파산한 AI는 성향·올인/리바인 횟수·체류시간에 따라 리바인 또는 다른 플레이어로 교체됩니다. 칩 단위 반올림은 별도 모델링하지 않습니다.'
+  :'Poker OS v3 30만 설정: SB 1만 / BB 2만, PF·Flop 2만 단위, Turn·River 3만 단위. 상대 AI는 Style × Skill 혼합 테이블이며 성향·실력은 플레이 중 공개하지 않습니다. Adaptive에서는 최근 오류·경계범위를 반영한 맞춤 시작패와 프리플랍 목표상황을 생성합니다. canonical Rule DB만 실력 KPI에 채점합니다. 정본이 없는 구간은 Full Decision Engine이 Range·Equity Monte Carlo·Pot Odds·Action EV·관찰 기반 Exploit으로 Model 액션을 제시하지만 KPI 오답으로 채점하지 않습니다. 레이크는 회계 연속성을 위해 훈련 시뮬레이션에서 5%·임시 cap(10만 10,000원 / 30만 20,000원)을 사용합니다. 10만 전용 실제 rake cap은 미확정이며 이 임시값은 전략·marginal defense 판단에 사용하지 않습니다. 올인 시 메인/사이드팟을 분리하고, 파산한 AI는 성향·올인/리바인 횟수·체류시간에 따라 리바인 또는 다른 플레이어로 교체됩니다. 칩 단위 반올림은 별도 모델링하지 않습니다.';
+ $('seats').innerHTML=S.players.map((p,i)=>{const show=i===S.hero||(S.handOver&&reveal&&!p.folded);const status=playerStatusBadge(p);return `<div class="seat s${i+1} ${i===S.hero?'hero':''} ${i===S.actor&&!S.handOver?'active':''} ${p.folded?'folded':''} ${p.stack===0?'busted':''} ${p.pendingAction?'pending':''} ${S.winnerSeats&&S.winnerSeats.includes(i)?'winner':''}">
+ <div class="seat-top"><span class="name">${p.name}</span>${i===S.btn?'<span class="dealer">D</span>':''}</div>
+ <div class="pos">${pos(i)}</div><div class="stack">${fmt(p.stack)} ${status}</div>
+ <div class="minicards">${p.hole.map(c=>card(c,true,!show)).join('')}</div><div class="act">${p.last||' '}</div></div>`}).join('');
+ if(S.handOver){
+   const hp=S.players[S.hero].stack-S.heroStart;
+   $('status').innerHTML=`<b>${S.winnerText||'핸드 종료'}</b> · Hero ${hp>=0?'+':''}${fmt(hp)}`;
+   $('hint').textContent=S.heroNeedsRebuy?'스택 0원 · 리바인 버튼으로 다시 참가할 수 있습니다.':(S.fastForward?'Hero 폴드 후 결과까지 자동 진행 완료.':'');
+ }else if(S.actor!==S.hero){
+   $('status').textContent='상대 액션 진행 중… 내 차례가 되면 버튼이 활성화됩니다.';
+ }
+}
+function potLayerAmountsForTest(contribs){const levels=[...new Set(contribs.filter(x=>x>0))].sort((a,b)=>a-b);let prev=0;const out=[];for(const level of levels){const n=contribs.filter(x=>x>=level).length;const amt=(level-prev)*n;prev=level;if(n>=2&&amt>0)out.push(amt)}return out}
+function runV3SelfTests(){const bad=[];for(const [k,arr] of Object.entries(DRILL_BANK)){if(!arr.length)bad.push('drill:'+k);for(const d of arr)if(!d.o.includes(d.a))bad.push('answer:'+k)}const names=OPP.map(x=>x[0]);if(new Set(names).size!==names.length)bad.push('duplicate-opponent');const pots=potLayerAmountsForTest([20000,80000,80000]);if(JSON.stringify(pots)!==JSON.stringify([60000,120000]))bad.push('sidepot');if(initialSkillBag().length!==8)bad.push('skillbag');return {ok:bad.length===0,bad}}
+const V3_SELF_TEST=runV3SelfTests();if(initialSkillBag('exam').filter(x=>x==='Strong').length<1)V3_SELF_TEST.bad.push('exam-strong');
+if(initialSkillBag('simulation').filter(x=>['Regular','Strong'].includes(x)).length!==4)V3_SELF_TEST.bad.push('simulation-skillmix');
+if(initialSkillBag('adaptive').filter(x=>['Regular','Strong'].includes(x)).length!==5)V3_SELF_TEST.bad.push('adaptive-skillmix');
+if(initialSkillBag('exam').filter(x=>['Regular','Strong'].includes(x)).length!==7)V3_SELF_TEST.bad.push('exam-skillmix');
+if(!postflopStyleCfg({type:'Regular'}).riverBluff||postflopMultiwayFactor(6,'bluff')>=postflopMultiwayFactor(6,'strongValue'))V3_SELF_TEST.bad.push('field-realism');if(forcedDrillPlan(1).length!==ADAPTIVE_BLOCK_SIZE)V3_SELF_TEST.bad.push('adaptive-block');if(!lifecycleDefaults().obs)V3_SELF_TEST.bad.push('read-evidence');if(ACTION_HEAT_THRESHOLD>=ACTION_HEAT_HARD)V3_SELF_TEST.bad.push('heat-control');if(Math.abs(Object.values(ADAPTIVE_TARGET_BASE).reduce((a,b)=>a+b,0)-1)>.001)V3_SELF_TEST.bad.push('adaptive-target-mix');if(!cardSpecsForCode('A9s')||!cardSpecsForCode('22')||!cardSpecsForCode('44')||!cardSpecsForCode('AJs'))V3_SELF_TEST.bad.push('adaptive-hole-parser');if(!PERSONAL_SMALL_PAIR_BOUNDARY_CODES.includes('44')||!PERSONAL_TURN_STICKY_CODES.includes('AJs')||!PERSONAL_OPEN_LIMP_CODES.includes('44'))V3_SELF_TEST.bad.push('patch8-personalization');if(typeof observedAggressionRead!=='function')V3_SELF_TEST.bad.push('patch8-observed-read');V3_SELF_TEST.ok=V3_SELF_TEST.bad.length===0;if(!V3_SELF_TEST.ok)console.error('Poker v3 self-test failed',V3_SELF_TEST.bad);
+
+$('start').addEventListener('click',startSession);
+$('endSession').addEventListener('click',()=>endSession(true));
+$('nextDrill').addEventListener('click',()=>{if(S?.trainingGateActive){$('hint').textContent='이 Drill은 선택형입니다. 풀지 않아도 게임은 계속 진행됩니다.';return}nextDrill()});
+$('checkRead').addEventListener('click',checkOpponentRead);
+$('skipRead').addEventListener('click',skipReadCheckpoint);
+$('rebuyHero').addEventListener('click',heroRebuy);
+$('autoToggle').addEventListener('click',()=>{
+  if(S&&S.heroNeedsRebuy){autoNext=false;updateAutoButton();$('hint').textContent='리바인 후 자동 진행을 다시 사용할 수 있습니다.';return}
+  autoNext=!autoNext;updateAutoButton();persistSession();
+  if(!autoNext){
+    if(autoTimer){clearTimeout(autoTimer);autoTimer=null}
+    if(S&&S.handOver)$('next').disabled=false;
+    $('hint').textContent='자동 진행을 정지했습니다.';
+  }else if(S&&S.handOver){
+    scheduleNextHand();
+  }
+});
+$('next').addEventListener('click',()=>{if(autoTimer){clearTimeout(autoTimer);autoTimer=null}if(S&&S.handOver)newHand()});
+$('fold').addEventListener('click',()=>act(S.hero,'fold',true));
+$('call').addEventListener('click',()=>{const p=S.players[S.hero],tc=Math.max(0,S.currentBet-p.streetBet);act(S.hero,tc?'call':'check',true)});
+$('raise').addEventListener('click',()=>act(S.hero,'raise',true));
+$('reviewMode').addEventListener('change',persistSession);
+$('trainingMode').addEventListener('change',()=>{if(S&&S.trainingGateActive){$('trainingMode').value=S.trainingMode;$('hint').textContent='Decision Drill 체크포인트 진행 중에는 훈련 모드를 변경할 수 없습니다.';return}if(S){S.trainingMode=$('trainingMode').value;persistSession()}renderCurriculum()});
+$('readSeat').addEventListener('change',()=>{if(S&&!S.sessionEnded)showSelectedReadEvidence()});
+$('sessionTarget').addEventListener('change',()=>{if(S){S.sessionTarget=Number($('sessionTarget').value)||100;persistSession()}});
+$('exportHistory').addEventListener('click',exportHistory);
+
+$('importHistoryBtn').addEventListener('click',()=>$('importHistoryFile').click());
+$('importHistoryFile').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f)return;
+  try{
+    const txt=await f.text(), obj=JSON.parse(txt);
+    const incoming=Array.isArray(obj)?obj:(Array.isArray(obj.rawHands)?obj.rawHands:[]);
+    if(!incoming.length)throw new Error('핸드 배열을 찾지 못했습니다.');
+    const current=loadHistory();
+    const key=x=>`${x.savedAt||''}|${x.handNo||''}|${x.position||''}|${x.hole||''}`;
+    const map=new Map(current.map(x=>[key(x),x]));
+    incoming.forEach(x=>map.set(key(x),x));
+    const merged=[...map.values()].sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||'')));
+    saveHistory(merged);
+    renderHistory();
+    $('exportStatus').textContent=`JSON ${incoming.length}개 핸드 가져오기 완료 · 중복 병합 후 ${merged.length}개 저장`;
+    $('exportPanel').hidden=false;
+  }catch(err){
+    $('exportStatus').textContent='JSON 가져오기 실패: '+(err.message||err);
+    $('exportPanel').hidden=false;
+  }finally{e.target.value=''}
+});
+
+$('downloadJson').addEventListener('click',downloadHistoryJson);
+$('selectJson').addEventListener('click',()=>{$('jsonOutput').focus();$('jsonOutput').select();$('exportStatus').textContent='전체 선택됨. Ctrl+C로 복사할 수 있습니다.'});
+$('closeJson').addEventListener('click',()=>{$('exportPanel').hidden=true});
+$('clearHistory').addEventListener('click',()=>{
+  if(confirm('저장된 모든 플레이 기록을 초기화할까요?')){
+    localStorage.removeItem(HISTORY_KEY);localStorage.removeItem(OLD_HISTORY_KEY);
+    renderHistory();renderEdgeMetrics();
+  }
+});
+window.addEventListener('pagehide',persistSession);
+window.addEventListener('beforeunload',persistSession);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){pauseHeroDecisionTimer();persistSession()}else{resumeHeroDecisionTimer()}});
+
+trainingProfile=loadTrainingProfile();
+setup();
+$('sessionDebrief').innerHTML=`<b>System Check ${V3_SELF_TEST.ok?'PASS':'FAIL'}</b><br>세션 종료 또는 목표 핸드 도달 시 테이블 구성, 신뢰 채점, 고확신 오류, Skill별 성과를 요약합니다.`;
+updateAutoButton();
+renderHistory();renderCurriculum();renderEdgeMetrics();
+const restored=restoreSession();
+if(!restored){
+  $('status').textContent='새 세션을 시작하세요.';
+}
+})();
+</script>
+</body>
+</html>
