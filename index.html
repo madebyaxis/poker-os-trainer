@@ -3173,13 +3173,14 @@ function publicSeatRangeV51(s,evaluator,targetSeat){
  }
  const mass=rows.reduce((n,r)=>n+r.weight,0);if(!(mass>0))return [];rows.forEach(r=>r.weight/=mass);return rows;
 }
-function v51RangeBudgets(s){
+function v51RangeBudgets(s,options={}){
  const suits={};for(const c of s.board)suits[c.s]=(suits[c.s]||0)+1;
  const maxSuit=Math.max(0,...Object.values(suits)),vals=s.board.map(c=>c.v),paired=new Set(vals).size<vals.length;
  let connected=0;const u=[...new Set(vals.concat(vals.includes(14)?[1]:[]))].sort((a,b)=>a-b);for(let i=1;i<u.length;i++)if(u[i]-u[i-1]<=2)connected++;
  const complexity=(maxSuit>=3?1:0)+(paired?1:0)+(connected>=2?1:0);
- if(s.street==='turn')return complexity>=2?{hero:4,opponent:6,complexity}:{hero:3,opponent:5,complexity};
- return {hero:6,opponent:6,complexity};
+ if(s.street==='river')return {hero:6,opponent:6,complexity,mode:options.mode||'live'};
+ if(options.expandedRange||options.mode==='review')return complexity>=2?{hero:4,opponent:6,complexity,mode:'review'}:{hero:3,opponent:5,complexity,mode:'review'};
+ return {hero:3,opponent:4,complexity,mode:'live'};
 }
 function compressPublicRangeV51(s,rows,evaluator,maxCombos,forceCards=null){
  if(!Array.isArray(rows)||!rows.length)return {accepted:false,reason:'Empty range',ranges:[],error:{}};
@@ -3190,35 +3191,36 @@ function compressPublicRangeV51(s,rows,evaluator,maxCombos,forceCards=null){
  for(const r of rows){
   if(s.street==='river'){r.score=evaluator([...r.cards,...s.board])[0]/8;r.scoreB=r.score}
   else{
-   const known=new Set([...r.cards,...s.board].map(key)),pool=deck.filter(c=>!known.has(key(c))),samples=8;let a=0,b=0;
-   for(let i=0;i<samples;i++){const c1=pool[Math.min(pool.length-1,Math.floor((i+.25)*pool.length/samples))],c2=pool[Math.min(pool.length-1,Math.floor((i+.75)*pool.length/samples))];a+=evaluator([...r.cards,...s.board,c1])[0]/8;b+=evaluator([...r.cards,...s.board,c2])[0]/8}
-   r.score=a/samples;r.scoreB=b/samples;
+   const known=new Set([...r.cards,...s.board].map(key)),pool=deck.filter(c=>!known.has(key(c)));let total=0;
+   for(const river of pool)total+=evaluator([...r.cards,...s.board,river])[0]/8;
+   r.score=pool.length?total/pool.length:0;r.scoreB=r.score;
   }
  }
- const feature=r=>[r.score,r.scoreB,r.features.cat/8,+r.features.flush,+r.features.straight,+r.features.nut,+r.features.suited,+r.features.blocker,+r.features.pairHole,r.features.high];
- const weights=[5,3,2,1.4,1.4,2,.25,.3,.4,.3],distance=(a,b)=>a.reduce((v,x,i)=>v+(x-b[i])**2*weights[i],0);
- const groups=new Map();for(const r of rows){const f=r.features,k=[Math.min(f.cat,3),f.flush?1:0,f.straight?1:0,f.nut?1:0,f.pairHole?1:0].join('|');if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
- let clusters=[...groups.values()],mass=g=>g.reduce((v,r)=>v+r.weight,0),center=g=>{const m=mass(g);return feature(g[0]).map((_,i)=>g.reduce((v,r)=>v+r.weight*feature(r)[i],0)/m)};
- while(clusters.length>maxCombos){clusters.sort((a,b)=>mass(a)-mass(b));const g=clusters.shift(),gc=center(g);let best=0;for(let i=1;i<clusters.length;i++)if(distance(gc,center(clusters[i]))<distance(gc,center(clusters[best])))best=i;clusters[best].push(...g)}
- const selected=clusters.map(g=>{const forced=forceKey&&g.find(r=>r.cards.map(key).sort().join('')===forceKey);if(forced)return {...forced,weight:mass(g)};const gc=center(g);let best=g[0],d=Infinity;for(const r of g){const v=distance(feature(r),gc);if(v<d){d=v;best=r}}return {...best,weight:mass(g)}});
- const moments=rr=>{const classes=Array(9).fill(0);let score=0,scoreB=0,nut=0,flush=0,straight=0,pairHole=0,high=0;for(const r of rr){classes[r.features.cat]+=r.weight;score+=r.score*r.weight;scoreB+=r.scoreB*r.weight;nut+=+r.features.nut*r.weight;flush+=+r.features.flush*r.weight;straight+=+r.features.straight*r.weight;pairHole+=+r.features.pairHole*r.weight;high+=r.features.high*r.weight}return {classes,score,scoreB,nut,flush,straight,pairHole,high}};
- const full=moments(rows),small=moments(selected),error={strengthDifference:Math.abs(full.score-small.score),validationStrengthDifference:Math.abs(full.scoreB-small.scoreB),turnSamplingSensitivity:Math.abs(full.score-full.scoreB),classTV:full.classes.reduce((v,x,i)=>v+Math.abs(x-small.classes[i]),0)/2,nutDifference:Math.abs(full.nut-small.nut),flushDifference:Math.abs(full.flush-small.flush),straightDifference:Math.abs(full.straight-small.straight),pairDifference:Math.abs(full.pairHole-small.pairHole),highDifference:Math.abs(full.high-small.high)};
- const accepted=error.strengthDifference<=.06&&error.validationStrengthDifference<=.06&&error.classTV<=.18&&error.nutDifference<=.1&&error.flushDifference<=.14&&error.straightDifference<=.14&&error.pairDifference<=.12&&(s.street==='river'||error.turnSamplingSensitivity<=.045);
- const hasForced=!forceKey||selected.some(r=>r.cards.map(key).sort().join('')===forceKey);
- return {ranges:selected.map(r=>({cards:r.cards,weight:r.weight})),error,full,compressed:small,accepted:accepted&&hasForced,hasForced,method:s.street==='river'?'Public range feature medoids; current-board strength':'Public range feature medoids; dual deterministic runout strength panels',originalCombos:rows.length,maxCombos};
+ const feature=r=>[r.score,r.features.cat/8,+r.features.flush,+r.features.straight,+r.features.nut,+r.features.suited,+r.features.blocker,+r.features.pairHole,r.features.high];
+ const weights=[5,2,1.4,1.4,2,.25,.3,.4,.3],distance=(a,b)=>a.reduce((v,x,i)=>v+(x-b[i])**2*weights[i],0),rowKey=r=>r.cards.map(key).sort().join('');
+ const forced=forceKey?rows.find(r=>rowKey(r)===forceKey):null,work=forced?rows.filter(r=>r!==forced):rows,clusterTarget=Math.max(0,maxCombos-(forced?1:0));
+ const groups=new Map();for(const r of work){const f=r.features,k=[Math.min(f.cat,3),f.flush?1:0,f.straight?1:0,f.nut?1:0,f.pairHole?1:0].join('|');if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
+ let clusters=[...groups.values()],mass=g=>g.reduce((v,r)=>v+r.weight,0),center=g=>{const m=mass(g);return feature(g[0]).map((_,i)=>g.reduce((v,r)=>v+r.weight*feature(r)[i],0)/Math.max(1e-12,m))};
+ while(clusters.length>clusterTarget&&clusters.length>1){clusters.sort((a,b)=>mass(a)-mass(b));const g=clusters.shift(),gc=center(g);let best=0;for(let i=1;i<clusters.length;i++)if(distance(gc,center(clusters[i]))<distance(gc,center(clusters[best])))best=i;clusters[best].push(...g)}
+ let selected=clusterTarget?clusters.slice(0,clusterTarget).map(g=>{const gc=center(g);let best=g[0],d=Infinity;for(const r of g){const v=distance(feature(r),gc);if(v<d){d=v;best=r}}return {...best,weight:mass(g)}}):[];
+ if(forced)selected.unshift({...forced,weight:forced.weight});
+ const moments=rr=>{const classes=Array(9).fill(0);let score=0,nut=0,flush=0,straight=0,pairHole=0,high=0,massTotal=0;for(const r of rr){massTotal+=r.weight;classes[r.features.cat]+=r.weight;score+=r.score*r.weight;nut+=+r.features.nut*r.weight;flush+=+r.features.flush*r.weight;straight+=+r.features.straight*r.weight;pairHole+=+r.features.pairHole*r.weight;high+=r.features.high*r.weight}return {classes,score,nut,flush,straight,pairHole,high,mass:massTotal}};
+ const full=moments(rows),small=moments(selected),error={strengthDifference:Math.abs(full.score-small.score),validationStrengthDifference:0,turnSamplingSensitivity:0,classTV:full.classes.reduce((v,x,i)=>v+Math.abs(x-small.classes[i]),0)/2,nutDifference:Math.abs(full.nut-small.nut),flushDifference:Math.abs(full.flush-small.flush),straightDifference:Math.abs(full.straight-small.straight),pairDifference:Math.abs(full.pairHole-small.pairHole),highDifference:Math.abs(full.high-small.high),massDifference:Math.abs(full.mass-small.mass)};
+ const accepted=error.strengthDifference<=.06&&error.classTV<=.18&&error.nutDifference<=.1&&error.flushDifference<=.14&&error.straightDifference<=.14&&error.pairDifference<=.12&&error.massDifference<=.001;
+ const hasForced=!forceKey||selected.some(r=>rowKey(r)===forceKey);
+ return {ranges:selected.map(r=>({cards:r.cards,weight:r.weight})),error,full,compressed:small,accepted:accepted&&hasForced,hasForced,method:s.street==='river'?'Public range feature medoids; current-board strength':'Public range feature medoids; exact all-river public strength expectation',originalCombos:rows.length,maxCombos};
 }
-
 function v5CacheKey(s){return JSON.stringify([V5_VERSIONS,s.street,s.board,s.heroCards,s.heroSeat,s.btn,s.pot,s.bet,s.toCall,s.currentLevel,s.turnCap,s.riverCap,s.riverFirst,s.players,s.history])}
 function v5SolveSnapshot(s,evaluator,core,options={}){
  const start=Date.now(),eligible=v5Eligibility(s);if(!eligible.ok)return {status:'unavailable',reason:eligible.reason,eligibility:eligible};
  const opponent=s.players.find(p=>!p.folded&&p.seat!==s.heroSeat);if(!opponent)return {status:'unavailable',reason:'HU opponent missing'};
- const heroRows=publicSeatRangeV51(s,evaluator,s.heroSeat),oppRows=publicSeatRangeV51(s,evaluator,opponent.seat),budget=v51RangeBudgets(s);
+ const heroRows=publicSeatRangeV51(s,evaluator,s.heroSeat),oppRows=publicSeatRangeV51(s,evaluator,opponent.seat),budget=v51RangeBudgets(s,options);
  const heroCompression=compressPublicRangeV51(s,heroRows,evaluator,budget.hero,s.heroCards),oppCompression=compressPublicRangeV51(s,oppRows,evaluator,budget.opponent,null);
  if(!heroCompression.accepted||!oppCompression.accepted)return {status:'unavailable',reason:'Range compression uncertainty high',heroCompression,opponentCompression:oppCompression,rangeBudget:budget,elapsedMs:Date.now()-start};
  const input={board:s.board,ranges:[heroCompression.ranges,oppCompression.ranges],pot:s.pot,bet:s.bet,toCall:s.toCall,currentLevel:s.currentLevel,actor:0,riverFirst:s.riverFirst,turnCap:s.turnCap,riverCap:s.riverCap};
  const game=core.hu(input,evaluator),heroKey=s.heroCards.map(c=>c.r+c.s).sort().join(''),actualDeal=game.deals.find(d=>d.state.cards[0].map(c=>c.r+c.s).sort().join('')===heroKey);
  if(!actualDeal)return {status:'unavailable',reason:'Actual Hero hand missing after compression',heroCompression,opponentCompression:oppCompression,rangeBudget:budget,elapsedMs:Date.now()-start};
- const root=game.info(actualDeal.state),iterations=options.iterations||(s.street==='turn'?700:10000),maxTimeMs=options.maxTimeMs||(s.street==='turn'?4200:2500);
+ const root=game.info(actualDeal.state),iterations=options.iterations||(s.street==='turn'?600:10000),maxTimeMs=options.maxTimeMs||(s.street==='turn'?3200:2500);
  const result=core.solve(game,iterations,{maxTimeMs,targetExploitability:s.bet*.025,checkEvery:100,algorithm:options.algorithm,watchInfoKey:root});
  const mix=result.policies[root],rootEV=result.rootActionEV[root];if(!mix||!rootEV)return {status:'unavailable',reason:'Hero infoset unavailable after solve',heroCompression,opponentCompression:oppCompression,rangeBudget:budget,elapsedMs:Date.now()-start};
  const ev=Object.fromEntries(Object.entries(rootEV).map(([a,v])=>[a,v+s.pot/2])),exp=result.exploitability/s.bet,st=result.stability||{},drift=Number.isFinite(st.recentMaxDrift)?st.recentMaxDrift:null;
@@ -3236,8 +3238,8 @@ function requestAutoSolver(){
  cancelAutoSolver();if(typeof Worker==='undefined'){autoState={key,status:'unavailable',reason:'Worker unavailable'};return autoState}
  const url=URL.createObjectURL(new Blob(['('+autoSolverWorker.toString()+')();'],{type:'application/javascript'})),worker=new Worker(url),generation=autoGeneration;
  autoState={key,status:'pending',reason:'Solver background calculation'};const timeout=()=>{worker.terminate();URL.revokeObjectURL(url);if(generation===autoGeneration){autoJob=null;autoState={key,status:'unavailable',reason:'Worker timeout'};autoResults.set(key,autoState);renderV5()}};
- const timer=setTimeout(timeout,6500);autoJob={key,worker,timer,url};worker.onmessage=e=>{clearTimeout(timer);worker.terminate();URL.revokeObjectURL(url);if(generation!==autoGeneration)return;autoJob=null;const r=e.data;autoResults.set(key,r);if(autoResults.size>80)autoResults.delete(autoResults.keys().next().value);if(v5CacheKey(v5PublicSnapshot())!==key)return;autoState={key,...r};renderV5()};worker.onerror=()=>timeout();
- worker.postMessage({core:SOLVER_SOURCE,evaluator:ev7.toString(),ev5:ev5.toString(),cmp:cmp.toString(),snapshot,functions:Object.fromEntries([v5Eligibility,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot].map(f=>[f.name,f.toString()]))});return autoState;
+ const timer=setTimeout(timeout,7500);autoJob={key,worker,timer,url};worker.onmessage=e=>{clearTimeout(timer);worker.terminate();URL.revokeObjectURL(url);if(generation!==autoGeneration)return;autoJob=null;const r=e.data;autoResults.set(key,r);if(autoResults.size>80)autoResults.delete(autoResults.keys().next().value);if(v5CacheKey(v5PublicSnapshot())!==key)return;autoState={key,...r};renderV5()};worker.onerror=()=>timeout();
+ worker.postMessage({core:SOLVER_SOURCE,evaluator:ev7.toString(),ev5:ev5.toString(),cmp:cmp.toString(),snapshot,options:{mode:'live'},functions:Object.fromEntries([v5Eligibility,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot].map(f=>[f.name,f.toString()]))});return autoState;
 }
 function solverActionName(a){return ['Cap','Re-raise','3-bet'].includes(a)?'Raise':a}
 function v5SolverLookup(){
@@ -3266,7 +3268,7 @@ function v5RecordDecision(d){
  if(d.canonicalConflict){v5Learning.conflicts.push({spot:key,canonical:d.rec,solverMix:base.mix,solverEV:base.actionEV,rangeAssumption:base.assumption,exploitability:base.exploitabilityBets,fieldEvidence:d.fieldAdjustment,observations:v.n,recommendation:'Review Candidate only; Active Canonical unchanged'});v5Learning.conflicts=v5Learning.conflicts.slice(-100)}saveV5();
 }
 function v5Mastery(bucket){const b=v5Learning.buckets[bucket];if(!b||b.n<20)return 'Evidence insufficient';return b.recent.length>=10&&b.recent.every(x=>x<=.1)&&b.highConfidenceErrors/b.n<.1&&median(b.responseMs)!==null&&median(b.responseMs)<15000?'Retention':'Learning'}
-function renderV5(){const el=$('v5Status');if(!el)return;const ready=autoState.status==='ready',drift=autoState.strategyStability?.recentMaxDrift,rb=autoState.rangeBudget;el.textContent=ready?`Dual-range Solver · ${autoState.confidence} · ${autoState.mix.actions.map((a,i)=>a+' '+Math.round(autoState.mix.probabilities[i]*100)+'%').join(' / ')} · Hero ${rb?.hero||'-'} / Opp ${rb?.opponent||'-'} combos · stability ${Number.isFinite(drift)?Math.round(drift*100)+'%':'측정중'} · ${(autoState.elapsedMs/1000).toFixed(2)}s · Solver EV rake 제외`:autoState.status==='pending'?'Dual-range Solver 계산 중 · 액션 가능 · 결과 미완료 시 Model':`Model fallback · ${autoState.reason||'지원 상태 대기'}`;}
+function renderV5(){const el=$('v5Status');if(!el)return;const ready=autoState.status==='ready',drift=autoState.strategyStability?.recentMaxDrift,rb=autoState.rangeBudget;el.textContent=ready?`Dual-range Solver · ${autoState.confidence} · ${autoState.mix.actions.map((a,i)=>a+' '+Math.round(autoState.mix.probabilities[i]*100)+'%').join(' / ')} · ${rb?.mode==='review'?'Review':'Live'} Hero ${rb?.hero||'-'} / Opp ${rb?.opponent||'-'} combos · stability ${Number.isFinite(drift)?Math.round(drift*100)+'%':'측정중'} · ${(autoState.elapsedMs/1000).toFixed(2)}s · Solver EV rake 제외`:autoState.status==='pending'?'Dual-range Solver 계산 중 · 액션 가능 · 결과 미완료 시 Model':`Model fallback · ${autoState.reason||'지원 상태 대기'}`;}
 function v5Review(d){if(d.solverBaseline)return {heroActual:d.actualSemantic,canonical:d.tier==='canonical'?d.rec:null,solverBaseline:d.solverBaseline,fieldModel:d.fieldAdjustment,quality:d.solverQuality||v5Assessment(d.solverBaseline,d.actualSemantic),confidence:d.solverBaseline.confidence};return {status:'Insufficient Solver State',reason:'Historical snapshot lacks full player stacks, positions or public sequence; never infer from hidden export'};}
 const v5LegacyWeight=bucketWeight;bucketWeight=function(k,now){if(SOLVER_BUCKETS.includes(k)){const b=v5Learning.buckets[k];return !b?1:Math.max(.15,(1+b.totalLoss/b.n*3+b.major/b.n*2)/(v5Mastery(k)==='Retention'?4:1))}return v5LegacyWeight(k,now)};
 const v5LegacyChoose=chooseTrainingBucket;chooseTrainingBucket=function(){if(S?.trainingMode==='adaptive'){const retry=v5Learning.retry.find(r=>r.dueHand<=S.hand);if(retry){S.nearStateRetry=deepClone(retry);v5Learning.retry.splice(v5Learning.retry.indexOf(retry),1);saveV5();return retry.bucket.startsWith('SOLVER_TURN')?'TURN_OTHER':'RIVER_BLUFF_CATCH'}}return v5LegacyChoose()};
@@ -3302,10 +3304,10 @@ function startSolverTraining(){
  if(drillJob){clearTimeout(drillJob.timer);drillJob.worker.terminate();URL.revokeObjectURL(drillJob.url);drillJob=null}
  $('solverTrainingStart').disabled=true;
  const street=S?.nearStateRetry?.snapshot?.street||$('solverTrainingStreet').value||'turn',snapshot=S?.nearStateRetry?.snapshot||makeSolverTrainingSnapshot(street,Math.floor(Math.random()*4)),url=URL.createObjectURL(new Blob(['('+autoSolverWorker.toString()+')();'],{type:'application/javascript'})),worker=new Worker(url),out=$('solverTrainingOutput');solverTraining={snapshot,status:'pending'};out.textContent='HU '+street+' · '+snapshot.heroCards.map(cardKey).join(' ')+' · Board '+snapshot.board.map(cardKey).join(' ')+' · pot '+fmt(snapshot.pot)+' · call '+fmt(snapshot.toCall)+' · 계산 중';
- const timer=setTimeout(()=>{worker.terminate();URL.revokeObjectURL(url);solverTraining.status='unavailable';drillJob=null;$('solverTrainingStart').disabled=false;out.textContent+=' · Worker timeout'},6500);
+ const timer=setTimeout(()=>{worker.terminate();URL.revokeObjectURL(url);solverTraining.status='unavailable';drillJob=null;$('solverTrainingStart').disabled=false;out.textContent+=' · Worker timeout'},12000);
  drillJob={worker,timer,url};worker.onerror=()=>{clearTimeout(timer);worker.terminate();URL.revokeObjectURL(url);drillJob=null;$('solverTrainingStart').disabled=false;solverTraining={snapshot,status:'unavailable',reason:'Worker error'};out.textContent='Worker error · Model fallback'};
  worker.onmessage=e=>{clearTimeout(timer);worker.terminate();URL.revokeObjectURL(url);drillJob=null;$('solverTrainingStart').disabled=false;solverTraining={snapshot,...e.data};out.textContent='HU '+street+' · '+snapshot.heroCards.map(cardKey).join(' ')+' · Board '+snapshot.board.map(cardKey).join(' ')+' · pot '+fmt(snapshot.pot)+' · call '+fmt(snapshot.toCall)+' · '+(solverTraining.status==='ready'?'액션과 확신 선택':solverTraining.reason)};
- worker.postMessage({core:SOLVER_SOURCE,evaluator:ev7.toString(),ev5:ev5.toString(),cmp:cmp.toString(),snapshot,functions:Object.fromEntries([v5Eligibility,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot].map(f=>[f.name,f.toString()]))});
+ worker.postMessage({core:SOLVER_SOURCE,evaluator:ev7.toString(),ev5:ev5.toString(),cmp:cmp.toString(),snapshot,options:{mode:'review',expandedRange:true,iterations:900,maxTimeMs:6000},functions:Object.fromEntries([v5Eligibility,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot].map(f=>[f.name,f.toString()]))});
 }
 function answerSolverTraining(){if(!solverTraining||solverTraining.status!=='ready')return;const action=$('solverTrainingAction').value,quality=v5Assessment(solverTraining,action);if(quality.status){$('solverTrainingOutput').textContent=quality.status;return}const s=solverTraining.snapshot,d={street:s.street,pos:'BB',handClass:'overpair',boardRisk:boardRiskFor(s.board),heroCards:s.heroCards,board:s.board.map(cardKey).join(' '),toCall:s.toCall,actualSemantic:action,userConfidence:$('solverTrainingConfidence').value,solverBaseline:solverTraining,publicActionHistory:s.history,decisionMs:null};v5RecordDecision(d);$('solverTrainingOutput').textContent=JSON.stringify({actual:action,confidence:d.userConfidence,solverMix:solverTraining.mix,quality,fieldAdjustment:v5Adjustment(s,solverTraining),canonical:'Turn Canonical coverage 0; Solver training is non-graded'},null,2)}
 $('solverTrainingStart').addEventListener('click',startSolverTraining);$('solverTrainingAnswer').addEventListener('click',answerSolverTraining);
@@ -3315,7 +3317,7 @@ async function reviewSolverHistory(){
  const history=loadHistory(),eligible=[];history.forEach((h,hi)=>(h.decisions||[]).forEach((d,di)=>{if(!d.solverBaseline&&d.publicSolverSnapshot&&v5Eligibility(d.publicSolverSnapshot).ok)eligible.push({hi,di,d})}));const selected=eligible.slice(-10),out=$('v5Details');
  for(let i=0;i<selected.length;i++){
   const {hi,di,d}=selected[i];out.textContent=`History Solver review ${i+1}/${selected.length} · 최대 10 decision/batch · 나머지 ${eligible.length-selected.length}`;
-  const result=await new Promise(resolve=>{const url=URL.createObjectURL(new Blob(['('+autoSolverWorker.toString()+')();'],{type:'application/javascript'})),worker=new Worker(url),timer=setTimeout(()=>{worker.terminate();URL.revokeObjectURL(url);resolve({status:'unavailable',reason:'Worker timeout'})},6500);worker.onmessage=e=>{clearTimeout(timer);worker.terminate();URL.revokeObjectURL(url);resolve(e.data)};worker.onerror=()=>{clearTimeout(timer);worker.terminate();URL.revokeObjectURL(url);resolve({status:'unavailable',reason:'Worker error'})};worker.postMessage({core:SOLVER_SOURCE,evaluator:ev7.toString(),ev5:ev5.toString(),cmp:cmp.toString(),snapshot:d.publicSolverSnapshot,functions:Object.fromEntries([v5Eligibility,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot].map(f=>[f.name,f.toString()]))})});
+  const result=await new Promise(resolve=>{const url=URL.createObjectURL(new Blob(['('+autoSolverWorker.toString()+')();'],{type:'application/javascript'})),worker=new Worker(url),timer=setTimeout(()=>{worker.terminate();URL.revokeObjectURL(url);resolve({status:'unavailable',reason:'Worker timeout'})},12000);worker.onmessage=e=>{clearTimeout(timer);worker.terminate();URL.revokeObjectURL(url);resolve(e.data)};worker.onerror=()=>{clearTimeout(timer);worker.terminate();URL.revokeObjectURL(url);resolve({status:'unavailable',reason:'Worker error'})};worker.postMessage({core:SOLVER_SOURCE,evaluator:ev7.toString(),ev5:ev5.toString(),cmp:cmp.toString(),snapshot:d.publicSolverSnapshot,options:{mode:'review',expandedRange:true,iterations:900,maxTimeMs:6000},functions:Object.fromEntries([v5Eligibility,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot].map(f=>[f.name,f.toString()]))})});
   if(result.status==='ready'){history[hi].decisions[di].solverBaseline=result;history[hi].decisions[di].solverQuality=v5Assessment(result,d.actualSemantic);history[hi].decisions[di].fieldAdjustment=v5Adjustment(d.publicSolverSnapshot,result)}else history[hi].decisions[di].solverReviewUnavailable=result.reason;
  }
  saveHistory(history);out.textContent=JSON.stringify(v5ScanHistory(),null,2);
