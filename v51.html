@@ -96,7 +96,7 @@ select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);back
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.1 Dual-Range Solver Candidate</h1><div class="sub">v5.1 Candidate · Hero×Villain public ranges · Turn adaptive compression · stability guard</div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.1 Dual-Range Solver Candidate</h1><div class="sub">v5.1 Performance Candidate · River live solver · Turn review solver · persistent Worker</div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -1329,7 +1329,17 @@ function estimateImprovementOuts(p){
   const r=boardRisk(),discount=r.count>=2?.65:r.count===1?.82:1;return {raw,clean:Math.max(0,Math.round(raw*discount))};
 }
 function publicStateSeed(p){return hash32([S.hand,S.street,S.pot,S.currentBet,pos(S.hero),holeCode(p.hole),S.board.map(cardKey).join(''),S.preflopRaiserSeat,S.lastAggressorSeat,live().length].join('|'))}
-function estimateShowdownEquity(p,trials=MODEL_EQUITY_TRIALS){return conditionedEquity(p,trials)}
+function modelEquityTrialBudget(){
+  const opponents=Math.max(0,live().length-1);
+  if(S.street==='river')return MODEL_EQUITY_TRIALS;
+  if(opponents>=5)return 120;
+  if(opponents>=3)return 160;
+  if(opponents>=2)return 220;
+  return 260;
+}
+function estimateShowdownEquity(p,trials=MODEL_EQUITY_TRIALS){
+  return conditionedEquity(p,Math.min(trials,modelEquityTrialBudget()));
+}
 function estimateOpponentCallProb(p){
   const read=observedOpponentProfile(p);let q=.48;if(read.label==='Observed Call-heavy')q=.70;else if(read.label==='Observed Passive')q=.55;else if(read.label==='Observed Aggressive')q=.46;else if(read.label==='Observed Regular-ish')q=.43;
   if(S.street==='river')q-=.06;if(live().length>=5)q+=.04;return Math.max(.15,Math.min(.78,q));
@@ -2385,7 +2395,7 @@ function endSession(manual=true){
   if(!S||S.sessionEnded)return;
   if(manual&&S.trainingGateActive){$('hint').textContent='Decision Drill 체크포인트를 완료해야 세션을 종료할 수 있습니다.';return}
   if(!S.handOver){S.endAfterHand=true;autoNext=false;updateAutoButton();$('endSession').disabled=true;$('hint').textContent='현재 핸드가 끝나면 세션 리포트를 생성합니다.';persistSession();return}
-  S.sessionEnded=true;S.endAfterHand=false;autoNext=false;updateAutoButton();if(autoTimer){clearTimeout(autoTimer);autoTimer=null}$('next').disabled=true;$('endSession').disabled=true;renderSessionDebrief();renderReview();persistSession();log(`${manual?'사용자 종료':'목표 핸드 도달'} · 세션 리포트 생성`,'sys');
+  S.sessionEnded=true;S.endAfterHand=false;autoNext=false;updateAutoButton();if(autoTimer){clearTimeout(autoTimer);autoTimer=null}$('next').disabled=true;$('endSession').disabled=true;renderSessionDebrief();renderReview();renderHistory();renderEdgeMetrics();persistSession();log(`${manual?'사용자 종료':'목표 핸드 도달'} · 세션 리포트 생성`,'sys');
 }
 
 function memoryTip(d){
@@ -2445,7 +2455,7 @@ function saveCurrentHand(){
   };
   for(const d of record.decisions){d.trainingBucket=recordBucket(d)}saveLeaks();phaseDashboard();
   updateCurriculumFromLive(record.decisions);
-  const hist=loadHistory();hist.push(record);saveHistory(hist);S.historySaved=true;renderHistory();renderEdgeMetrics();renderCurriculum();
+  const hist=loadHistory();hist.push(record);saveHistory(hist);S.historySaved=true;renderRecentHistoryLite();renderCurriculum();
 }
 
 function legacySnapshotCanonicalRecommendation(d,hand){
@@ -2598,6 +2608,22 @@ function buildUpgradeAudit(raw,regraded){
     engineErrors:rg.filter(d=>d.regrade?.cls==='engine_error').length,
     note:'Patch 9 audit: historical behavior is evidence for coverage gaps, not a source of automatic canonical truth.'
   };
+}
+function renderRecentHistoryLite(){
+  const raw=loadHistory();
+  if($('histHands'))$('histHands').textContent=raw.length;
+  if($('histPL')){
+    const pl=raw.reduce((a,x)=>a+(Number(x.handPL)||0),0);
+    $('histPL').textContent=(pl>=0?'+':'')+fmt(pl);
+  }
+  if($('analysisSummary')&&S&&!S.sessionEnded){
+    $('analysisSummary').innerHTML='<div class="reviewItem"><b>Performance mode</b><p>플레이 중에는 최근 기록만 갱신합니다. True Regrade·전체 Edge 분석은 세션 종료 또는 기록 작업 때 갱신됩니다.</p></div>';
+  }
+  const recent=raw.slice(-20).reverse();
+  if($('historyList'))$('historyList').innerHTML=recent.length?recent.map(x=>{
+    const ds=x.decisions||[];
+    return '<div class="historyRow"><span class="result">'+(x.heroWon?'WIN':'HAND')+'</span><span><b>'+x.limit+' · '+x.position+' · '+x.hole+'</b><br><span class="meta">'+(x.board||'보드 없음')+' · 결정 '+ds.length+'개 · 실시간 분석 보류</span></span><span>'+(x.handPL>=0?'+':'')+fmt(x.handPL)+'</span></div>';
+  }).join(''):'<div class="reviewItem"><b>아직 없음</b><p>플레이 기록이 여기에 표시됩니다.</p></div>';
 }
 function renderHistory(){
   const raw=loadHistory(), h=raw.map(historyRegrade);
@@ -3229,16 +3255,82 @@ function v5SolveSnapshot(s,evaluator,core,options={}){
  let confidence='Low';if(accepted){if(exp<=.01&&heroCompression.error.classTV<=.08&&oppCompression.error.classTV<=.08&&drift!==null&&drift<=.03)confidence='High';else confidence='Medium'}
  return {status:accepted?'ready':'unavailable',reason:accepted?'Conditional HU CFR dual public ranges':!convergenceOK?'Low convergence':'Strategy instability',input,heroCompression,opponentCompression:oppCompression,rangeBudget:budget,result:{...result,policies:undefined,rootActionEV:undefined},mix,actionEV:ev,exploitabilityBets:exp,strategyStability:st,rakeSensitivity,confidence:accepted?confidence:'Low',gradeable:false,resolution:'Solver Approx',elapsedMs:Date.now()-start,assumption:'Hero and opponent public action ranges are independently built then compressed; actual Hero infoset selected for advice. Conditional HU subgame only; no whole-game safety guarantee. Solver EV excludes rake; rake output is immediate sensitivity diagnostic, not adjusted equilibrium EV.'};
 }
-function autoSolverWorker(){self.onmessage=e=>{try{const d=e.data;(0,eval)(d.core);for(const [k,v] of Object.entries(d.functions))self[k]=(0,eval)('('+v+')');const evaluator=(new Function('cmp','ev5','return ('+d.evaluator+')'))((0,eval)('('+d.cmp+')'),(0,eval)('('+d.ev5+')'));self.postMessage(v5SolveSnapshot(d.snapshot,evaluator,PokerSolver,d.options||{}))}catch(e){self.postMessage({status:'unavailable',reason:'Worker error: '+e.message})}}}
-function cancelAutoSolver(){if(autoJob){clearTimeout(autoJob.timer);autoJob.worker.terminate();URL.revokeObjectURL(autoJob.url);autoJob=null}autoGeneration++}
+function autoSolverWorker(){
+ self.onmessage=event=>{
+  const d=event.data;
+  try{
+   (0,eval)(d.core);
+   for(const [k,v] of Object.entries(d.functions))self[k]=(0,eval)('('+v+')');
+   const evaluator=(new Function('cmp','ev5','return ('+d.evaluator+')'))((0,eval)('('+d.cmp+')'),(0,eval)('('+d.ev5+')'));
+   self.postMessage({requestId:d.requestId,result:v5SolveSnapshot(d.snapshot,evaluator,PokerSolver,d.options||{})});
+  }catch(err){
+   self.postMessage({requestId:d?.requestId,result:{status:'unavailable',reason:'Worker error: '+err.message}});
+  }
+ }
+}
+let autoWorker=null,autoWorkerUrl=null;
+function destroyAutoSolverWorker(){
+ if(autoWorker){try{autoWorker.terminate()}catch{}autoWorker=null}
+ if(autoWorkerUrl){try{URL.revokeObjectURL(autoWorkerUrl)}catch{}autoWorkerUrl=null}
+}
+function ensureAutoSolverWorker(){
+ if(autoWorker)return autoWorker;
+ autoWorkerUrl=URL.createObjectURL(new Blob(['('+autoSolverWorker.toString()+')();'],{type:'application/javascript'}));
+ autoWorker=new Worker(autoWorkerUrl);
+ return autoWorker;
+}
+function cancelAutoSolver(){
+ if(autoJob){
+  clearTimeout(autoJob.timer);
+  autoJob=null;
+  destroyAutoSolverWorker();
+ }
+ autoGeneration++;
+}
 function requestAutoSolver(){
- const snapshot=v5PublicSnapshot(),gate=v5Eligibility(snapshot);if(!gate.ok){if(autoJob)cancelAutoSolver();autoState={key:null,status:'unavailable',reason:gate.reason};return autoState}
- const key=v5CacheKey(snapshot);if(autoResults.has(key)){autoState={key,...autoResults.get(key)};return autoState}if(autoJob?.key===key)return autoState;
- cancelAutoSolver();if(typeof Worker==='undefined'){autoState={key,status:'unavailable',reason:'Worker unavailable'};return autoState}
- const url=URL.createObjectURL(new Blob(['('+autoSolverWorker.toString()+')();'],{type:'application/javascript'})),worker=new Worker(url),generation=autoGeneration;
- autoState={key,status:'pending',reason:'Solver background calculation'};const timeout=()=>{worker.terminate();URL.revokeObjectURL(url);if(generation===autoGeneration){autoJob=null;autoState={key,status:'unavailable',reason:'Worker timeout'};autoResults.set(key,autoState);renderV5()}};
- const timer=setTimeout(timeout,7500);autoJob={key,worker,timer,url};worker.onmessage=e=>{clearTimeout(timer);worker.terminate();URL.revokeObjectURL(url);if(generation!==autoGeneration)return;autoJob=null;const r=e.data;autoResults.set(key,r);if(autoResults.size>80)autoResults.delete(autoResults.keys().next().value);if(v5CacheKey(v5PublicSnapshot())!==key)return;autoState={key,...r};renderV5()};worker.onerror=()=>timeout();
- worker.postMessage({core:SOLVER_SOURCE,evaluator:ev7.toString(),ev5:ev5.toString(),cmp:cmp.toString(),snapshot,options:{mode:'live'},functions:Object.fromEntries([v5Eligibility,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot].map(f=>[f.name,f.toString()]))});return autoState;
+ const snapshot=v5PublicSnapshot(),gate=v5Eligibility(snapshot);
+ if(!gate.ok){
+  if(autoJob)cancelAutoSolver();
+  autoState={key:null,status:'unavailable',reason:gate.reason};
+  return autoState;
+ }
+ if(snapshot.street==='turn'){
+  if(autoJob)cancelAutoSolver();
+  autoState={key:v5CacheKey(snapshot),status:'unavailable',reason:'Turn live Solver deferred · snapshot saved for review'};
+  return autoState;
+ }
+ const key=v5CacheKey(snapshot);
+ if(autoResults.has(key)){autoState={key,...autoResults.get(key)};return autoState}
+ if(autoJob?.key===key)return autoState;
+ if(autoJob)cancelAutoSolver();
+ if(typeof Worker==='undefined'){autoState={key,status:'unavailable',reason:'Worker unavailable'};return autoState}
+ const worker=ensureAutoSolverWorker(),generation=++autoGeneration,requestId=generation+'|'+key;
+ autoState={key,status:'pending',reason:'River Solver background calculation'};
+ const timeout=()=>{
+  if(generation!==autoGeneration)return;
+  if(autoJob?.timer)clearTimeout(autoJob.timer);
+  autoJob=null;
+  destroyAutoSolverWorker();
+  autoState={key,status:'unavailable',reason:'Worker timeout'};
+  autoResults.set(key,autoState);
+  renderV5();
+ };
+ const timer=setTimeout(timeout,3500);
+ autoJob={key,worker,timer,generation,requestId};
+ worker.onmessage=event=>{
+  if(generation!==autoGeneration||!autoJob||event.data?.requestId!==requestId)return;
+  clearTimeout(timer);
+  autoJob=null;
+  const r=event.data.result;
+  autoResults.set(key,r);
+  if(autoResults.size>80)autoResults.delete(autoResults.keys().next().value);
+  if(v5CacheKey(v5PublicSnapshot())!==key)return;
+  autoState={key,...r};
+  renderV5();
+ };
+ worker.onerror=()=>timeout();
+ worker.postMessage({requestId,core:SOLVER_SOURCE,evaluator:ev7.toString(),ev5:ev5.toString(),cmp:cmp.toString(),snapshot,options:{mode:'live'},functions:Object.fromEntries([v5Eligibility,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot].map(f=>[f.name,f.toString()]))});
+ return autoState;
 }
 function solverActionName(a){return ['Cap','Re-raise','3-bet'].includes(a)?'Raise':a}
 function v5SolverLookup(){
@@ -3251,7 +3343,7 @@ function v5Adjustment(s,baseline){
  // Population prior is provisional. v5.1 dual-range Solver no longer exposes the old singleton-vs-range equity field,
  // so that legacy equity-based field shift is applied only to old compatible Solver results.
  if(Number.isFinite(legacyEq)&&legacyEq<.35)move('Bet','Check',.03,'Field Adjustment');
- let reliability='Low';if(read.enough){reliability='Medium';if(read.label==='Observed Call-heavy'&&eq<.4)move('Bet','Check',Math.min(.08,.02+read.hands*.001),'Opponent Exploit');if(read.label==='Observed Passive'&&s.toCall>0&&s.history.some(a=>a.street==='turn'&&a.seat===opp.seat&&a.toCall>0&&['Raise','Cap','Re-raise'].includes(a.semantic)))move('Call','Fold',.04,'Opponent Exploit')}
+ let reliability='Low';if(read.enough){reliability='Medium';if(read.label==='Observed Call-heavy'&&Number.isFinite(legacyEq)&&legacyEq<.4)move('Bet','Check',Math.min(.08,.02+read.hands*.001),'Opponent Exploit');if(read.label==='Observed Passive'&&s.toCall>0&&s.history.some(a=>a.street==='turn'&&a.seat===opp.seat&&a.toCall>0&&['Raise','Cap','Re-raise'].includes(a.semantic)))move('Call','Fold',.04,'Opponent Exploit')}
  const action=mix.actions[mix.probabilities.indexOf(Math.max(...mix.probabilities))];return {mix,action,shifts,populationConfidence:'Low / Provisional',opponentConfidence:reliability,observations:read.hands||0,gradeable:false,resolution:'Model',note:'Heuristic adjustments; no adjusted action EV claim'};
 }
 function v5Assessment(baseline,action){
@@ -3277,9 +3369,20 @@ const v5LegacyEnable=enableHero;enableHero=function(){v5LegacyEnable();requestAu
 const v5LegacyNewHand=newHand;newHand=function(){if(S?.handOver){cancelAutoSolver();autoState={status:'idle'};S.nearStateRetry=null}return v5LegacyNewHand()};
 const v5LegacyRecommendation=recommendation;recommendation=function(){const solver=v5SolverLookup();if(!solver)return v5LegacyRecommendation();const canonical=canonicalRecommendation(),adjustment=v5Adjustment(v5PublicSnapshot(),solver.solverBaseline);if(isCanonicalRecommendation(canonical)){const c=normalizeRecommendation(canonical);return {...c,solverComparison:solver,solverBaseline:solver.solverBaseline,fieldAdjustment:adjustment,canonicalConflict:solverActionName(c.action)!==solver.action}}return {...normalizeRecommendation({...solver,action:adjustment.action,tier:adjustment.shifts.length?'model':'solver',resolution:adjustment.shifts.length?'Model':'Solver Approx'}),solverBaseline:solver.solverBaseline,fieldAdjustment:adjustment,solverComparison:solver}};
 const v5LegacyAct=act;act=function(seat,action,hero){if(hero){const r=recommendation(),snapshot=v5PublicSnapshot();v5LegacyAct(seat,action,hero);const d=S?.decisions?.at(-1);if(d&&r.solverBaseline){d.solverBaseline=deepClone(r.solverBaseline);d.fieldAdjustment=deepClone(r.fieldAdjustment);d.publicSolverSnapshot=snapshot;}cancelAutoSolver();return}return v5LegacyAct(seat,action,hero)};
-Object.assign(PokerOSDebug,{version:'5.1-candidate',versions:V5_VERSIONS,v5PublicSnapshot,v5Eligibility,rangeEngineV2,compressRangeV2,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot,v5CacheKey,v5Assessment,v5Adjustment,v5RecordDecision,v5Mastery,v5Review,requestAutoSolver,getAutoState:()=>autoState,getV5Learning:()=>v5Learning,setAutoResult:(key,result)=>autoResults.set(key,result),getAutoResults:()=>autoResults,enableHero,newHand,act,recommendation,bucketWeight,chooseTrainingBucket});
-// Model equity uses the same normalized v2 public range as auto Solver.
-weightedPublicRange=function(opponent,hero){const s=v5PublicSnapshot();s.heroCards=deepClone(hero.hole);s.heroSeat=hero.seat;s.rangeOpponentSeat=opponent.seat;const key=JSON.stringify(s);if(rangeCache.has(key))return rangeCache.get(key);const rows=rangeEngineV2(s,ev7);if(rangeCache.size>40)rangeCache.clear();rangeCache.set(key,rows);return rows};
+Object.assign(PokerOSDebug,{version:'5.1-performance-candidate',performancePatch:{turnLiveSolver:false,riverLiveSolver:true,persistentWorker:true,dynamicModelEquity:true,lazyHistory:true},versions:V5_VERSIONS,v5PublicSnapshot,v5Eligibility,rangeEngineV2,compressRangeV2,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot,v5CacheKey,v5Assessment,v5Adjustment,v5RecordDecision,v5Mastery,v5Review,requestAutoSolver,getAutoState:()=>autoState,getV5Learning:()=>v5Learning,setAutoResult:(key,result)=>autoResults.set(key,result),getAutoResults:()=>autoResults,enableHero,newHand,act,recommendation,bucketWeight,chooseTrainingBucket});
+// Performance patch: normalized v2 range is reserved for HU late streets.
+const v5LegacyWeightedPublicRange=weightedPublicRange;
+weightedPublicRange=function(opponent,hero){
+ if(!S||live().length!==2||!['turn','river'].includes(S.street))return v5LegacyWeightedPublicRange(opponent,hero);
+ const s=v5PublicSnapshot();
+ s.heroCards=deepClone(hero.hole);s.heroSeat=hero.seat;s.rangeOpponentSeat=opponent.seat;
+ const key=JSON.stringify(['v2-hu',s.street,s.board,s.heroCards,s.heroSeat,s.rangeOpponentSeat,s.history,s.players.map(p=>[p.seat,p.folded,p.observed])]);
+ if(rangeCache.has(key))return rangeCache.get(key);
+ const rows=rangeEngineV2(s,ev7);
+ if(rangeCache.size>40)rangeCache.clear();
+ rangeCache.set(key,rows);
+ return rows;
+};
 PokerOSDebug.weightedPublicRange=weightedPublicRange;
 const v5PublicRecord=recordPublicAction;recordPublicAction=function(p,a,tc){
  if(S&&p.seat!==S.hero&&S.street!=='preflop'){
@@ -3360,8 +3463,9 @@ trainingProfile=loadTrainingProfile();initLeaksFromHistory();$('solverRun').addE
 setup();
 $('sessionDebrief').innerHTML=`<b>System Check ${V3_SELF_TEST.ok?'PASS':'FAIL'}</b><br>세션 종료 또는 목표 핸드 도달 시 테이블 구성, 신뢰 채점, 고확신 오류, Skill별 성과를 요약합니다.`;
 updateAutoButton();
-renderHistory();renderCurriculum();renderEdgeMetrics();
+renderRecentHistoryLite();renderCurriculum();
 const restored=restoreSession();
+if(!restored||S?.sessionEnded){renderHistory();renderEdgeMetrics()}
 if(!restored){
   $('status').textContent='새 세션을 시작하세요.';
 }
