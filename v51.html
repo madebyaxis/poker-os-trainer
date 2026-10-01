@@ -3262,9 +3262,11 @@ function autoSolverWorker(){
    (0,eval)(d.core);
    for(const [k,v] of Object.entries(d.functions))self[k]=(0,eval)('('+v+')');
    const evaluator=(new Function('cmp','ev5','return ('+d.evaluator+')'))((0,eval)('('+d.cmp+')'),(0,eval)('('+d.ev5+')'));
-   self.postMessage({requestId:d.requestId,result:v5SolveSnapshot(d.snapshot,evaluator,PokerSolver,d.options||{})});
+   const result=v5SolveSnapshot(d.snapshot,evaluator,PokerSolver,d.options||{});
+   self.postMessage(d.requestId?{requestId:d.requestId,result}:result);
   }catch(err){
-   self.postMessage({requestId:d?.requestId,result:{status:'unavailable',reason:'Worker error: '+err.message}});
+   const result={status:'unavailable',reason:'Worker error: '+err.message};
+   self.postMessage(d?.requestId?{requestId:d.requestId,result}:result);
   }
  }
 }
