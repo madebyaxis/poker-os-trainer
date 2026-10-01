@@ -1893,8 +1893,8 @@ function kangwon10CapContinueChance(p,tc,group){
   const st=preflopInvestmentState(p,tc);
   // 강원랜드 10만 현장 보정: Raise level(10k)에 이미 도달한 뒤 Cap 추가 5k는 거의 계속.
   if(st.alreadyAtRaiseLevel&&st.toCall<=S.cfg.small){
-    if(['Nit','Tight-Passive'].includes(p.type))return group==='weak'?.88:.95;
-    return group==='weak'?.95:.985;
+    if(['Nit','Tight-Passive'].includes(p.type))return group==='weak'?.95:.985;
+    return group==='weak'?.98:.995;
   }
   // 예외: 5k limp 상태에서 뒤의 Raise→Cap을 한꺼번에 맞아 10k를 더 내야 하는 경우.
   if(st.limpCaughtByCap){
