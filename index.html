@@ -489,6 +489,40 @@ let drillAnswered=false;
 let autoNext=true;
 let autoTimer=null;
 let restoringSession=false;
+const RESULT_HOLD_MS=3000;
+const PERF_SCHEMA_VERSION='poker-os-perf-v1-20261001';
+function perfNow(){return globalThis.performance&&typeof performance.now==='function'?performance.now():Date.now()}
+function perfRound(x){return Number.isFinite(x)?Math.round(x*10)/10:null}
+function ensureHandPerf(){
+  if(!S)return null;
+  if(!S.performanceTelemetry||S.performanceTelemetry.schema!==PERF_SCHEMA_VERSION){
+    S.performanceTelemetry={
+      schema:PERF_SCHEMA_VERSION,
+      appVersion:'v5.1-performance-telemetry-candidate',
+      handNo:S.hand||0,
+      handStartedAt:Date.now(),
+      solverEvents:[],
+      decisions:[]
+    };
+  }
+  return S.performanceTelemetry;
+}
+function solverPerfSnapshot(){
+  const a=autoState||{};
+  return {
+    status:a.status||'idle',
+    reason:a.reason||null,
+    elapsedMs:Number.isFinite(a.elapsedMs)?perfRound(a.elapsedMs):null,
+    exploitabilityBets:Number.isFinite(a.exploitabilityBets)?a.exploitabilityBets:null,
+    confidence:a.confidence||null,
+    rangeBudget:a.rangeBudget?deepClone(a.rangeBudget):null
+  };
+}
+function recordSolverPerfEvent(event){
+  const p=ensureHandPerf();if(!p)return;
+  p.solverEvents.push({at:new Date().toISOString(),...event});
+  if(p.solverEvents.length>24)p.solverEvents.shift();
+}
 
 /*
   Canonical training rules mirrored from Notion Poker Decision Rule DB
@@ -1007,7 +1041,7 @@ function newHand(){
  if(S.sessionEnded){$('hint').textContent='세션 리포트가 생성되었습니다. 새 세션을 시작하세요.';$('next').disabled=true;return}
  if(S.heroNeedsRebuy||S.players[S.hero].stack<=0){$('hint').textContent='스택이 0원입니다. 리바인 후 다음 핸드를 진행하세요.';$('rebuyHero').disabled=false;$('next').disabled=true;return}
  applyPendingSeatChanges();
- $('next').disabled=true;S.showdownReached=false;S.hand++;if(S.hand>1)S.btn=(S.btn+1)%9;S.deck=deck();S.board=[];S.pot=0;S.street='preflop';S.currentBet=0;S.actor=null;S.acted=new Set();S.handOver=false;S.decisions=[];S.fastForward=false;S.winnerSeats=[];S.winnerText='';S.historySaved=false;S.showdownReached=false;S.handRake=0;S.lastPotGross=0;S.lastPotNet=0;S.lastUncalledRefund=0;S.preflopLimpers=0;S.preflopRaised=false;S.preflopRaiseCount=0;S.preflopRaiserSeat=null;S.lastAggressorSeat=null;S.prevStreetAggressorSeat=null;S.streetAggressionCount=0;S.heroReachedRiver=false;S.heroParticipatedHand=false;S.heroDecisionStartedAt=0;S.heroDecisionActiveMs=0;S.heroDecisionLastTick=0;S.heroPreflopFacingRecorded=false;S.heroFirstFacing='';S.aiHandActionStats=emptyAIHandActionStats();S.trainingPreflopTarget=chooseAdaptivePreflopTarget();S.postflopPressurePlan=choosePostflopPressurePlan();S.trainingBucket=chooseTrainingBucket();S.trainingHeroHoleCode=chooseAdaptiveHeroHoleCode();if(S.trainingHeroHoleCode)rigHeroHoleOnDeck(S.trainingHeroHoleCode);$('heroConfidence').value='medium';$('winnerBanner').classList.remove('show');
+ $('next').disabled=true;S.showdownReached=false;S.hand++;if(S.hand>1)S.btn=(S.btn+1)%9;S.deck=deck();S.board=[];S.pot=0;S.street='preflop';S.currentBet=0;S.actor=null;S.acted=new Set();S.handOver=false;S.decisions=[];S.performanceTelemetry={schema:PERF_SCHEMA_VERSION,appVersion:'v5.1-performance-telemetry-candidate',handNo:S.hand,handStartedAt:Date.now(),solverEvents:[],decisions:[]};S.fastForward=false;S.winnerSeats=[];S.winnerText='';S.historySaved=false;S.showdownReached=false;S.handRake=0;S.lastPotGross=0;S.lastPotNet=0;S.lastUncalledRefund=0;S.preflopLimpers=0;S.preflopRaised=false;S.preflopRaiseCount=0;S.preflopRaiserSeat=null;S.lastAggressorSeat=null;S.prevStreetAggressorSeat=null;S.streetAggressionCount=0;S.heroReachedRiver=false;S.heroParticipatedHand=false;S.heroDecisionStartedAt=0;S.heroDecisionActiveMs=0;S.heroDecisionLastTick=0;S.heroPreflopFacingRecorded=false;S.heroFirstFacing='';S.aiHandActionStats=emptyAIHandActionStats();S.trainingPreflopTarget=chooseAdaptivePreflopTarget();S.postflopPressurePlan=choosePostflopPressurePlan();S.trainingBucket=chooseTrainingBucket();S.trainingHeroHoleCode=chooseAdaptiveHeroHoleCode();if(S.trainingHeroHoleCode)rigHeroHoleOnDeck(S.trainingHeroHoleCode);$('heroConfidence').value='medium';$('winnerBanner').classList.remove('show');
  for(const p of S.players)resetP(p);
  S.publicActionHistory=[];rangeCache.clear();S.scenarioBiased=false;applyScenarioBias();
  S.heroStart=S.players[S.hero].stack;$('winnerBanner').classList.remove('show');$('winnerTitle').textContent='';$('winnerSub').textContent='';
@@ -1956,6 +1990,7 @@ function pauseHeroDecisionTimer(){if(!S||!S.heroDecisionLastTick)return;S.heroDe
 function resumeHeroDecisionTimer(){if(!S||S.handOver||S.actor!==S.hero||document.visibilityState!=='visible'||S.heroDecisionLastTick)return;S.heroDecisionLastTick=Date.now()}
 function consumeHeroDecisionTimer(){if(!S)return null;pauseHeroDecisionTimer();const ms=Number.isFinite(S.heroDecisionActiveMs)?S.heroDecisionActiveMs:null;S.heroDecisionStartedAt=0;S.heroDecisionActiveMs=0;S.heroDecisionLastTick=0;return ms}
 function act(seat,a,hero){
+ const actionPerfStart=hero?perfNow():null;
  const p=S.players[seat],tc=Math.max(0,S.currentBet-p.streetBet),st=step();
  const beforeBet=p.streetBet;
  if(!hero)recordPublicAction(p,a,tc);
@@ -1969,7 +2004,10 @@ function act(seat,a,hero){
    // 참여 판 판정: 프리플랍에서 자발적으로 칩을 추가했거나, 포스트플랍에서 액션한 경우.
    if(S.street!=='preflop'||a==='call'||a==='raise')S.heroParticipatedHand=true;
    updateHeroProfile(a,tc);
+   const recommendationPerfStart=perfNow();
    const r=recommendation();
+   const recommendationMs=perfNow()-recommendationPerfStart;
+   const solverAtAction=solverPerfSnapshot();
    const decisionMs=consumeHeroDecisionTimer();
    if(S.street==='preflop'&&!S.heroPreflopFacingRecorded){S.heroFirstFacing=preflopFacing();S.heroPreflopFacingRecorded=true}
    const risk=boardRisk();
@@ -1985,10 +2023,32 @@ function act(seat,a,hero){
      resolution:r.resolution||null,engineVersion:r.source===FULL_DECISION_ENGINE_VERSION?FULL_DECISION_ENGINE_VERSION:null,
      estimatedEquity:Number.isFinite(r.estimatedEquity)?r.estimatedEquity:null,requiredEquity:Number.isFinite(r.requiredEquity)?r.requiredEquity:null,
      equityTrials:r.equityTrials||null,rangeSummary:r.rangeSummary||null,actionEV:r.actionEV||null,alternateAction:r.alternateAction||null,mix:r.mix||null,cleanOuts:r.cleanOuts??null,boardChange:r.boardChange||null,
+     performance:{
+       schema:PERF_SCHEMA_VERSION,
+       recommendationMs:perfRound(recommendationMs),
+       inputToDecisionRecordMs:perfRound(perfNow()-actionPerfStart),
+       solverAtAction,
+       modelEquityTrials:r.equityTrials||0,
+       resolution:r.resolution||null,
+       source:r.source||null
+     },
      preflopRaiserPos:S.preflopRaiserSeat==null?'':pos(S.preflopRaiserSeat),
      opponentReadSnapshot:(S.street==='river'&&S.lastAggressorSeat!=null)?deepClone(observedAggressionRead(S.players[S.lastAggressorSeat])):null
    });
-   v5RecordDecision(S.decisions.at(-1));
+   const recordedDecision=S.decisions.at(-1);
+   const handPerf=ensureHandPerf();
+   if(handPerf&&recordedDecision?.performance){
+     handPerf.decisions.push({
+       street:recordedDecision.street,
+       action:recordedDecision.actualSemantic,
+       recommendationMs:recordedDecision.performance.recommendationMs,
+       inputToDecisionRecordMs:recordedDecision.performance.inputToDecisionRecordMs,
+       solverAtAction:deepClone(recordedDecision.performance.solverAtAction),
+       modelEquityTrials:recordedDecision.performance.modelEquityTrials,
+       resolution:recordedDecision.performance.resolution
+     });
+   }
+   v5RecordDecision(recordedDecision);
    $('decisionClock').textContent=decisionMs!=null?`결정 ${(decisionMs/1000).toFixed(1)}s`:'결정시간 -';
    $('heroConfidence').value='medium';
    if($('reviewMode').value==='live'&&mode()!=='exam')$('hint').textContent=`코치${r.resolution?` [${r.resolution}]`:''}: ${ACTION_KO[r.action]||r.action} · ${r.why}`;
@@ -2112,17 +2172,16 @@ function scheduleNextHand(){
     autoNext=false;updateAutoButton();$('rebuyHero').disabled=false;$('next').disabled=true;
     $('hint').textContent='스택 0원 · 리바인 후 계속 플레이할 수 있습니다.';persistSession();return;
   }
-  if(!autoNext)return;
-  if(shouldPauseForResult()){
-    $('next').disabled=false;
-    $('hint').textContent=S.heroNeedsRebuy
-      ?'스택 0원 · 리바인 후 계속 플레이할 수 있습니다.'
-      :'참여한 핸드의 최종 결과입니다. 결과를 확인한 뒤 “다음 핸드”를 눌러주세요.';
-    persistSession();return;
-  }
-  $('next').disabled=true;
-  $('hint').textContent=($('hint').textContent?$('hint').textContent+' · ':'')+'1.5초 후 다음 핸드 자동 시작';
-  autoTimer=setTimeout(()=>{autoTimer=null;if(autoNext&&S&&S.handOver)newHand()},1500);
+  if(!autoNext){$('next').disabled=false;persistSession();return}
+  $('next').disabled=false;
+  const seconds=(RESULT_HOLD_MS/1000).toFixed(0);
+  $('hint').textContent=($('hint').textContent?$('hint').textContent+' · ':'')+seconds+'초 후 다음 핸드 자동 시작';
+  const scheduledHand=S.hand;
+  autoTimer=setTimeout(()=>{
+    autoTimer=null;
+    if(autoNext&&S&&S.handOver&&S.hand===scheduledHand)newHand();
+  },RESULT_HOLD_MS);
+  persistSession();
 }
 function winByFold(){
  const w=live()[0],pay=settlePots();
@@ -2429,6 +2488,9 @@ function saveCurrentHand(){
   const hero=S.players[S.hero];
   const handPL=hero.stack-S.heroStart;
   const wins=S.winnerSeats||[];
+  const perfState=ensureHandPerf();
+  const handEndedAt=Date.now();
+  const performanceTelemetry=perfState?{...deepClone(perfState),handEndedAt,handDurationMs:Math.max(0,handEndedAt-(perfState.handStartedAt||handEndedAt))}:null;
   const record={
     savedAt:new Date().toISOString(),
     handNo:S.hand,
@@ -2451,6 +2513,7 @@ function saveCurrentHand(){
     skillMix:tableSkillMix(),styleMix:tableStyleMix(),opponents:styleSkillSnapshot(),
     heroWon:wins.includes(S.hero),
     winner:S.winnerText||'',
+    performanceTelemetry,
     decisions:S.decisions.map(d=>({...d,matched:d.gradeable?(d.actualSemantic===d.rec):null}))
   };
   for(const d of record.decisions){d.trainingBucket=recordBucket(d)}saveLeaks();phaseDashboard();
@@ -3294,19 +3357,21 @@ function requestAutoSolver(){
  if(!gate.ok){
   if(autoJob)cancelAutoSolver();
   autoState={key:null,status:'unavailable',reason:gate.reason};
+  recordSolverPerfEvent({street:snapshot?.street||S?.street||null,status:'ineligible',reason:gate.reason,livePlayers:snapshot?.players?.filter(p=>!p.folded).length??null});
   return autoState;
  }
  if(snapshot.street==='turn'){
   if(autoJob)cancelAutoSolver();
   autoState={key:v5CacheKey(snapshot),status:'unavailable',reason:'Turn live Solver deferred · snapshot saved for review'};
+  recordSolverPerfEvent({street:'turn',status:'deferred',reason:autoState.reason,livePlayers:snapshot.players.filter(p=>!p.folded).length});
   return autoState;
  }
  const key=v5CacheKey(snapshot);
- if(autoResults.has(key)){autoState={key,...autoResults.get(key)};return autoState}
+ if(autoResults.has(key)){autoState={key,...autoResults.get(key)};recordSolverPerfEvent({street:snapshot.street,status:'cache_hit',reason:autoState.reason||null,solverElapsedMs:Number.isFinite(autoState.elapsedMs)?perfRound(autoState.elapsedMs):null});return autoState}
  if(autoJob?.key===key)return autoState;
  if(autoJob)cancelAutoSolver();
  if(typeof Worker==='undefined'){autoState={key,status:'unavailable',reason:'Worker unavailable'};return autoState}
- const worker=ensureAutoSolverWorker(),generation=++autoGeneration,requestId=generation+'|'+key;
+ const worker=ensureAutoSolverWorker(),generation=++autoGeneration,requestId=generation+'|'+key,solverPerfStarted=perfNow(),solverHandNo=S?.hand||null;
  autoState={key,status:'pending',reason:'River Solver background calculation'};
  const timeout=()=>{
   if(generation!==autoGeneration)return;
@@ -3315,6 +3380,7 @@ function requestAutoSolver(){
   destroyAutoSolverWorker();
   autoState={key,status:'unavailable',reason:'Worker timeout'};
   autoResults.set(key,autoState);
+  if(S&&S.hand===solverHandNo)recordSolverPerfEvent({street:snapshot.street,status:'timeout',reason:autoState.reason,wallMs:perfRound(perfNow()-solverPerfStarted)});
   renderV5();
  };
  const timer=setTimeout(timeout,3500);
@@ -3325,6 +3391,7 @@ function requestAutoSolver(){
   autoJob=null;
   const r=event.data.result;
   autoResults.set(key,r);
+  if(S&&S.hand===solverHandNo)recordSolverPerfEvent({street:snapshot.street,status:r.status||'unknown',reason:r.reason||null,wallMs:perfRound(perfNow()-solverPerfStarted),solverElapsedMs:Number.isFinite(r.elapsedMs)?perfRound(r.elapsedMs):null,exploitabilityBets:Number.isFinite(r.exploitabilityBets)?r.exploitabilityBets:null,confidence:r.confidence||null,rangeBudget:r.rangeBudget?deepClone(r.rangeBudget):null});
   if(autoResults.size>80)autoResults.delete(autoResults.keys().next().value);
   if(v5CacheKey(v5PublicSnapshot())!==key)return;
   autoState={key,...r};
@@ -3370,8 +3437,8 @@ const v5LegacyBias=applyScenarioBias;applyScenarioBias=function(){if(S?.nearStat
 const v5LegacyEnable=enableHero;enableHero=function(){v5LegacyEnable();requestAutoSolver();renderV5()};
 const v5LegacyNewHand=newHand;newHand=function(){if(S?.handOver){cancelAutoSolver();autoState={status:'idle'};S.nearStateRetry=null}return v5LegacyNewHand()};
 const v5LegacyRecommendation=recommendation;recommendation=function(){const solver=v5SolverLookup();if(!solver)return v5LegacyRecommendation();const canonical=canonicalRecommendation(),adjustment=v5Adjustment(v5PublicSnapshot(),solver.solverBaseline);if(isCanonicalRecommendation(canonical)){const c=normalizeRecommendation(canonical);return {...c,solverComparison:solver,solverBaseline:solver.solverBaseline,fieldAdjustment:adjustment,canonicalConflict:solverActionName(c.action)!==solver.action}}return {...normalizeRecommendation({...solver,action:adjustment.action,tier:adjustment.shifts.length?'model':'solver',resolution:adjustment.shifts.length?'Model':'Solver Approx'}),solverBaseline:solver.solverBaseline,fieldAdjustment:adjustment,solverComparison:solver}};
-const v5LegacyAct=act;act=function(seat,action,hero){if(hero){const r=recommendation(),snapshot=v5PublicSnapshot();v5LegacyAct(seat,action,hero);const d=S?.decisions?.at(-1);if(d&&r.solverBaseline){d.solverBaseline=deepClone(r.solverBaseline);d.fieldAdjustment=deepClone(r.fieldAdjustment);d.publicSolverSnapshot=snapshot;}cancelAutoSolver();return}return v5LegacyAct(seat,action,hero)};
-Object.assign(PokerOSDebug,{version:'5.1-performance-candidate',performancePatch:{turnLiveSolver:false,riverLiveSolver:true,persistentWorker:true,dynamicModelEquity:true,lazyHistory:true},versions:V5_VERSIONS,v5PublicSnapshot,v5Eligibility,rangeEngineV2,compressRangeV2,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot,v5CacheKey,v5Assessment,v5Adjustment,v5RecordDecision,v5Mastery,v5Review,requestAutoSolver,getAutoState:()=>autoState,getV5Learning:()=>v5Learning,setAutoResult:(key,result)=>autoResults.set(key,result),getAutoResults:()=>autoResults,enableHero,newHand,act,recommendation,bucketWeight,chooseTrainingBucket});
+const v5LegacyAct=act;act=function(seat,action,hero){if(hero){v5LegacyAct(seat,action,hero);cancelAutoSolver();return}return v5LegacyAct(seat,action,hero)};
+Object.assign(PokerOSDebug,{version:'5.1-performance-telemetry-candidate',performancePatch:{turnLiveSolver:false,riverLiveSolver:true,persistentWorker:true,dynamicModelEquity:true,lazyHistory:true,telemetryV1:true,resultHoldMs:RESULT_HOLD_MS,deduplicatedHeroRecommendation:true},versions:V5_VERSIONS,v5PublicSnapshot,v5Eligibility,rangeEngineV2,compressRangeV2,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot,v5CacheKey,v5Assessment,v5Adjustment,v5RecordDecision,v5Mastery,v5Review,requestAutoSolver,getAutoState:()=>autoState,getV5Learning:()=>v5Learning,setAutoResult:(key,result)=>autoResults.set(key,result),getAutoResults:()=>autoResults,enableHero,newHand,act,recommendation,bucketWeight,chooseTrainingBucket});
 // Performance patch: normalized v2 range is reserved for HU late streets.
 const v5LegacyWeightedPublicRange=weightedPublicRange;
 weightedPublicRange=function(opponent,hero){
