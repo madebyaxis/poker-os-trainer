@@ -1057,7 +1057,7 @@ function newHand(){
  if(S.sessionEnded){$('hint').textContent='세션 리포트가 생성되었습니다. 새 세션을 시작하세요.';$('next').disabled=true;return}
  if(S.heroNeedsRebuy||S.players[S.hero].stack<=0){$('hint').textContent='스택이 0원입니다. 리바인 후 다음 핸드를 진행하세요.';$('rebuyHero').disabled=false;$('next').disabled=true;return}
  applyPendingSeatChanges();
- $('next').disabled=true;S.showdownReached=false;S.hand++;if(S.hand>1)S.btn=(S.btn+1)%9;S.deck=deck();S.board=[];S.pot=0;S.street='preflop';S.currentBet=0;S.actor=null;S.acted=new Set();S.handOver=false;S.decisions=[];S.performanceTelemetry={schema:PERF_SCHEMA_VERSION,appVersion:'v5.1-performance-telemetry-candidate',handNo:S.hand,handStartedAt:Date.now(),solverEvents:[],decisions:[]};S.fastForward=false;S.winnerSeats=[];S.winnerText='';S.historySaved=false;S.showdownReached=false;S.handRake=0;S.lastPotGross=0;S.lastPotNet=0;S.lastUncalledRefund=0;S.preflopLimpers=0;S.preflopRaised=false;S.preflopRaiseCount=0;S.preflopRaiserSeat=null;S.lastAggressorSeat=null;S.prevStreetAggressorSeat=null;S.streetAggressionCount=0;S.heroReachedRiver=false;S.heroParticipatedHand=false;S.heroDecisionStartedAt=0;S.heroDecisionActiveMs=0;S.heroDecisionLastTick=0;S.heroPreflopFacingRecorded=false;S.heroFirstFacing='';S.aiHandActionStats=emptyAIHandActionStats();S.trainingPreflopTarget=chooseAdaptivePreflopTarget();S.postflopPressurePlan=choosePostflopPressurePlan();S.trainingBucket=chooseTrainingBucket();S.trainingHeroHoleCode=chooseAdaptiveHeroHoleCode();if(S.trainingHeroHoleCode)rigHeroHoleOnDeck(S.trainingHeroHoleCode);$('heroConfidence').value='medium';$('winnerBanner').classList.remove('show');
+ $('next').disabled=true;S.showdownReached=false;S.hand++;if(S.hand>1)S.btn=(S.btn+1)%9;S.deck=deck();S.board=[];S.pot=0;S.street='preflop';S.currentBet=0;S.actor=null;S.acted=new Set();S.handOver=false;S.decisions=[];S.preflopFieldStats={version:KANGWON10_PF_FIELD_VERSION,openRaises:0,openLimps:0,capOpportunities:0,caps:0,capFacing:0,capCalls:0,capFolds:0,capFiveKCalls:0,limpCaughtByCap:0};S.performanceTelemetry={schema:PERF_SCHEMA_VERSION,appVersion:'v5.1-performance-telemetry-candidate',handNo:S.hand,handStartedAt:Date.now(),solverEvents:[],decisions:[]};S.fastForward=false;S.winnerSeats=[];S.winnerText='';S.historySaved=false;S.showdownReached=false;S.handRake=0;S.lastPotGross=0;S.lastPotNet=0;S.lastUncalledRefund=0;S.preflopLimpers=0;S.preflopRaised=false;S.preflopRaiseCount=0;S.preflopRaiserSeat=null;S.lastAggressorSeat=null;S.prevStreetAggressorSeat=null;S.streetAggressionCount=0;S.heroReachedRiver=false;S.heroParticipatedHand=false;S.heroDecisionStartedAt=0;S.heroDecisionActiveMs=0;S.heroDecisionLastTick=0;S.heroPreflopFacingRecorded=false;S.heroFirstFacing='';S.aiHandActionStats=emptyAIHandActionStats();S.trainingPreflopTarget=chooseAdaptivePreflopTarget();S.postflopPressurePlan=choosePostflopPressurePlan();S.trainingBucket=chooseTrainingBucket();S.trainingHeroHoleCode=chooseAdaptiveHeroHoleCode();if(S.trainingHeroHoleCode)rigHeroHoleOnDeck(S.trainingHeroHoleCode);$('heroConfidence').value='medium';$('winnerBanner').classList.remove('show');
  for(const p of S.players)resetP(p);
  S.publicActionHistory=[];rangeCache.clear();S.scenarioBiased=false;applyScenarioBias();
  S.heroStart=S.players[S.hero].stack;$('winnerBanner').classList.remove('show');$('winnerTitle').textContent='';$('winnerSub').textContent='';
@@ -1853,6 +1853,76 @@ function updateHeroProfile(a,tc){
   else if(a==='check')h.checks++;
   else if(a==='raise')h.raises++;
 }
+const KANGWON10_PF_FIELD_VERSION='10k-field-v1.1-20261001';
+function preflopSeatHistory(seat){
+  return (S.publicActionHistory||[]).filter(a=>a.street==='preflop'&&a.seat===seat);
+}
+function preflopInvestmentState(p,tc){
+  const all=(S.publicActionHistory||[]).filter(a=>a.street==='preflop');
+  let firstAgg=-1,ownRaised=false,calledAfterRaise=false,limpedBeforeRaise=false;
+  for(let i=0;i<all.length;i++){
+    const a=all[i];
+    if(firstAgg<0&&['Raise','3-bet','Cap'].includes(a.semantic))firstAgg=i;
+    if(a.seat!==p.seat)continue;
+    if(['Raise','3-bet','Cap'].includes(a.semantic))ownRaised=true;
+    if(a.semantic==='Call'){
+      if(firstAgg>=0&&i>firstAgg)calledAfterRaise=true;
+      else limpedBeforeRaise=true;
+    }
+  }
+  return {
+    invested:Number(p.streetBet)||0,
+    toCall:Math.max(0,Number(tc)||0),
+    ownRaised,calledAfterRaise,limpedBeforeRaise,
+    alreadyAtRaiseLevel:(Number(p.streetBet)||0)>=10000,
+    limpCaughtByCap:(Number(p.streetBet)||0)<=5000&&Math.max(0,Number(tc)||0)>=10000
+  };
+}
+function kangwon10CapChance(p,code,group){
+  if(group==='premium'){
+    const q={'Nit':.72,'Tight-Passive':.62,'Calling Station':.55,'Loose-Passive':.52,'Regular':.78,'Tight-Aggressive':.86,'Loose-Aggressive':.88,'Tricky-Aggressive':.84,'Maniac':.94}[p.type];
+    return q??.78;
+  }
+  if(rangeMatch(code,['JJ','AQs','AQo'])){
+    const q={'Nit':.02,'Tight-Passive':.02,'Calling Station':.02,'Loose-Passive':.03,'Regular':.07,'Tight-Aggressive':.12,'Loose-Aggressive':.17,'Tricky-Aggressive':.16,'Maniac':.28}[p.type];
+    return q??.06;
+  }
+  return p.type==='Maniac'&&group==='strong'?.035:0;
+}
+function kangwon10CapContinueChance(p,tc,group){
+  const st=preflopInvestmentState(p,tc);
+  // 강원랜드 10만 현장 보정: Raise level(10k)에 이미 도달한 뒤 Cap 추가 5k는 거의 계속.
+  if(st.alreadyAtRaiseLevel&&st.toCall<=S.cfg.small){
+    if(['Nit','Tight-Passive'].includes(p.type))return group==='weak'?.88:.95;
+    return group==='weak'?.95:.985;
+  }
+  // 예외: 5k limp 상태에서 뒤의 Raise→Cap을 한꺼번에 맞아 10k를 더 내야 하는 경우.
+  if(st.limpCaughtByCap){
+    if(group==='premium')return .995;
+    if(group==='strong')return .93;
+    if(group==='pair')return Math.min(.82,.52+p.loose*.34);
+    if(group==='speculative')return Math.min(.76,.42+p.loose*.36);
+    if(group==='broadway')return Math.min(.68,.32+p.loose*.38);
+    return Math.min(.42,.10+p.loose*.36);
+  }
+  if(group==='premium')return .99;
+  if(group==='strong')return .88;
+  if(group==='pair'||group==='speculative')return .58;
+  if(group==='broadway')return .48;
+  return .18;
+}
+function recordPreflopFieldDecision(kind,p,tc,extra={}){
+  if(!S)return;
+  const m=S.preflopFieldStats||(S.preflopFieldStats={version:KANGWON10_PF_FIELD_VERSION,openRaises:0,openLimps:0,capOpportunities:0,caps:0,capFacing:0,capCalls:0,capFolds:0,capFiveKCalls:0,limpCaughtByCap:0});
+  if(kind==='open_raise')m.openRaises++;
+  if(kind==='open_limp')m.openLimps++;
+  if(kind==='cap_opp')m.capOpportunities++;
+  if(kind==='cap')m.caps++;
+  if(kind==='cap_facing')m.capFacing++;
+  if(kind==='cap_call'){m.capCalls++;if(tc<=S.cfg.small)m.capFiveKCalls++}
+  if(kind==='cap_fold')m.capFolds++;
+  if(extra.limpCaughtByCap)m.limpCaughtByCap++;
+}
 function aiPreflopAction(p,tc,sc,k){
   const ps=pos(p.seat),code=holeCode(p.hole),group=preflopGroup(code),facing=preflopFacing();
   const lateBonus=({BTN:.10,CO:.075,HJ:.035,SB:-.015,BB:.015}[ps]||0)*k.position;
@@ -1863,13 +1933,44 @@ function aiPreflopAction(p,tc,sc,k){
   const price=potOddsPct(tc,S.pot);
   const canRaise=S.currentBet<cap()&&p.stack>tc;
 
+  // Kangwon 100k field realism: after the pot is capped, prior investment matters.
+  if(S.cfg.label==='10만'&&facing==='Capped'&&tc>0){
+    const st=preflopInvestmentState(p,tc),q=kangwon10CapContinueChance(p,tc,group);
+    recordPreflopFieldDecision('cap_facing',p,tc,{limpCaughtByCap:st.limpCaughtByCap});
+    const action=Math.random()<q?'call':'fold';
+    recordPreflopFieldDecision(action==='call'?'cap_call':'cap_fold',p,tc,{limpCaughtByCap:st.limpCaughtByCap});
+    p.auditIntent={tag:'10k-cap-continue',reason:st.limpCaughtByCap?'limp_caught_by_raise_cap':'already_invested_cap_price'};
+    return action;
+  }
+
+  // Kangwon 100k: one raise goes directly to Cap. Restrict Cap generation to real value-heavy candidates.
+  if(S.cfg.label==='10만'&&facing==='Raised'&&tc>0){
+    if(canRaise){
+      recordPreflopFieldDecision('cap_opp',p,tc);
+      const q=kangwon10CapChance(p,code,group);
+      if(q>0&&Math.random()<q){
+        recordPreflopFieldDecision('cap',p,tc);
+        p.auditIntent={tag:'10k-cap',reason:group==='premium'?'premium_cap':'fringe_value_cap'};
+        return 'raise';
+      }
+    }
+    if(group==='premium'||group==='strong')return 'call';
+    if(group==='pair'||group==='speculative'){
+      if(live().length>=4&&price<=.18)return 'call';
+      if(ps==='BB'&&price<=.16)return 'call';
+      return 'fold';
+    }
+    if(group==='broadway')return price<=.16||p.loose>=.62?'call':'fold';
+    return price<=.10&&p.loose>=.72?'call':'fold';
+  }
+
   if(tc<=0){
     if(canRaise&&group==='premium')return 'raise';
     if(canRaise&&group==='strong'&&x>.64+heatDamp&&allowNonPremiumTrainingRaise(group))return 'raise';
     return 'check';
   }
 
-  // Regular 이상은 포지션/상대 액션/가격을 분리해서 본다.
+  // Regular+ still uses position/price, but 100k converts marginal open-folds into limps.
   if(k.potOdds>=.70){
     if(facing==='Raised'||facing==='Capped'){
       const rp=S.preflopRaiserSeat==null?'':pos(S.preflopRaiserSeat);
@@ -1884,18 +1985,36 @@ function aiPreflopAction(p,tc,sc,k){
     if(facing==='Limpers'){
       if(group==='premium')return canRaise?'raise':'call';
       if(group==='strong'&&S.preflopLimpers<=2)return canRaise&&allowNonPremiumTrainingRaise(group)?'raise':'call';
+      if(S.cfg.label==='10만'){
+        if(group==='pair'||group==='speculative')return price<=.24?'call':'fold';
+        if(group==='broadway'&&x>.40)return 'call';
+        if(x>.47&&['CO','BTN'].includes(ps))return 'call';
+        return 'fold';
+      }
       if(group==='pair'||group==='speculative')return price<=.18?'call':'fold';
       if(x>.50&&['CO','BTN'].includes(ps))return 'call';
       return 'fold';
     }
     if(facing==='Unopened'){
-      const openCut=({UTG:.72,'UTG+1':.70,'UTG+2':.66,MP:.62,HJ:.58,CO:.53,BTN:.48,SB:.60,BB:.99}[ps]??.63)+heatDamp;
-      if(x>=openCut)return canRaise&&allowNonPremiumTrainingRaise(group)?'raise':'call';
+      let openCut=({UTG:.72,'UTG+1':.70,'UTG+2':.66,MP:.62,HJ:.58,CO:.53,BTN:.48,SB:.60,BB:.99}[ps]??.63)+heatDamp;
+      if(S.cfg.label==='10만')openCut+=.035; // fewer raises than the old solver-heavy field
+      if(x>=openCut){
+        if(canRaise&&allowNonPremiumTrainingRaise(group)){recordPreflopFieldDecision('open_raise',p,tc);return 'raise'}
+        return 'call';
+      }
+      if(S.cfg.label==='10만'){
+        const limpCut=openCut-({UTG:.16,'UTG+1':.17,'UTG+2':.18,MP:.20,HJ:.22,CO:.24,BTN:.26,SB:.18}[ps]??.20);
+        const fieldPlayable=group==='pair'||group==='speculative'||group==='broadway'||group==='strong';
+        if((fieldPlayable&&x>=limpCut)||(p.loose>=.62&&x>=limpCut-.04)){
+          recordPreflopFieldDecision('open_limp',p,tc);
+          return 'call';
+        }
+      }
       return tc>0?'fold':'check';
     }
   }
 
-  // Average / Recreational: 기존 성향 기반 휴리스틱을 유지하되 포지션을 일부 반영.
+  // Average / Recreational. In 100k facing-raise/cap branches above already own the re-raise logic.
   if(x<.30-(p.loose-.5)*.20)return 'fold';
   if(canRaise&&x>.72-(p.agg-.5)*.18+heatDamp&&allowNonPremiumTrainingRaise(group))return 'raise';
   if(price>.24&&k.potOdds>.35&&x<.48)return 'fold';
@@ -2526,6 +2645,7 @@ function saveCurrentHand(){
     trainingBucket:S.trainingBucket,scenarioBiased:!!S.scenarioBiased,publicActionHistory:deepClone(S.publicActionHistory||[]),tableProfile:S.tableProfile,fieldEligibility:deepClone(S.fieldEligibility||{}),fieldMonitor:deepClone(S.fieldMonitor||{}),
     postflopPressureTarget:S.postflopPressurePlan?.label||'none',postflopPressureUsed:deepClone(S.postflopPressurePlan?.used||{turn:false,river:false}),postflopRaiseBackUsed:deepClone(S.postflopPressurePlan?.responseUsed||{turn:false,river:false}),
     aiPostflopActions:deepClone(S.aiHandActionStats||emptyAIHandActionStats()),
+    preflopFieldStats:deepClone(S.preflopFieldStats||{}),
     skillMix:tableSkillMix(),styleMix:tableStyleMix(),opponents:styleSkillSnapshot(),
     heroWon:wins.includes(S.hero),
     winner:S.winnerText||'',
@@ -3454,7 +3574,7 @@ const v5LegacyEnable=enableHero;enableHero=function(){v5LegacyEnable();requestAu
 const v5LegacyNewHand=newHand;newHand=function(){if(S?.handOver){cancelAutoSolver();autoState={status:'idle'};S.nearStateRetry=null}return v5LegacyNewHand()};
 const v5LegacyRecommendation=recommendation;recommendation=function(){const solver=v5SolverLookup();if(!solver)return v5LegacyRecommendation();const canonical=canonicalRecommendation(),adjustment=v5Adjustment(v5PublicSnapshot(),solver.solverBaseline);if(isCanonicalRecommendation(canonical)){const c=normalizeRecommendation(canonical);return {...c,solverComparison:solver,solverBaseline:solver.solverBaseline,fieldAdjustment:adjustment,canonicalConflict:solverActionName(c.action)!==solver.action}}return {...normalizeRecommendation({...solver,action:adjustment.action,tier:adjustment.shifts.length?'model':'solver',resolution:adjustment.shifts.length?'Model':'Solver Approx'}),solverBaseline:solver.solverBaseline,fieldAdjustment:adjustment,solverComparison:solver}};
 const v5LegacyAct=act;act=function(seat,action,hero){if(hero){v5LegacyAct(seat,action,hero);cancelAutoSolver();return}return v5LegacyAct(seat,action,hero)};
-Object.assign(PokerOSDebug,{version:'5.1-performance-telemetry-candidate',performancePatch:{turnLiveSolver:false,riverLiveSolver:true,persistentWorker:true,dynamicModelEquity:true,lazyHistory:true,telemetryV1:true,resultHoldMs:RESULT_HOLD_MS,deduplicatedHeroRecommendation:true},versions:V5_VERSIONS,v5PublicSnapshot,v5Eligibility,rangeEngineV2,compressRangeV2,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot,v5CacheKey,v5Assessment,v5Adjustment,v5RecordDecision,v5Mastery,v5Review,requestAutoSolver,getAutoState:()=>autoState,getV5Learning:()=>v5Learning,setAutoResult:(key,result)=>autoResults.set(key,result),getAutoResults:()=>autoResults,enableHero,newHand,act,recommendation,bucketWeight,chooseTrainingBucket});
+Object.assign(PokerOSDebug,{version:'5.1-performance-telemetry-candidate',performancePatch:{turnLiveSolver:false,riverLiveSolver:true,persistentWorker:true,dynamicModelEquity:true,lazyHistory:true,telemetryV1:true,resultHoldMs:RESULT_HOLD_MS,deduplicatedHeroRecommendation:true,kangwon10PreflopField:KANGWON10_PF_FIELD_VERSION},versions:V5_VERSIONS,v5PublicSnapshot,v5Eligibility,rangeEngineV2,compressRangeV2,publicSeatRangeV51,compressPublicRangeV51,v51RangeBudgets,v5SolveSnapshot,v5CacheKey,v5Assessment,v5Adjustment,v5RecordDecision,v5Mastery,v5Review,requestAutoSolver,getAutoState:()=>autoState,getV5Learning:()=>v5Learning,setAutoResult:(key,result)=>autoResults.set(key,result),getAutoResults:()=>autoResults,enableHero,newHand,act,recommendation,bucketWeight,chooseTrainingBucket});
 // Performance patch: normalized v2 range is reserved for HU late streets.
 const v5LegacyWeightedPublicRange=weightedPublicRange;
 weightedPublicRange=function(opponent,hero){
