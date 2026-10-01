@@ -1938,7 +1938,7 @@ function aiPreflopAction(p,tc,sc,k){
     const st=preflopInvestmentState(p,tc),q=kangwon10CapContinueChance(p,tc,group);
     recordPreflopFieldDecision('cap_facing',p,tc,{limpCaughtByCap:st.limpCaughtByCap});
     const action=Math.random()<q?'call':'fold';
-    recordPreflopFieldDecision(action==='call'?'cap_call':'cap_fold',p,tc,{limpCaughtByCap:st.limpCaughtByCap});
+    recordPreflopFieldDecision(action==='call'?'cap_call':'cap_fold',p,tc);
     p.auditIntent={tag:'10k-cap-continue',reason:st.limpCaughtByCap?'limp_caught_by_raise_cap':'already_invested_cap_price'};
     return action;
   }
@@ -2016,8 +2016,12 @@ function aiPreflopAction(p,tc,sc,k){
 
   // Average / Recreational. In 100k facing-raise/cap branches above already own the re-raise logic.
   if(x<.30-(p.loose-.5)*.20)return 'fold';
-  if(canRaise&&x>.72-(p.agg-.5)*.18+heatDamp&&allowNonPremiumTrainingRaise(group))return 'raise';
+  if(canRaise&&x>.72-(p.agg-.5)*.18+heatDamp&&allowNonPremiumTrainingRaise(group)){
+    if(S.cfg.label==='10만'&&facing==='Unopened')recordPreflopFieldDecision('open_raise',p,tc);
+    return 'raise';
+  }
   if(price>.24&&k.potOdds>.35&&x<.48)return 'fold';
+  if(S.cfg.label==='10만'&&facing==='Unopened')recordPreflopFieldDecision('open_limp',p,tc);
   return 'call';
 }
 function postflopDrawProfile(p){
@@ -2581,9 +2585,15 @@ function renderSessionDebrief(){
   const pressureTurn=hist.filter(h=>h.postflopPressureUsed?.turn).length,pressureRiver=hist.filter(h=>h.postflopPressureUsed?.river).length;
   const raiseBackTurn=hist.filter(h=>h.postflopRaiseBackUsed?.turn).length,raiseBackRiver=hist.filter(h=>h.postflopRaiseBackUsed?.river).length;
   const aiMon={flop:{check:0,call:0,betRaise:0,fold:0},turn:{check:0,call:0,betRaise:0,fold:0},river:{check:0,call:0,betRaise:0,fold:0}};
-  for(const h of hist){for(const st of ['flop','turn','river']){const x=h.aiPostflopActions?.[st]||{};for(const a of ['check','call','betRaise','fold'])aiMon[st][a]+=Number(x[a])||0}}
+  const pfField={openRaises:0,openLimps:0,capOpportunities:0,caps:0,capFacing:0,capCalls:0,capFolds:0,capFiveKCalls:0,limpCaughtByCap:0};
+  for(const h of hist){
+    for(const st of ['flop','turn','river']){const x=h.aiPostflopActions?.[st]||{};for(const a of ['check','call','betRaise','fold'])aiMon[st][a]+=Number(x[a])||0}
+    const pf=h.preflopFieldStats||{};for(const k of Object.keys(pfField))pfField[k]+=Number(pf[k])||0;
+  }
   const aiRate=st=>{const x=aiMon[st],t=x.check+x.call+x.betRaise+x.fold;return t?`${(100*x.betRaise/t).toFixed(1)}% (${x.betRaise}/${t})`:'-'};
-  $('sessionDebrief').innerHTML=`<b>${S.cfg.label} · ${S.hand}핸드 · ${S.trainingMode}</b><br>세션 P/L ${pl>=0?'+':''}${fmt(pl)}원 · canonical ${rate==null?'-':rate+'%'} (${ok.length}/${canon.length}) · 고확신 오류 ${hi.length}회<br>Canonical coverage: ${cov}<br>VPIP ${(nat.vpip*100).toFixed(1)}% · PFR ${(nat.pfr*100).toFixed(1)}% · 내 첫 액션 전 Raise/Cap ${(nat.actionHeat*100).toFixed(1)}%${heatWarn}<br>Adaptive scenario 편향 ${hist.filter(h=>h.scenarioBiased).length}/${hist.length} · 목표상황 ${targetText||'-'}<br>AI Bet/Raise 비율: Flop ${aiRate('flop')} · Turn ${aiRate('turn')} · River ${aiRate('river')}<br>현재 테이블 Skill: Rec ${mix.Recreational||0} / Avg ${mix.Average||0} / Reg ${mix.Regular||0} / Strong ${mix.Strong||0}<br>세션 누수 위험지수 ${sessionLeak.toFixed(1)} BB · Raw 훈련 BB/100 ${bb100==null?'-':fmtEdge(bb100)}<br><span class="modeNote">Adaptive scenario sampling는 실력 교정을 위한 의도적 표본추출이므로 손익/BB100을 실전 수익성으로 해석하지 않습니다. AI Bet/Raise 비율은 필드 현실성 보정용 모니터이며 승률 지표가 아닙니다.</span>`;
+  const capRate=pfField.capOpportunities?`${(100*pfField.caps/pfField.capOpportunities).toFixed(1)}% (${pfField.caps}/${pfField.capOpportunities})`:'-';
+  const capContinue=pfField.capFacing?`${(100*pfField.capCalls/pfField.capFacing).toFixed(1)}% (${pfField.capCalls}/${pfField.capFacing})`:'-';
+  $('sessionDebrief').innerHTML=`<b>${S.cfg.label} · ${S.hand}핸드 · ${S.trainingMode}</b><br>세션 P/L ${pl>=0?'+':''}${fmt(pl)}원 · canonical ${rate==null?'-':rate+'%'} (${ok.length}/${canon.length}) · 고확신 오류 ${hi.length}회<br>Canonical coverage: ${cov}<br>VPIP ${(nat.vpip*100).toFixed(1)}% · PFR ${(nat.pfr*100).toFixed(1)}% · 내 첫 액션 전 Raise/Cap ${(nat.actionHeat*100).toFixed(1)}%${heatWarn}<br>Adaptive scenario 편향 ${hist.filter(h=>h.scenarioBiased).length}/${hist.length} · 목표상황 ${targetText||'-'}<br>AI Bet/Raise 비율: Flop ${aiRate('flop')} · Turn ${aiRate('turn')} · River ${aiRate('river')}<br>10만 PF Field: Cap 실행 ${capRate} · Cap 직면 Continue ${capContinue} · 추가 5천 Call ${pfField.capFiveKCalls}회 · Limp 상태에서 Raise→Cap 직면 ${pfField.limpCaughtByCap}회<br>현재 테이블 Skill: Rec ${mix.Recreational||0} / Avg ${mix.Average||0} / Reg ${mix.Regular||0} / Strong ${mix.Strong||0}<br>세션 누수 위험지수 ${sessionLeak.toFixed(1)} BB · Raw 훈련 BB/100 ${bb100==null?'-':fmtEdge(bb100)}<br><span class="modeNote">Adaptive scenario sampling는 실력 교정을 위한 의도적 표본추출이므로 손익/BB100을 실전 수익성으로 해석하지 않습니다. AI Bet/Raise 비율은 필드 현실성 보정용 모니터이며 승률 지표가 아닙니다.</span>`;
 }
 function endSession(manual=true){
   if(!S||S.sessionEnded)return;
