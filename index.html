@@ -3246,10 +3246,11 @@ function v5SolverLookup(){
  return {action:r.mix.actions[ix],mix:r.mix,actionEV:r.actionEV,solverBaseline:r,gradeable:false,tier:'solver',resolution:'Solver Approx',confidence:r.confidence,rule:'Conditional HU CFR v0.3',source:'Solver Core v0.3 Candidate',why:'Hero×Villain 공개 액션 range 조건부 CFR · 실제 Hero infoset 선택 · Solver EV는 rake 제외 · 완전 게임 GTO 아님'};
 }
 function v5Adjustment(s,baseline){
- const mix={actions:[...baseline.mix.actions],probabilities:[...baseline.mix.probabilities]},opp=s.players.find(p=>!p.folded&&p.seat!==s.heroSeat),read=opp.observed||{},eq=baseline.compression.full.eq;
+ const mix={actions:[...baseline.mix.actions],probabilities:[...baseline.mix.probabilities]},opp=s.players.find(p=>!p.folded&&p.seat!==s.heroSeat),read=opp?.observed||{},legacyEq=baseline.compression?.full?.eq;
  const shifts=[];const move=(from,to,amount,label)=>{const i=mix.actions.indexOf(from),j=mix.actions.indexOf(to);if(i<0||j<0)return;const delta=Math.min(amount,mix.probabilities[i]);mix.probabilities[i]-=delta;mix.probabilities[j]+=delta;if(delta>0)shifts.push({layer:label,from,to,delta})};
- // Population prior is provisional: adjustments capped at 3 percentage points.
- if(eq<.35)move('Bet','Check',.03,'Field Adjustment');
+ // Population prior is provisional. v5.1 dual-range Solver no longer exposes the old singleton-vs-range equity field,
+ // so that legacy equity-based field shift is applied only to old compatible Solver results.
+ if(Number.isFinite(legacyEq)&&legacyEq<.35)move('Bet','Check',.03,'Field Adjustment');
  let reliability='Low';if(read.enough){reliability='Medium';if(read.label==='Observed Call-heavy'&&eq<.4)move('Bet','Check',Math.min(.08,.02+read.hands*.001),'Opponent Exploit');if(read.label==='Observed Passive'&&s.toCall>0&&s.history.some(a=>a.street==='turn'&&a.seat===opp.seat&&a.toCall>0&&['Raise','Cap','Re-raise'].includes(a.semantic)))move('Call','Fold',.04,'Opponent Exploit')}
  const action=mix.actions[mix.probabilities.indexOf(Math.max(...mix.probabilities))];return {mix,action,shifts,populationConfidence:'Low / Provisional',opponentConfidence:reliability,observations:read.hands||0,gradeable:false,resolution:'Model',note:'Heuristic adjustments; no adjusted action EV claim'};
 }
