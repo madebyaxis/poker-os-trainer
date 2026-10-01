@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kangwon Limit Hold'em Trainer v5.1 Dual-Range Solver Candidate</title>
+<title>Kangwon Limit Hold'em Trainer v5.1 Performance Candidate</title>
+<link rel="canonical" href="https://madebyaxis.github.io/poker-os-trainer/">
 <style>
 :root{--bg:#0e100f;--panel:#171a18;--panel2:#202420;--line:#363b36;--text:#f5f5f2;--muted:#a9b0aa;--felt:#1f4f37;--felt2:#153523;--gold:#e2c77e;--red:#d96e67;--green:#8fc79b}
 *{box-sizing:border-box}
@@ -96,12 +97,12 @@ select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);back
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.1 Dual-Range Solver Candidate</h1><div class="sub">v5.1 Performance Candidate · River live solver · Turn review solver · persistent Worker</div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.1 Performance Candidate</h1><div class="sub">v5.1 Performance + Telemetry · River live Solver · Turn review Solver · 3초 Auto-Next</div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
       <div class="field"><label>리뷰</label><select id="reviewMode"><option value="after">핸드 종료 후</option><option value="live">즉시 코치</option></select></div>
-      <div class="field"><label>훈련 모드</label><select id="trainingMode"><option value="adaptive">Adaptive</option><option value="simulation">실전 시뮬</option><option value="exam">시험 모드</option></select></div>
+      <div class="field"><label>훈련 모드</label><select id="trainingMode" aria-describedby="trainingModeHelp"><option value="adaptive">Adaptive · 약점 집중</option><option value="simulation">실전 시뮬 · 필드 재현</option><option value="exam">시험 모드 · 강한 상대</option></select><div id="trainingModeHelp" class="modeNote" style="max-width:240px;margin-top:4px">Adaptive · 개인 약점을 더 자주 만나도록 샘플링합니다.</div></div>
       <div class="field"><label>세션 목표</label><select id="sessionTarget"><option value="50">50핸드</option><option value="100" selected>100핸드</option><option value="200">200핸드</option></select></div>
       <div class="field"><label>잠정 Field profile</label><select id="tableProfile"><option>Normal</option><option>Soft</option><option>Reg Heavy</option></select></div>
       <button class="btn primary" id="start">새 세션</button>
@@ -612,6 +613,19 @@ function loadTrainingProfile(){
 }
 function saveTrainingProfile(){try{localStorage.setItem(TRAINING_PROFILE_KEY,JSON.stringify(trainingProfile))}catch(e){}}
 function mode(){return $('trainingMode')?.value||S?.trainingMode||'adaptive'}
+const TRAINING_MODE_META={
+  adaptive:{label:'Adaptive · 약점 집중',desc:'개인 약점 bucket과 특정 Hero 카드/Turn·River 상황을 더 자주 샘플링합니다. 실전 빈도·수익성 통계용이 아닙니다.'},
+  simulation:{label:'실전 시뮬 · 필드 재현',desc:'개인 약점 샘플링을 끄고 Field profile을 따라 자연스럽게 진행합니다. 강원랜드 현실성 검증과 500H 데이터 수집용입니다.'},
+  exam:{label:'시험 모드 · 강한 상대',desc:'개인 약점 샘플링 없이 상대 Skill 구성을 더 강하게 잡습니다. 의사결정 실력 점검용입니다.'}
+};
+function syncTrainingModeUI(){
+  const sel=$('trainingMode'),help=$('trainingModeHelp');if(!sel)return;
+  const active=!!(S&&!S.sessionEnded),value=active?(S.trainingMode||sel.value):sel.value,meta=TRAINING_MODE_META[value]||TRAINING_MODE_META.adaptive;
+  if(active&&sel.value!==value)sel.value=value;
+  sel.disabled=active;
+  sel.title=active?'현재 세션 중에는 훈련모드를 바꿀 수 없습니다. 세션 리포트 후 새 모드를 선택하세요.':meta.desc;
+  if(help)help.textContent=active?`현재 세션: ${meta.label} · 변경하려면 세션 리포트 종료 후 새 모드를 선택하세요.`:meta.desc;
+}
 function bbForLimit(label){return label==='30만'?20000:5000}
 function median(arr){if(!arr.length)return null;const a=[...arr].sort((x,y)=>x-y),m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2}
 function firstPreflopDecision(hand){return (hand?.decisions||[]).find(d=>d.street==='preflop')||null}
@@ -924,6 +938,7 @@ function restoreSession(){
     if(saved.reviewModeValue!=null)$('reviewMode').value=String(saved.reviewModeValue);
     if(saved.trainingModeValue!=null)$('trainingMode').value=String(saved.trainingModeValue);
     if(saved.sessionTargetValue!=null)$('sessionTarget').value=String(saved.sessionTargetValue);
+    syncTrainingModeUI();
     updateAutoButton();readSeatOptions();renderCurriculum();renderEdgeMetrics();
     $('log').innerHTML='';
     log(`이전 세션 복원 · Hand ${S.hand} · 저장 ${saved.savedAt?new Date(saved.savedAt).toLocaleString('ko-KR'):''}`,'sys');
@@ -969,7 +984,8 @@ function startSession(){
  }
  S={cfg,hero,btn:Math.floor(Math.random()*9),hand:0,startStack:cfg.buyin,heroTotalBuyin:cfg.buyin,heroNeedsRebuy:false,resumeAutoAfterRebuy:true,players,deck:[],board:[],pot:0,street:'idle',currentBet:0,actor:null,acted:new Set(),handOver:true,decisions:[],fastForward:false,winnerSeats:[],winnerText:'',historySaved:false,preflopLimpers:0,preflopRaised:false,preflopRaiseCount:0,preflopRaiserSeat:null,lastAggressorSeat:null,prevStreetAggressorSeat:null,streetAggressionCount:0,heroReachedRiver:false,heroParticipatedHand:false,heroProfile:{actions:0,folds:0,calls:0,checks:0,raises:0,facedBet:0,foldsToBet:0,callsVsBet:0,raisesVsBet:0},sessionRake:0,handRake:0,lastPotGross:0,lastPotNet:0,lastUncalledRefund:0,initialChips:cfg.buyin*9,chipsAdded:0,chipsRemoved:0,trainingMode:$('trainingMode').value,sessionTarget:Number($('sessionTarget').value)||100,sessionEnded:false,endAfterHand:false,tableProfile:$('tableProfile').value,fieldMonitor:{},sessionId:'S-'+Date.now(),sessionStartedAt:new Date().toISOString(),heroDecisionStartedAt:0,heroDecisionActiveMs:0,heroDecisionLastTick:0,heroPreflopFacingRecorded:false,heroFirstFacing:'',trainingGateActive:false,forcedDrillQueue:[],trainingGateRemaining:0,readGateActive:false,pendingReadCheckpoint:0,endAfterTrainingGate:false,resumeAutoAfterGate:true,lastAdaptiveBlockHand:0,trainingPreflopTarget:'',trainingHeroHoleCode:'',adaptiveRecentCodes:[],postflopPressurePlan:{label:'none',turn:false,river:false,used:{turn:false,river:false},responseUsed:{turn:false,river:false}},aiHandActionStats:emptyAIHandActionStats()};
  $('log').innerHTML='';$('review').innerHTML='<div class="reviewItem"><b>세션 시작</b><p>가상칩 훈련입니다. 실제 베팅/결제 기능은 없습니다.</p></div>';
- log(`${cfg.label} 세션 시작 · 가상 스택 ${fmt(cfg.buyin)} · ${S.trainingMode} · 목표 ${S.sessionTarget}핸드`,'sys');$('next').disabled=false;$('endSession').disabled=false;readSeatOptions();renderCurriculum();renderEdgeMetrics();persistSession();newHand();
+ syncTrainingModeUI();
+ log(`${cfg.label} 세션 시작 · 가상 스택 ${fmt(cfg.buyin)} · ${TRAINING_MODE_META[S.trainingMode]?.label||S.trainingMode} · 목표 ${S.sessionTarget}핸드`,'sys');$('next').disabled=false;$('endSession').disabled=false;readSeatOptions();renderCurriculum();renderEdgeMetrics();persistSession();newHand();
 }
 function resetP(p){p.hole=[S.deck.pop(),S.deck.pop()];p.folded=false;p.allin=false;p.allinThisHand=false;p.streetBet=0;p.totalBet=0;p.last='';p.obsPreflopSeenThisHand=false;p.obsEnteredThisHand=false;p.obsRaisedThisHand=false;ensureObs(p);delete p.eval}
 function blind(seat,amt,label){const p=S.players[seat],pay=Math.min(amt,p.stack);p.stack-=pay;p.streetBet=pay;p.totalBet=pay;S.pot+=pay;p.last=label;if(p.stack===0)markAllIn(p,`${label} ALL-IN`)}
@@ -2454,7 +2470,7 @@ function endSession(manual=true){
   if(!S||S.sessionEnded)return;
   if(manual&&S.trainingGateActive){$('hint').textContent='Decision Drill 체크포인트를 완료해야 세션을 종료할 수 있습니다.';return}
   if(!S.handOver){S.endAfterHand=true;autoNext=false;updateAutoButton();$('endSession').disabled=true;$('hint').textContent='현재 핸드가 끝나면 세션 리포트를 생성합니다.';persistSession();return}
-  S.sessionEnded=true;S.endAfterHand=false;autoNext=false;updateAutoButton();if(autoTimer){clearTimeout(autoTimer);autoTimer=null}$('next').disabled=true;$('endSession').disabled=true;renderSessionDebrief();renderReview();renderHistory();renderEdgeMetrics();persistSession();log(`${manual?'사용자 종료':'목표 핸드 도달'} · 세션 리포트 생성`,'sys');
+  S.sessionEnded=true;S.endAfterHand=false;autoNext=false;updateAutoButton();if(autoTimer){clearTimeout(autoTimer);autoTimer=null}$('next').disabled=true;$('endSession').disabled=true;syncTrainingModeUI();renderSessionDebrief();renderReview();renderHistory();renderEdgeMetrics();persistSession();log(`${manual?'사용자 종료':'목표 핸드 도달'} · 세션 리포트 생성`,'sys');
 }
 
 function memoryTip(d){
@@ -3123,7 +3139,7 @@ $('fold').addEventListener('click',()=>act(S.hero,'fold',true));
 $('call').addEventListener('click',()=>{const p=S.players[S.hero],tc=Math.max(0,S.currentBet-p.streetBet);act(S.hero,tc?'call':'check',true)});
 $('raise').addEventListener('click',()=>act(S.hero,'raise',true));
 $('reviewMode').addEventListener('change',persistSession);
-$('trainingMode').addEventListener('change',()=>{if(S&&!S.sessionEnded){$('trainingMode').value=S.trainingMode;$('hint').textContent='모드 변경은 새 세션에서 적용합니다.'}renderCurriculum()});
+$('trainingMode').addEventListener('change',()=>{syncTrainingModeUI();renderCurriculum()});
 $('readSeat').addEventListener('change',()=>{if(S&&!S.sessionEnded)showSelectedReadEvidence()});
 $('sessionTarget').addEventListener('change',()=>{if(S){S.sessionTarget=Number($('sessionTarget').value)||100;persistSession()}});
 $('exportHistory').addEventListener('click',exportHistory);
@@ -3534,6 +3550,7 @@ $('sessionDebrief').innerHTML=`<b>System Check ${V3_SELF_TEST.ok?'PASS':'FAIL'}<
 updateAutoButton();
 renderRecentHistoryLite();renderCurriculum();
 const restored=restoreSession();
+syncTrainingModeUI();
 if(!restored||S?.sessionEnded){renderHistory();renderEdgeMetrics()}
 if(!restored){
   $('status').textContent='새 세션을 시작하세요.';
