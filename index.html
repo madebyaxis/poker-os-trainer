@@ -147,7 +147,7 @@ select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);back
     </section>
 
     <aside class="side"><div class="sidecard"><h2>개인 약점 · Canonical 표본</h2><details><summary>Field Monitor</summary><pre id="v5FieldMonitor" style="white-space:pre-wrap"></pre></details><p id="v5Status" class="note">Solver 지원 상태 대기</p><details><summary>Solver EV / 계층 상세</summary><button id="solverReviewHistory">저장 Hand Solver 재검토 (최대 10)</button><pre id="v5Details" style="white-space:pre-wrap"></pre></details><details><summary>HU Solver 훈련 (비채점)</summary><select id="solverTrainingStreet"><option value="turn">Turn</option><option value="river">River</option></select><button id="solverTrainingStart">새 HU Spot</button><select id="solverTrainingAction"><option>Check</option><option>Bet</option><option>Call</option><option>Fold</option><option>Raise</option></select><select id="solverTrainingConfidence"><option>medium</option><option>low</option><option>high</option></select><button id="solverTrainingAnswer">선택 / EV 확인</button><pre id="solverTrainingOutput" style="white-space:pre-wrap"></pre></details><div id="phaseDashboard"></div></div>
-<div class="sidecard"><h2>Solver Lab · HU Candidate</h2><details><summary>조건부 범위 입력</summary>
+<div class="sidecard" hidden><h2>Solver Lab · HU Candidate</h2><details><summary>조건부 범위 입력</summary>
 <p class="note">각 범위는 1–6개 명시 combo. Turn은 River 전수열거. Rake·전체 게임 safety는 미포함. 결과는 비채점 Solver Approx. 현재 핸드와 자동 연결되지 않습니다.</p>
 <label>보드 <input id="solverBoard" value="Q♠ 8♥ 4♦ 2♣ 7♠"></label><br>
 <label>Hero 범위 <input id="solverHeroRange" value="A♠ A♥; K♠ K♥"></label><br>
@@ -450,6 +450,8 @@ const ACCOUNTING_VERSION='v4.3-candidate-20260930-sidepot';
 const REVIEW_ENGINE_VERSION='Poker OS Full Decision Engine v5.1 Dual-Range Solver Candidate · Field Realism AI · Natural Postflop Pressure · Result Pause · Strategy v1.1 · Matrix v0.9 · Equity MC · Action EV · True Regrade v2 · 2026-09-29';
 const STRATEGY_VERSION='10만 Strategy v1.1';
 const EXPORT_SCHEMA_VERSION='poker-os-export-v1-20261012';
+// Solver kill-switch (2026-10-12): live/review/training CFR is off for speed. Set true to restore.
+const SOLVER_ENABLED=false;
 const FULL_DECISION_ENGINE_VERSION='Poker OS Full Decision Engine v5.1 Dual-Range Solver Candidate';
 const MODEL_EQUITY_TRIALS=360;
 const REGRADE_SCHEMA_VERSION='snapshot-canonical-regrade-v3-strict';
@@ -2154,7 +2156,7 @@ function act(seat,a,hero){
    S.decisions.push({
      street:S.street,pos:pos(seat),actual:a,actualSemantic:semantic,
      publicActionHistory:deepClone(S.publicActionHistory||[]),heroCards:deepClone(p.hole),currentBet:S.currentBet,streetBet:p.streetBet,stack:p.stack,streetAggressionCount:S.streetAggressionCount,previousAggressor:S.prevStreetAggressorSeat,turnBettor:(S.publicActionHistory||[]).find(x=>x.street==='turn'&&x.semantic==='Bet')?.seat??null,draw:S.street==='preflop'?null:postflopDrawProfile(p),
-     solverBaseline:r.solverBaseline||null,fieldAdjustment:r.fieldAdjustment||null,publicSolverSnapshot:(()=>{const s=v5PublicSnapshot();return v5Eligibility(s).ok?s:null})(),rec:r.action,solverComparison:r.solverComparison||null,canonicalConflict:r.canonicalConflict??null,why:r.why,rule:r.rule,source:r.source,confidence:r.confidence,gradeable:r.gradeable,tier:r.tier,
+     solverBaseline:r.solverBaseline||null,fieldAdjustment:r.fieldAdjustment||null,publicSolverSnapshot:(()=>{if(!SOLVER_ENABLED)return null;const s=v5PublicSnapshot();return v5Eligibility(s).ok?s:null})(),rec:r.action,solverComparison:r.solverComparison||null,canonicalConflict:r.canonicalConflict??null,why:r.why,rule:r.rule,source:r.source,confidence:r.confidence,gradeable:r.gradeable,tier:r.tier,
      userConfidence,decisionMs,
      hole:holeCode(p.hole),handClass:S.street==='preflop'?'preflop':handClass(p),boardRisk:risk,
      facing:S.street==='preflop'?preflopFacing():(tc>0?'Bet':'CheckedTo'),
@@ -3214,6 +3216,7 @@ function phaseDashboard(){
 function parseSolverCards(text){return text.trim().split(/\s+/).map(x=>{const r=x[0],s=x.slice(1);if(!RV[r]||!SUITS.includes(s))throw Error('카드 형식: A♠ K♥');return {r,s,v:RV[r]}})}
 function parseSolverRange(text){return text.split(';').map(t=>{const [cards,w]=t.trim().split(':');return {cards:parseSolverCards(cards),weight:w===undefined?1:Number(w)}})}
 function solverLabRun(){
+ if(!SOLVER_ENABLED){const o=$('solverOutput');if(o)o.textContent='Solver 비활성화됨';return}
  const out=$('solverOutput');try{
   const input={board:parseSolverCards($('solverBoard').value),ranges:[parseSolverRange($('solverHeroRange').value),parseSolverRange($('solverOppRange').value)],pot:Number($('solverPot').value),bet:Number($('solverBet').value),toCall:Number($('solverCost').value),actor:0,currentLevel:Number($('solverLevel').value),riverFirst:Number($('solverRiverFirst').value)};
   const iterations=Number($('solverIterations').value),source='('+solverWorker.toString()+')();';
@@ -3501,6 +3504,7 @@ function cancelAutoSolver(){
  autoGeneration++;
 }
 function requestAutoSolver(){
+ if(!SOLVER_ENABLED){autoState={key:null,status:'unavailable',reason:'Solver disabled'};return autoState}
  const snapshot=v5PublicSnapshot(),gate=v5Eligibility(snapshot);
  if(!gate.ok){
   if(autoJob)cancelAutoSolver();
@@ -3551,6 +3555,7 @@ function requestAutoSolver(){
 }
 function solverActionName(a){return ['Cap','Re-raise','3-bet'].includes(a)?'Raise':a}
 function v5SolverLookup(){
+ if(!SOLVER_ENABLED)return null;
  const snapshot=v5PublicSnapshot();if(!v5Eligibility(snapshot).ok)return null;const r=autoResults.get(v5CacheKey(snapshot));if(!r||r.status!=='ready')return null;const ix=r.mix.probabilities.indexOf(Math.max(...r.mix.probabilities));
  return {action:r.mix.actions[ix],mix:r.mix,actionEV:r.actionEV,solverBaseline:r,gradeable:false,tier:'solver',resolution:'Solver Approx',confidence:r.confidence,rule:'Conditional HU CFR v0.3',source:'Solver Core v0.3 Candidate',why:'Hero×Villain 공개 액션 range 조건부 CFR · 실제 Hero infoset 선택 · Solver EV는 rake 제외 · 완전 게임 GTO 아님'};
 }
@@ -3577,7 +3582,7 @@ function v5RecordDecision(d){
  if(d.canonicalConflict){v5Learning.conflicts.push({spot:key,canonical:d.rec,solverMix:base.mix,solverEV:base.actionEV,rangeAssumption:base.assumption,exploitability:base.exploitabilityBets,fieldEvidence:d.fieldAdjustment,observations:v.n,recommendation:'Review Candidate only; Active Canonical unchanged'});v5Learning.conflicts=v5Learning.conflicts.slice(-100)}saveV5();
 }
 function v5Mastery(bucket){const b=v5Learning.buckets[bucket];if(!b||b.n<20)return 'Evidence insufficient';return b.recent.length>=10&&b.recent.every(x=>x<=.1)&&b.highConfidenceErrors/b.n<.1&&median(b.responseMs)!==null&&median(b.responseMs)<15000?'Retention':'Learning'}
-function renderV5(){const el=$('v5Status');if(!el)return;const ready=autoState.status==='ready',drift=autoState.strategyStability?.recentMaxDrift,rb=autoState.rangeBudget;el.textContent=ready?`Dual-range Solver · ${autoState.confidence} · ${autoState.mix.actions.map((a,i)=>a+' '+Math.round(autoState.mix.probabilities[i]*100)+'%').join(' / ')} · ${rb?.mode==='review'?'Review':'Live'} Hero ${rb?.hero||'-'} / Opp ${rb?.opponent||'-'} combos · stability ${Number.isFinite(drift)?Math.round(drift*100)+'%':'측정중'} · ${(autoState.elapsedMs/1000).toFixed(2)}s · Solver EV rake 제외`:autoState.status==='pending'?'Dual-range Solver 계산 중 · 액션 가능 · 결과 미완료 시 Model':`Model fallback · ${autoState.reason||'지원 상태 대기'}`;}
+function renderV5(){const el=$('v5Status');if(!el)return;if(!SOLVER_ENABLED){el.textContent='Solver 비활성화 (속도 우선)';return}const ready=autoState.status==='ready',drift=autoState.strategyStability?.recentMaxDrift,rb=autoState.rangeBudget;el.textContent=ready?`Dual-range Solver · ${autoState.confidence} · ${autoState.mix.actions.map((a,i)=>a+' '+Math.round(autoState.mix.probabilities[i]*100)+'%').join(' / ')} · ${rb?.mode==='review'?'Review':'Live'} Hero ${rb?.hero||'-'} / Opp ${rb?.opponent||'-'} combos · stability ${Number.isFinite(drift)?Math.round(drift*100)+'%':'측정중'} · ${(autoState.elapsedMs/1000).toFixed(2)}s · Solver EV rake 제외`:autoState.status==='pending'?'Dual-range Solver 계산 중 · 액션 가능 · 결과 미완료 시 Model':`Model fallback · ${autoState.reason||'지원 상태 대기'}`;}
 function v5Review(d){if(d.solverBaseline)return {heroActual:d.actualSemantic,canonical:d.tier==='canonical'?d.rec:null,solverBaseline:d.solverBaseline,fieldModel:d.fieldAdjustment,quality:d.solverQuality||v5Assessment(d.solverBaseline,d.actualSemantic),confidence:d.solverBaseline.confidence};return {status:'Insufficient Solver State',reason:'Historical snapshot lacks full player stacks, positions or public sequence; never infer from hidden export'};}
 const v5LegacyWeight=bucketWeight;bucketWeight=function(k,now){if(SOLVER_BUCKETS.includes(k)){const b=v5Learning.buckets[k];return !b?1:Math.max(.15,(1+b.totalLoss/b.n*3+b.major/b.n*2)/(v5Mastery(k)==='Retention'?4:1))}return v5LegacyWeight(k,now)};
 const v5LegacyChoose=chooseTrainingBucket;chooseTrainingBucket=function(){if(S?.trainingMode==='adaptive'){const retry=v5Learning.retry.find(r=>r.dueHand<=S.hand);if(retry){S.nearStateRetry=deepClone(retry);v5Learning.retry.splice(v5Learning.retry.indexOf(retry),1);saveV5();return retry.bucket.startsWith('SOLVER_TURN')?'TURN_OTHER':'RIVER_BLUFF_CATCH'}}return v5LegacyChoose()};
@@ -3621,6 +3626,7 @@ function makeSolverTrainingSnapshot(street='turn',i=0){
 }
 let solverTraining=null,drillJob=null;
 function startSolverTraining(){
+ if(!SOLVER_ENABLED)return;
  if(drillJob){clearTimeout(drillJob.timer);drillJob.worker.terminate();URL.revokeObjectURL(drillJob.url);drillJob=null}
  $('solverTrainingStart').disabled=true;
  const street=S?.nearStateRetry?.snapshot?.street||$('solverTrainingStreet').value||'turn',snapshot=S?.nearStateRetry?.snapshot||makeSolverTrainingSnapshot(street,Math.floor(Math.random()*4)),url=URL.createObjectURL(new Blob(['('+autoSolverWorker.toString()+')();'],{type:'application/javascript'})),worker=new Worker(url),out=$('solverTrainingOutput');solverTraining={snapshot,status:'pending'};out.textContent='HU '+street+' · '+snapshot.heroCards.map(cardKey).join(' ')+' · Board '+snapshot.board.map(cardKey).join(' ')+' · pot '+fmt(snapshot.pot)+' · call '+fmt(snapshot.toCall)+' · 계산 중';
@@ -3634,6 +3640,7 @@ $('solverTrainingStart').addEventListener('click',startSolverTraining);$('solver
 Object.assign(PokerOSDebug,{makeSolverTrainingSnapshot,startSolverTraining,answerSolverTraining});
 function v5ScanHistory(){return loadHistory().slice(-500).flatMap((h,hi)=>(h.decisions||[]).map((d,di)=>({handIndex:hi,decisionIndex:di,handNo:h.handNo,street:d.street,heroActual:d.actualSemantic,status:d.solverBaseline?'Solved':d.publicSolverSnapshot&&v5Eligibility(d.publicSolverSnapshot).ok?'Eligible for review':'Insufficient Solver State',reason:d.publicSolverSnapshot?v5Eligibility(d.publicSolverSnapshot).reason:'Full public snapshot absent'})))}
 async function reviewSolverHistory(){
+ if(!SOLVER_ENABLED)return;
  const history=loadHistory(),eligible=[];history.forEach((h,hi)=>(h.decisions||[]).forEach((d,di)=>{if(!d.solverBaseline&&d.publicSolverSnapshot&&v5Eligibility(d.publicSolverSnapshot).ok)eligible.push({hi,di,d})}));const selected=eligible.slice(-10),out=$('v5Details');
  for(let i=0;i<selected.length;i++){
   const {hi,di,d}=selected[i];out.textContent=`History Solver review ${i+1}/${selected.length} · 최대 10 decision/batch · 나머지 ${eligible.length-selected.length}`;
@@ -3647,7 +3654,7 @@ Object.assign(PokerOSDebug,{v5ScanHistory,reviewSolverHistory});
 // Adaptive solver targets supplement the table with public HU drills;
 // they never change an opponent's actions or force HU at the live table.
 const v5ChooseWithRetry=chooseTrainingBucket;chooseTrainingBucket=function(){const chosen=v5ChooseWithRetry();if(S?.nearStateRetry?.snapshot){S.solverTrainingTarget=S.nearStateRetry.bucket;return chosen}if(SOLVER_BUCKETS.includes(chosen)){S.solverTrainingTarget=chosen;return chosen.includes('TURN')?'TURN_OTHER':'RIVER_BLUFF_CATCH'}if(S)S.solverTrainingTarget=null;return chosen};
-const v5EnableWithAuto=enableHero;enableHero=function(){v5EnableWithAuto();if(S?.trainingMode==='adaptive'&&S.solverTrainingTarget&&!S.solverSupplementStarted&&!autoJob&&['turn','river'].includes(S.street)){S.solverSupplementStarted=true;$('solverTrainingStreet').value=S.solverTrainingTarget.includes('TURN')?'turn':'river';startSolverTraining()}};
+const v5EnableWithAuto=enableHero;enableHero=function(){v5EnableWithAuto();if(SOLVER_ENABLED&&S?.trainingMode==='adaptive'&&S.solverTrainingTarget&&!S.solverSupplementStarted&&!autoJob&&['turn','river'].includes(S.street)){S.solverSupplementStarted=true;$('solverTrainingStreet').value=S.solverTrainingTarget.includes('TURN')?'turn':'river';startSolverTraining()}};
 const v5NewWithAuto=newHand;newHand=function(){if(S?.handOver)S.solverSupplementStarted=false;return v5NewWithAuto()};
 Object.assign(PokerOSDebug,{chooseTrainingBucket,enableHero,newHand});
 function renderV5Field(){

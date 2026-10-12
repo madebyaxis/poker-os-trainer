@@ -9,6 +9,8 @@
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional
 
+> **Solver 비활성화 (2026-10-12):** 속도를 위해 실시간·복기·훈련 Solver를 모두 껐습니다. `index.html`의 `SOLVER_ENABLED=true`로 되돌리면 복원됩니다. Solver Lab 카드는 숨겨져 있습니다.
+
 > Candidate 단계입니다. Solver 결과는 정본 정답이 아니며 실전 수익성(bb100) 지표로 쓰지 않습니다.
 
 ## GitHub Pages
