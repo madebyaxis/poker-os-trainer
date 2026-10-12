@@ -449,6 +449,7 @@ const RAKE_CAP={'10만':10000,'30만':20000};
 const ACCOUNTING_VERSION='v4.3-candidate-20260930-sidepot';
 const REVIEW_ENGINE_VERSION='Poker OS Full Decision Engine v5.1 Dual-Range Solver Candidate · Field Realism AI · Natural Postflop Pressure · Result Pause · Strategy v1.1 · Matrix v0.9 · Equity MC · Action EV · True Regrade v2 · 2026-09-29';
 const STRATEGY_VERSION='10만 Strategy v1.1';
+const EXPORT_SCHEMA_VERSION='poker-os-export-v1-20261012';
 const FULL_DECISION_ENGINE_VERSION='Poker OS Full Decision Engine v5.1 Dual-Range Solver Candidate';
 const MODEL_EQUITY_TRIALS=360;
 const REGRADE_SCHEMA_VERSION='snapshot-canonical-regrade-v3-strict';
@@ -2895,6 +2896,7 @@ function exportHistory(){
   const raw=loadHistory();
   const h=raw.map(historyRegrade);
   const json=JSON.stringify({
+    schemaVersion:EXPORT_SCHEMA_VERSION,
     exportedAt:new Date().toISOString(),
     reviewEngine:REVIEW_ENGINE_VERSION,
     strategyVersion:STRATEGY_VERSION,
@@ -3279,7 +3281,7 @@ $('importHistoryFile').addEventListener('change',async e=>{
   const f=e.target.files&&e.target.files[0]; if(!f)return;
   try{
     const txt=await f.text(), obj=JSON.parse(txt);
-    const incoming=Array.isArray(obj)?obj:(Array.isArray(obj.rawHands)?obj.rawHands:[]);
+    const incoming=(Array.isArray(obj)?obj:(Array.isArray(obj.rawHands)?obj.rawHands:[])).filter(x=>x&&typeof x==='object'&&!Array.isArray(x));
     if(!incoming.length)throw new Error('핸드 배열을 찾지 못했습니다.');
     const current=loadHistory();
     const key=x=>`${x.savedAt||''}|${x.handNo||''}|${x.position||''}|${x.hole||''}`;
