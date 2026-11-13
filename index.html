@@ -92,6 +92,44 @@ select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);back
 @media(max-width:650px){.analysisGrid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.side{grid-template-columns:1fr 1fr}.table{min-height:610px}}
 @media(max-width:650px){.app{padding:9px}.side{grid-template-columns:1fr}.table{min-height:560px;border-width:7px;border-radius:35%/27%}.seat{width:102px;min-height:83px;padding:6px}.s2{left:1%;bottom:48px}.s3{left:0;top:52%}.s4{left:1%;top:19%}.s5{left:22%;top:2px}.s6{right:22%;top:2px}.s7{right:1%;top:19%}.s8{right:0;top:52%}.s9{right:1%;bottom:48px}.card{width:39px;height:56px;font-size:14px}.heroPanel{grid-template-columns:1fr}.actions{justify-content:stretch}.action{flex:1;min-width:0}}
+
+/* 2026-11-13 Mobile table v2: 좌석 겹침 제거 · 테이블+액션바를 한 화면에 · 히어로 항상 하단 중앙 */
+@media(max-width:650px){
+ .table{min-height:0;height:min(118vw,470px);border-width:6px;border-radius:44%/30%;margin:0 2px}
+ .table:after{font-size:16px;opacity:.6}
+ .seat{width:min(23vw,88px);min-height:0;padding:4px 5px;gap:1px 4px;border-radius:9px;grid-template-columns:auto 1fr;align-items:center}
+ .seat .seat-top{grid-column:1/-1}
+ .seat .stack{text-align:right;white-space:nowrap}
+ .seat .act{text-align:right}
+ .seat .name{font-size:10px}.seat .pos{font-size:9px}.seat .stack{font-size:11px;font-variant-numeric:tabular-nums}
+ .seat .stackFull{display:none}.seat .stackShort{display:inline}
+ .seat .act{font-size:9px;min-height:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .seat .dealer{width:15px;height:15px;font-size:8px}
+ .seat .mini{width:17px;height:23px;font-size:7.5px;border-radius:3px}
+ .seat.active{outline-width:2px;outline-offset:1px}
+ .s1{left:50%;right:auto;top:auto;bottom:4px;transform:translateX(-50%)}
+ .s2{left:2px;right:auto;top:auto;bottom:15%;transform:none}
+ .s3{left:0;right:auto;top:46%;bottom:auto;transform:translateY(-50%)}
+ .s4{left:2px;right:auto;top:18%;bottom:auto;transform:none}
+ .s5{left:calc(50% - min(23vw,88px) - 3px);right:auto;top:2px;bottom:auto;transform:none}
+ .s6{left:calc(50% + 3px);right:auto;top:2px;bottom:auto;transform:none}
+ .s7{right:2px;left:auto;top:18%;bottom:auto;transform:none}
+ .s8{right:0;left:auto;top:46%;bottom:auto;transform:translateY(-50%)}
+ .s9{right:2px;left:auto;top:auto;bottom:15%;transform:none}
+ .center{top:50%;gap:5px;width:calc(100% - 2*min(23vw,88px) - 12px)}
+ .center .board{gap:3px;min-height:46px;justify-content:center}
+ .center .card{width:min(6.8vw,27px);height:min(9.8vw,39px);font-size:10.5px;border-radius:5px}
+ .center{left:50%;transform:translate(-50%,-50%)}
+ .center .board{gap:3px}
+ .center .board{flex-wrap:nowrap}
+ .street{font-size:9px}.pot{font-size:11px;padding:4px 9px}
+ .heroPanel{position:sticky;bottom:0;z-index:30;margin-top:8px;padding:8px;gap:6px;box-shadow:0 -6px 18px #000a;background:#101410f2}
+ .heroPanel .heroCards .card{width:34px;height:48px;font-size:12px}
+ .heroInfo{gap:8px}.status{font-size:12px}.hint{font-size:10px;max-height:3.2em;overflow:auto}
+ .actions{gap:6px}.action{min-height:52px;padding:6px 4px;font-size:14px}
+ .confidenceWrap select{min-height:30px}
+}
+.stackShort{display:none}
 </style>
 </head>
 <body>
@@ -584,6 +622,7 @@ const CANON={
   }
 };
 
+function manShort(n){n=Math.round(Number(n)||0);const m=n/10000;return (Math.abs(m)>=100?Math.round(m):Math.round(m*10)/10).toLocaleString('ko-KR')+'만'}
 function fmt(n){n=Math.round(Number(n)||0);return (n<0?'-':'')+Math.abs(n).toLocaleString('ko-KR')}
 function deck(){const d=[];for(const s of SUITS)for(const r of RANKS)d.push({r,s,v:RV[r]});for(let i=d.length-1;i;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]}return d}
 function card(c,mini=false,back=false){const cls=mini?'mini':'card';if(back)return `<span class="${cls} back">?</span>`;return `<span class="${cls} ${(c.s==='♥'||c.s==='♦')?'red':''}">${c.r}<br>${c.s}</span>`}
@@ -626,7 +665,7 @@ function loadTrainingProfile(){
   }catch(e){return deepClone(TRAINING_PROFILE_DEFAULT)}
 }
 function saveTrainingProfile(){try{localStorage.setItem(TRAINING_PROFILE_KEY,JSON.stringify(trainingProfile))}catch(e){}}
-function mode(){return $('trainingMode')?.value||S?.trainingMode||'adaptive'}
+function mode(){return (S&&!S.sessionEnded&&S.trainingMode)||$('trainingMode')?.value||'adaptive'}
 const TRAINING_MODE_META={
   adaptive:{label:'Adaptive · 약점 집중',desc:'개인 약점 bucket과 특정 Hero 카드/Turn·River 상황을 더 자주 샘플링합니다. 실전 빈도·수익성 통계용이 아닙니다.'},
   simulation:{label:'실전 시뮬 · 필드 재현',desc:'개인 약점 샘플링을 끄고 Field profile을 따라 자연스럽게 진행합니다. 강원랜드 현실성 검증과 500H 데이터 수집용입니다.'},
@@ -635,10 +674,11 @@ const TRAINING_MODE_META={
 function syncTrainingModeUI(){
   const sel=$('trainingMode'),help=$('trainingModeHelp');if(!sel)return;
   const active=!!(S&&!S.sessionEnded),value=active?(S.trainingMode||sel.value):sel.value,meta=TRAINING_MODE_META[value]||TRAINING_MODE_META.adaptive;
-  if(active&&sel.value!==value)sel.value=value;
-  sel.disabled=active;
-  sel.title=active?'현재 세션 중에는 훈련모드를 바꿀 수 없습니다. 세션 리포트 후 새 모드를 선택하세요.':meta.desc;
-  if(help)help.textContent=active?`현재 세션: ${meta.label} · 변경하려면 세션 리포트 종료 후 새 모드를 선택하세요.`:meta.desc;
+  // 2026-11-13: 세션 중에도 선택 가능. 바꾸면 확인 후 새 세션으로 즉시 적용(진행 중 세션 모드를 섞지 않음).
+  sel.disabled=false;
+  const picked=TRAINING_MODE_META[sel.value]||meta;
+  sel.title=active?'바꾸면 현재 세션을 끝내고 새 모드로 새 세션을 시작합니다.':meta.desc;
+  if(help)help.textContent=active?(sel.value!==value?`현재 세션: ${meta.label} → 선택: ${picked.label} · '새 세션'을 누르면 적용됩니다.`:`현재 세션: ${meta.label} · 바꾸면 새 세션으로 시작합니다.`):meta.desc;
 }
 function bbForLimit(label){return label==='30만'?20000:5000}
 function median(arr){if(!arr.length)return null;const a=[...arr].sort((x,y)=>x-y),m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2}
@@ -3094,11 +3134,11 @@ function render(reveal=false){
  const au=accountingAudit();$('audit').textContent=au.ok?'정상':'불일치 '+fmt(au.diff);$('audit').className=au.ok?'auditOK':'auditBad';
  $('heroCards').innerHTML=S.players[S.hero].hole.map(c=>card(c)).join('');
  $('rules').textContent=S.cfg.label==='10만'
-  ?'10만: SB 2천 / BB 5천. PF Raise→Cap, Flop/Turn Bet→Raise→Cap, River Bet→Raise→Re-raise→Cap. Skill×Style 독립. Field parameters는 잠정이며 실측 강원랜드 분포가 아닙니다. Adaptive는 deal/scenario만 편향하고 상대 액션은 일반 policy를 사용합니다. Canonical만 채점. Solver Lab은 conditional HU CFR, Model/Approx/Exploit 비채점. 훈련 손익은 실전 EV 아님. 회계용 rake 5%, 임시 cap 10,000원은 미확정.'
-  :'Poker OS v3 30만 설정: SB 1만 / BB 2만, PF·Flop 2만 단위, Turn·River 3만 단위. 상대 AI는 Style × Skill 혼합 테이블이며 성향·실력은 플레이 중 공개하지 않습니다. Adaptive에서는 최근 오류·경계범위를 반영한 맞춤 시작패와 프리플랍 목표상황을 생성합니다. canonical Rule DB만 실력 KPI에 채점합니다. 정본이 없는 구간은 Full Decision Engine이 Range·Equity Monte Carlo·Pot Odds·Action EV·관찰 기반 Exploit으로 Model 액션을 제시하지만 KPI 오답으로 채점하지 않습니다. 레이크는 회계 연속성을 위해 훈련 시뮬레이션에서 5%·임시 cap(10만 10,000원 / 30만 20,000원)을 사용합니다. 10만 전용 실제 rake cap은 미확정이며 이 임시값은 전략·marginal defense 판단에 사용하지 않습니다. 올인 시 메인/사이드팟을 분리하고, 파산한 AI는 성향·올인/리바인 횟수·체류시간에 따라 리바인 또는 다른 플레이어로 교체됩니다. 칩 단위 반올림은 별도 모델링하지 않습니다.';
- $('seats').innerHTML=S.players.map((p,i)=>{const show=i===S.hero||(S.handOver&&reveal&&!p.folded);const status=playerStatusBadge(p);return `<div class="seat s${i+1} ${i===S.hero?'hero':''} ${i===S.actor&&!S.handOver?'active':''} ${p.folded?'folded':''} ${p.stack===0?'busted':''} ${p.pendingAction?'pending':''} ${S.winnerSeats&&S.winnerSeats.includes(i)?'winner':''}">
+  ?'10만: SB 2천 / BB 5천. PF Raise→Cap, Flop/Turn Bet→Raise→Cap, River Bet→Raise→Re-raise→Cap. Skill×Style 독립. Field parameters는 잠정이며 실측 강원랜드 분포가 아닙니다. Adaptive는 deal/scenario만 편향하고 상대 액션은 일반 policy를 사용합니다. Canonical만 채점. Solver Lab은 conditional HU CFR, Model/Approx/Exploit 비채점. 훈련 손익은 실전 EV 아님. 회계용 rake 5%, cap 20,000원(2026-11-13 확인).'
+  :'Poker OS v3 30만 설정: SB 1만 / BB 2만, PF·Flop 2만 단위, Turn·River 3만 단위. 상대 AI는 Style × Skill 혼합 테이블이며 성향·실력은 플레이 중 공개하지 않습니다. Adaptive에서는 최근 오류·경계범위를 반영한 맞춤 시작패와 프리플랍 목표상황을 생성합니다. canonical Rule DB만 실력 KPI에 채점합니다. 정본이 없는 구간은 Full Decision Engine이 Range·Equity Monte Carlo·Pot Odds·Action EV·관찰 기반 Exploit으로 Model 액션을 제시하지만 KPI 오답으로 채점하지 않습니다. 레이크는 회계 연속성을 위해 훈련 시뮬레이션에서 5%·cap 20,000원(10만·30만 공통, 2026-11-13 현장 확인)을 사용합니다. 올인 시 메인/사이드팟을 분리하고, 파산한 AI는 성향·올인/리바인 횟수·체류시간에 따라 리바인 또는 다른 플레이어로 교체됩니다. 칩 단위 반올림은 별도 모델링하지 않습니다.';
+ $('seats').innerHTML=S.players.map((p,i)=>{const show=i===S.hero||(S.handOver&&reveal&&!p.folded);const status=playerStatusBadge(p);return `<div class="seat s${((i-S.hero+9)%9)+1} ${i===S.hero?'hero':''} ${i===S.actor&&!S.handOver?'active':''} ${p.folded?'folded':''} ${p.stack===0?'busted':''} ${p.pendingAction?'pending':''} ${S.winnerSeats&&S.winnerSeats.includes(i)?'winner':''}">
  <div class="seat-top"><span class="name">${p.name}</span>${i===S.btn?'<span class="dealer">D</span>':''}</div>
- <div class="pos">${pos(i)}</div><div class="stack">${fmt(p.stack)} ${status}</div>
+ <div class="pos">${pos(i)}</div><div class="stack"><span class="stackFull">${fmt(p.stack)}</span><span class="stackShort">${manShort(p.stack)}</span> ${status}</div>
  <div class="minicards">${p.hole.map(c=>card(c,true,!show)).join('')}</div><div class="act">${p.last||' '}</div></div>`}).join('');
  if(S.handOver){
    const hp=S.players[S.hero].stack-S.heroStart;
@@ -3333,7 +3373,7 @@ if(initialSkillBag('adaptive').filter(x=>['Regular','Strong'].includes(x)).lengt
 if(initialSkillBag('exam').filter(x=>['Regular','Strong'].includes(x)).length!==7)V3_SELF_TEST.bad.push('exam-skillmix');
 if(!postflopStyleCfg({type:'Regular'}).riverBluff||postflopMultiwayFactor(6,'bluff')>=postflopMultiwayFactor(6,'strongValue'))V3_SELF_TEST.bad.push('field-realism');if(forcedDrillPlan(1).length!==ADAPTIVE_BLOCK_SIZE)V3_SELF_TEST.bad.push('adaptive-block');if(!lifecycleDefaults().obs)V3_SELF_TEST.bad.push('read-evidence');if(ACTION_HEAT_THRESHOLD>=ACTION_HEAT_HARD)V3_SELF_TEST.bad.push('heat-control');if(Math.abs(Object.values(ADAPTIVE_TARGET_BASE).reduce((a,b)=>a+b,0)-1)>.001)V3_SELF_TEST.bad.push('adaptive-target-mix');if(!cardSpecsForCode('A9s')||!cardSpecsForCode('22')||!cardSpecsForCode('44')||!cardSpecsForCode('AJs'))V3_SELF_TEST.bad.push('adaptive-hole-parser');if(!PERSONAL_SMALL_PAIR_BOUNDARY_CODES.includes('44')||!PERSONAL_TURN_STICKY_CODES.includes('AJs')||!PERSONAL_OPEN_LIMP_CODES.includes('44'))V3_SELF_TEST.bad.push('patch8-personalization');if(typeof observedAggressionRead!=='function')V3_SELF_TEST.bad.push('patch8-observed-read');V3_SELF_TEST.ok=V3_SELF_TEST.bad.length===0;if(!V3_SELF_TEST.ok)console.error('Poker v3 self-test failed',V3_SELF_TEST.bad);
 
-$('start').addEventListener('click',startSession);
+$('start').addEventListener('click',()=>{startSession();if(window.matchMedia&&matchMedia('(max-width:650px)').matches){setTimeout(()=>document.querySelector('.table')?.scrollIntoView({behavior:'smooth',block:'start'}),150)}});
 $('endSession').addEventListener('click',()=>endSession(true));
 $('nextDrill').addEventListener('click',()=>{if(S?.trainingGateActive){$('hint').textContent='이 Drill은 선택형입니다. 풀지 않아도 게임은 계속 진행됩니다.';return}nextDrill()});
 $('checkRead').addEventListener('click',checkOpponentRead);
@@ -3355,7 +3395,15 @@ $('fold').addEventListener('click',()=>act(S.hero,'fold',true));
 $('call').addEventListener('click',()=>{const p=S.players[S.hero],tc=Math.max(0,S.currentBet-p.streetBet);act(S.hero,tc?'call':'check',true)});
 $('raise').addEventListener('click',()=>act(S.hero,'raise',true));
 $('reviewMode').addEventListener('change',persistSession);
-$('trainingMode').addEventListener('change',()=>{syncTrainingModeUI();renderCurriculum()});
+$('trainingMode').addEventListener('change',()=>{
+  const active=!!(S&&!S.sessionEnded),sel=$('trainingMode');
+  if(active&&S.trainingMode!==sel.value){
+    const label=TRAINING_MODE_META[sel.value]?.label||sel.value;
+    let ok=true;try{ok=window.confirm(`${label}(으)로 바꾸려면 새 세션을 시작해야 합니다.\n지금 세션을 끝내고 새로 시작할까요? (핸드 기록은 유지됩니다)`)}catch(e){ok=true}
+    if(ok){startSession();if(S&&S.trainingMode===sel.value){$('hint').textContent=`${label} 모드로 새 세션을 시작했습니다.`}}
+  }
+  syncTrainingModeUI();renderCurriculum();
+});
 $('readSeat').addEventListener('change',()=>{if(S&&!S.sessionEnded)showSelectedReadEvidence()});
 $('sessionTarget').addEventListener('change',()=>{if(S){S.sessionTarget=Number($('sessionTarget').value)||100;persistSession()}});
 $('exportHistory').addEventListener('click',exportHistory);
