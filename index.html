@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kangwon Limit Hold'em Trainer v5.1 Performance Candidate</title>
+<title>Kangwon Limit Hold'em Trainer v5.2 Candidate</title>
 <link rel="canonical" href="https://madebyaxis.github.io/poker-os-trainer/">
 <style>
 :root{--bg:#0e100f;--panel:#171a18;--panel2:#202420;--line:#363b36;--text:#f5f5f2;--muted:#a9b0aa;--felt:#1f4f37;--felt2:#153523;--gold:#e2c77e;--red:#d96e67;--green:#8fc79b}
@@ -97,14 +97,14 @@ select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);back
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.1 Performance Candidate</h1><div class="sub">v5.1 Performance + Telemetry · River live Solver · Turn review Solver · 3초 Auto-Next</div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.2 Candidate</h1><div class="sub">2026-11-13 현장 교정 반영 · rake 5%/cap 2만 · Solver OFF(속도) · 3초 Auto-Next</div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
       <div class="field"><label>리뷰</label><select id="reviewMode"><option value="after">핸드 종료 후</option><option value="live">즉시 코치</option></select></div>
       <div class="field"><label>훈련 모드</label><select id="trainingMode" aria-describedby="trainingModeHelp"><option value="adaptive">Adaptive · 약점 집중</option><option value="simulation">실전 시뮬 · 필드 재현</option><option value="exam">시험 모드 · 강한 상대</option></select><div id="trainingModeHelp" class="modeNote" style="max-width:240px;margin-top:4px">Adaptive · 개인 약점을 더 자주 만나도록 샘플링합니다.</div></div>
       <div class="field"><label>세션 목표</label><select id="sessionTarget"><option value="50">50핸드</option><option value="100" selected>100핸드</option><option value="200">200핸드</option></select></div>
-      <div class="field"><label>잠정 Field profile</label><select id="tableProfile"><option>Normal</option><option>Soft</option><option>Reg Heavy</option></select></div>
+      <div class="field"><label>잠정 Field profile</label><select id="tableProfile"><option>Normal</option><option>Soft</option><option value="Kangwon Live">강원랜드 현장(11/13 관찰)</option><option>Reg Heavy</option></select></div>
       <button class="btn primary" id="start">새 세션</button>
       <button class="btn autoOn" id="autoToggle" type="button">자동 진행 ON</button>
       <button class="btn rebuyBtn" id="rebuyHero" type="button" disabled>리바인</button>
@@ -445,7 +445,8 @@ const ACTION_KO={
 };
 const STREET_KO={preflop:'프리플랍',flop:'플랍',turn:'턴',river:'리버'};
 const RAKE_RATE=0.05;
-const RAKE_CAP={'10만':10000,'30만':20000};
+// 2026-11-13 Founder 현장 확인: 10만·30만 모두 rake 5% / cap 20,000원 (이전 10만 잠정 10,000원 폐기)
+const RAKE_CAP={'10만':20000,'30만':20000};
 const ACCOUNTING_VERSION='v4.3-candidate-20260930-sidepot';
 const REVIEW_ENGINE_VERSION='Poker OS Full Decision Engine v5.1 Dual-Range Solver Candidate · Field Realism AI · Natural Postflop Pressure · Result Pause · Strategy v1.1 · Matrix v0.9 · Equity MC · Action EV · True Regrade v2 · 2026-09-29';
 const STRATEGY_VERSION='10만 Strategy v1.1';
@@ -553,7 +554,17 @@ const CANON={
     vsEP3bet:{range:['QQ+','AK'],rule:'P10-PF08 | vs EP Raise Premium',action:'Cap',
       explain:'10만 프리플랍은 첫 레이즈 다음이 바로 캡입니다. QQ+와 AK는 앞자리 레이즈에 캡으로 밸류를 받습니다.'},
     vsEPFold:{exact:['ATo','KJo','QJo','KTo'],rule:'P10-PF09 | vs EP Raise Dominated Fold',action:'Fold',
-      explain:'앞자리 레이즈에 이런 오프수트 패는 지배당하기 쉬워 싸 보여도 폴드가 낫습니다.'}
+      explain:'앞자리 레이즈에 이런 오프수트 패는 지배당하기 쉬워 싸 보여도 폴드가 낫습니다.'},
+    // Strategy v1.1 facing EP raise: Call TT~JJ, AQs (AK는 vsEP3bet으로 캡)
+    vsEPCall:{range:['TT','JJ','AQs'],rule:'P10-PF13 | vs EP Raise Value Call',action:'Call',
+      explain:'앞자리 레이즈에는 TT~JJ, AQs가 콜 범위입니다. 캡까지 키우기엔 지배당할 위험이 있어 콜로 따라갑니다.'},
+    // Strategy v1.1 "약한 수딧 킹·낮은 수딧 커넥터 폴드" + Founder 교정(2026-11-13: JTs·T9s로 앞자리 레이즈 콜 → 폴드)
+    vsEPFoldSpec:{range:['K2s-K9s','JTs','T9s','98s','87s','76s','65s','54s','J9s','T8s','97s','86s','75s','64s','Q9s','QTs','KTs','KJs','QJs','A2o-A9o','KQo','K9o','Q9o','J9o','T9o','98o'],
+      rule:'P10-PF09 | vs EP Raise Dominated Fold',action:'Fold',
+      explain:'앞자리 레이즈 범위는 강합니다. 수딧 커넥터·약한 수딧 킹·오프수트 브로드웨이는 포지션이 좋아도 콜 범위(TT~JJ, AQs, QQ+/AK) 밖이라 폴드합니다. "싸니까 콜" 금지.'},
+    // Founder 교정(2026-11-13) + Strategy v1.1 limp23 "ATo·KJo·QJo·KTo 크게 축소": 림프 팟 오프수트는 레이즈 아니면 폴드
+    limpOffFold:{rule:'P10-PF14 | Limped Pot Offsuit Fold',action:'Fold',
+      explain:'림퍼가 있는 팟에서 오프수트 패는 레이즈 범위가 아니면 폴드입니다. 오버림프는 페어·수딧 위주이고, 오프수트는 멀티웨이에서 지배당하기 쉽습니다.'}
   },
   '30만':{
     open:{
@@ -1561,7 +1572,7 @@ function derivedLimpDecision(p,code,ps,tc){
         `SB 추가금액은 ${fmt(tc)}원이고 콜 후 팟의 약 ${Math.round(price*100)}%입니다. 약한 오프수트 패면 포기합니다.`,
         'Medium',false,'Poker OS Engine v3','derived');
     return friendlyRuleResult('Call','SB Complete 가격 판단',
-      `SB는 이미 블라인드를 냈습니다. 추가 ${fmt(tc)}원만 내면 됩니다. 다만 10만 rake cap이 미확정이므로 marginal complete는 Review Only로 유지합니다.`,
+      `SB는 이미 블라인드를 냈습니다. 추가 ${fmt(tc)}원만 내면 됩니다. 10만 rake는 5%·cap 20,000원(2026-11-13 확정)이라 멀티웨이 큰 팟일수록 부담이 커서 marginal complete는 Review Only로 유지합니다.`,
       'Low',false,'Poker OS Engine v3','hold');
   }
 
@@ -1679,6 +1690,37 @@ function postflopDecisionV2(p){
     'Medium',true,'Poker OS Engine v2','derived');
 }
 
+// 2026-11-13 Strategy v1.1 Turn 정본 + Founder 실전 교정 (KK 2-2-T 6way, AA flush-complete 6way).
+// Pure helper: live와 history regrade가 같은 규칙을 쓰도록 공유한다. 숨겨진 상대 type은 쓰지 않는다.
+function p10TurnRule(o){
+  const {street,tc,hc,risk,players,history,heroPos,board,heroCards,aggressive}=o;
+  if(street!=='turn'||!['one_pair','overpair','TPTK'].includes(hc)||!risk||!Array.isArray(board)||board.length<4)return null;
+  const RAISE=['Raise','Cap','Re-raise','3-bet'];
+  const hist=Array.isArray(history)?history:[];
+  const opp=hist.filter(a=>a.position!==heroPos);
+  const flopRaisers=new Set(opp.filter(a=>a.street==='flop'&&RAISE.includes(a.semantic)).map(a=>a.seat));
+  const turnRaise=opp.some(a=>a.street==='turn'&&RAISE.includes(a.semantic));
+  const turnBetByFlopRaiser=opp.some(a=>a.street==='turn'&&a.semantic==='Bet'&&flopRaisers.has(a.seat));
+  const prev=boardRiskFor(board.slice(0,3));
+  const factors=[players>=3&&'multiway',risk.paired&&'paired',risk.flushComplete&&'flush',risk.straightRisk&&'straight',(flopRaisers.size>0||turnRaise)&&players>=3&&'bet+raise+caller'].filter(Boolean);
+  if(tc>0){
+    const strongLine=turnRaise||turnBetByFlopRaiser;
+    if(factors.length>=2&&strongLine){
+      if(aggressive)return {action:'Review',rule:'P10-T04 | Aggressive Opponent Review',why:`턴 위험요소 ${factors.join('·')}가 겹쳤지만 이 상대의 공격성이 관찰로 확인돼 자동 Fold하지 않습니다. pot odds와 실제 블러프 빈도로 재평가합니다.`,confidence:'Low',gradeable:false,source:'Poker OS Engine v3',tier:'hold'};
+      return {action:'Fold',rule:'P10-T04 | Turn Multi-danger Bluff-catcher Fold',why:`턴 위험요소 ${factors.join('·')} 중 2개 이상이 겹치고, 상대가 플랍 레이즈 뒤 턴까지 계속 강하게 나왔습니다. 오버페어·TPTK도 블러프캐처로 강등합니다. 패시브·레귤러의 연속 액션은 밸류 헤비라 턴에서 접는 것이 기본입니다. (Strategy v1.1 턴 + 2026-11-13 KK 2-2-T 교정)`,confidence:'Medium',gradeable:true,source:'Poker Decision Rule DB',tier:'canonical'};
+    }
+    return null;
+  }
+  const completedNow=(risk.flushComplete&&!prev.flushComplete)||(risk.straightRisk&&!prev.straightRisk);
+  if(players>=3&&completedNow){
+    const sc={};board.forEach(c=>sc[c.s]=(sc[c.s]||0)+1);
+    const fs=Object.keys(sc).find(s=>sc[s]>=3);
+    const nutBlocker=risk.flushComplete&&fs&&(heroCards||[]).some(c=>c&&c.s===fs&&Number(c.v)===14)&&['overpair','TPTK'].includes(hc);
+    if(nutBlocker)return {action:'Review',suggestedAction:'Bet',rule:'P10-T06 | Nut-flush Blocker Bet Review',why:'플러시가 완성된 멀티웨이 턴이지만 내 패에 그 수트의 A가 있어 상대 넛 플러시가 없고 나는 넛 플러시 드로우까지 있습니다. 레이즈를 맞아도 콜할 수 있는 패라 벳이 유력합니다. 정본 밖 코칭 규칙이라 채점하지 않습니다.',confidence:'Low',gradeable:false,source:'Poker OS Engine v3',tier:'hold'};
+    return {action:'Check',rule:'P10-T05 | Turn Completion Multiway Slow-down',why:'턴에 플러시·스트레이트가 완성됐고 3명 이상 남았습니다. 원페어(오버페어·TPTK 포함)는 블러프캐처가 되어 먼저 벳하면 이긴 패만 받아줍니다. 체크로 감속하고, 벳을 받으면 가격과 상대 유형으로 콜/폴드, 레이즈를 맞으면 폴드합니다.',confidence:'Medium',gradeable:true,source:'Poker Decision Rule DB',tier:'canonical'};
+  }
+  return null;
+}
 function canonicalRecommendation(){
   const p=S.players[S.hero],limit=S.cfg.label,ps=pos(S.hero),code=holeCode(p.hole);
   const tc=Math.max(0,S.currentBet-p.streetBet);
@@ -1739,6 +1781,7 @@ function canonicalRecommendation(){
         // deterministic Call. Keep them Review Only until a direct matrix exists.
         if(isPairCode(code))return friendlyRuleResult('Review','Small-Pair Overlimp Review','가치 레이즈 범위 밖의 작은 페어는 자동 Call하지 않습니다. 포지션·limper 수·뒤 raise/cap 위험을 재평가합니다.','Low',false,'Poker OS Engine v3','hold');
         if(code.endsWith('s') && pfScore(p.hole)>=.34)return friendlyRuleResult('Review','Speculative Overlimp Review','수딧 계열도 자동 오버림프 정답으로 채점하지 않습니다. 가격과 포지션, 뒤 cap 위험을 함께 봅니다.','Low',false,'Poker OS Engine v3','hold');
+        if(cfg.limpOffFold&&code.endsWith('o'))return friendlyRuleResult('Fold',cfg.limpOffFold.rule,cfg.limpOffFold.explain,'High',true,'Poker Decision Rule DB');
         return friendlyRuleResult('Fold',r.rule,'한 명이 림프했다고 약한 오프수트 패까지 따라가지는 않습니다.','Medium',false,'Poker OS Engine v3','derived');
       }
       if(n>=2 && n<=3 && cfg.limp23){
@@ -1746,6 +1789,7 @@ function canonicalRecommendation(){
         if(rangeMatch(code,r.range))return friendlyRuleResult('Raise',r.rule,r.explain,'High',true,'Poker Decision Rule DB');
         if(isPairCode(code))return friendlyRuleResult('Review','Small-Pair Overlimp Review','2~3 limper에서도 작은 페어를 자동 Call로 채점하지 않습니다. 포지션·limper 수·뒤 cap 위험을 함께 재평가합니다.','Low',false,'Poker OS Engine v3','hold');
         if(code.endsWith('s') && pfScore(p.hole)>=.36)return friendlyRuleResult('Review','Speculative Overlimp Review','멀티웨이형 수딧 패도 직접 정본이 없는 구간은 Review Only입니다.','Low',false,'Poker OS Engine v3','hold');
+        if(cfg.limpOffFold&&code.endsWith('o'))return friendlyRuleResult('Fold',cfg.limpOffFold.rule,cfg.limpOffFold.explain,'High',true,'Poker Decision Rule DB');
         return friendlyRuleResult('Fold',r.rule,'사람이 많이 들어온 팟에서 약한 오프수트 패는 추가 진입을 줄입니다.','Medium',false,'Poker OS Engine v3','derived');
       }
       if(n>=4 && cfg.limp4){
@@ -1753,6 +1797,7 @@ function canonicalRecommendation(){
         if(rangeMatch(code,r.range))return friendlyRuleResult('Raise',r.rule,r.explain,'High',true,'Poker Decision Rule DB');
         if(isPairCode(code)||code.endsWith('s'))
           return friendlyRuleResult('Review','Multiway Overlimp Review','4명 이상 limped pot에서도 pocket/suited hand를 자동 Call로 정답 처리하지 않습니다. betting cap과 뒤 raise 위험 때문에 Review Only입니다.','Low',false,'Poker OS Engine v3','hold');
+        if(cfg.limpOffFold&&code.endsWith('o'))return friendlyRuleResult('Fold',cfg.limpOffFold.rule,cfg.limpOffFold.explain,'High',true,'Poker Decision Rule DB');
         return friendlyRuleResult('Fold',r.rule,'4명 이상 들어온 팟에서는 약한 오프수트 패를 버려 불필요한 진입을 줄입니다.','Medium',false,'Poker OS Engine v3','derived');
       }
     }
@@ -1775,6 +1820,10 @@ function canonicalRecommendation(){
         return friendlyRuleResult(cfg.vsEP3bet.action,cfg.vsEP3bet.rule,cfg.vsEP3bet.explain,'High',true,'Poker Decision Rule DB');
       if(ep && limit==='10만' && cfg.vsEPFold && cfg.vsEPFold.exact.includes(code))
         return friendlyRuleResult('Fold',cfg.vsEPFold.rule,cfg.vsEPFold.explain,'High',true,'Poker Decision Rule DB');
+      if(ep && limit==='10만' && cfg.vsEPCall && rangeMatch(code,cfg.vsEPCall.range))
+        return friendlyRuleResult('Call',cfg.vsEPCall.rule,cfg.vsEPCall.explain,'High',true,'Poker Decision Rule DB');
+      if(ep && limit==='10만' && cfg.vsEPFoldSpec && rangeMatch(code,cfg.vsEPFoldSpec.range))
+        return friendlyRuleResult('Fold',cfg.vsEPFoldSpec.rule,cfg.vsEPFoldSpec.explain,'High',true,'Poker Decision Rule DB');
     }
   }
 
@@ -1784,6 +1833,10 @@ function canonicalRecommendation(){
     if(S.street==='flop' && ['set','straight','strong_two_pair'].includes(hc) && risk.count<=1){
       return friendlyRuleResult(tc>0?'Raise':'Bet','P10-F01 | Flop Strong Made Value',
         '플랍에서 강하게 완성된 패는 슬로우플레이보다 바로 돈을 더 받는 것이 기본입니다.','High',true,'Poker Decision Rule DB');
+    }
+    if(S.street==='turn'){
+      const tr=p10TurnRule({street:'turn',tc,hc,risk,players:live().length,history:S.publicActionHistory||[],heroPos:pos(S.hero),board:S.board,heroCards:p.hole,aggressive:observedAggressionRead(opp).aggressive});
+      if(tr){const tr2=friendlyRuleResult(tr.action,tr.rule,tr.why,tr.confidence,tr.gradeable,tr.source,tr.tier==='hold'?'hold':undefined);if(tr.suggestedAction)tr2.suggestedAction=tr.suggestedAction;return tr2}
     }
     if(S.street==='river'){
       if(tc===0 && ['straight','set','strong_two_pair','nut_flush','near_nut'].includes(hc) && risk.count<=1){
@@ -2083,6 +2136,9 @@ function postflopMultiwayFactor(n,kind='generic'){
 
 function aiPostflopAction(p,tc,sc,k){return fieldPostflopAction(p,tc,sc,k)}
 function aiAct(seat){
+  // 2026-11-13 fix: 핸드 종료 뒤 남은 타이머가 이미 폴드/올인한 좌석으로 액션해 팟이 이중 지급되던 race 차단.
+  if(!S||S.handOver||seat==null||seat!==S.actor||seat===S.hero)return;
+  if(!S.players[seat]||S.players[seat].folded||S.players[seat].allin)return;
   const p=S.players[seat],tc=Math.max(0,S.currentBet-p.streetBet),sc=strength(p),k=skillCfg(p);
   let a=S.street==='preflop'?aiPreflopAction(p,tc,sc,k):aiPostflopAction(p,tc,sc,k);
   if(S.street==='preflop')a=shapeAdaptivePreflopAction(p,a,tc);
@@ -2132,6 +2188,7 @@ function pauseHeroDecisionTimer(){if(!S||!S.heroDecisionLastTick)return;S.heroDe
 function resumeHeroDecisionTimer(){if(!S||S.handOver||S.actor!==S.hero||document.visibilityState!=='visible'||S.heroDecisionLastTick)return;S.heroDecisionLastTick=Date.now()}
 function consumeHeroDecisionTimer(){if(!S)return null;pauseHeroDecisionTimer();const ms=Number.isFinite(S.heroDecisionActiveMs)?S.heroDecisionActiveMs:null;S.heroDecisionStartedAt=0;S.heroDecisionActiveMs=0;S.heroDecisionLastTick=0;return ms}
 function act(seat,a,hero){
+ if(!S||S.handOver||!S.players[seat]||S.players[seat].folded||S.players[seat].allin)return;
  const actionPerfStart=hero?perfNow():null;
  const p=S.players[seat],tc=Math.max(0,S.currentBet-p.streetBet),st=step();
  const beforeBet=p.streetBet;
@@ -2446,6 +2503,9 @@ const DRILL_BANK={
   {s:'리버 · Heads-up · 안전한 보드 · Hero nut straight · 상대 Check',o:['Check','Bet'],a:'Bet',r:'P10-R03',w:'안전한 강한 made hand는 결과를 두려워하지 말고 direct value.'}
  ],
  turn:[
+  {s:'턴 · Hero KK overpair · 6way · 보드 2-2-T-x · 플랍에서 내 벳에 루즈패시브가 레이즈 → 턴에 그 상대가 다시 Bet',o:['Fold','Call','Raise'],a:'Fold',r:'P10-T04 | Turn Multi-danger Bluff-catcher Fold',w:'2026-11-13 실전(상대 A2 트립스): 멀티웨이·페어드 보드·벳+레이즈가 겹치면 KK도 블러프캐처. 패시브의 연속 강한 액션은 밸류 헤비라 턴에서 폴드.'},
+  {s:'턴 · Hero QQ overpair · 5way · 턴에 플러시 완성 · 내가 먼저 액션 · QQ에 그 수트 없음',o:['Check','Bet'],a:'Check',r:'P10-T05 | Turn Completion Multiway Slow-down',w:'완성 보드 멀티웨이에서 원페어 선벳은 이긴 패만 받아준다. 체크로 감속하고 벳을 받으면 가격·상대 유형으로 판단, 레이즈 맞으면 폴드.'},
+  {s:'턴 · Hero A♠A♥ · 6way · 턴에 ♠ 3장(플러시 완성) · 내가 먼저 액션',o:['Check','Bet'],a:'Bet',r:'P10-T06 | Nut-flush Blocker Bet Review',w:'2026-11-13 실전: 체크했더니 리버 벳에 올폴드. A♠가 있어 상대 넛 플러시가 없고 나는 오버페어+넛 플러시 드로우. 레이즈를 맞아도 콜할 수 있는 패라 벳. (정본 밖 코칭, 채점 비반영)'},
   {s:'턴 · 500핸드 Audit · overpair · 4way+ · 상대 Bet · completion 정보 불충분',o:['자동 Fold','자동 Call','재계산'],a:'재계산',r:'P10-TC01 | Coverage Candidate',w:'95개 Turn decision 중 canonical 표본이 0이었다. 실제 로그에서 overpair vs multiway Bet은 Call/Fold가 갈렸으므로 행동을 정답으로 학습하지 말고 board completion·pot odds·action history를 추가해 재계산한다.'},
   {s:'턴 · OESD 8 clean outs · Pot 80,000 · Call 10,000 · 한 장 남음',o:['Fold','Call'],a:'Call',r:'P10-T01 | Turn Mandatory Recalc',w:'상대 range → clean outs → pot odds → 다음 액션 EV 순서로 다시 계산. 8 clean outs라면 현재 가격은 계속할 수 있는 구간.'},
   {s:'턴 · 사실상 4 clean outs · Pot 60,000 · Call 10,000 · 보드가 flush까지 완성',o:['Fold','Call'],a:'Fold',r:'P10-T01 | Turn Mandatory Recalc',w:'Flop call은 Turn call의 근거가 아니다. dirty outs를 할인하면 현재 가격을 충족하지 못해 Fold.'},
@@ -2474,7 +2534,10 @@ const DRILL_BANK={
   {s:'10만 PF · BTN · 33 · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'P10-PF04 | BTN Open',w:'작은 페어 경계훈련: BTN에서는 33부터 open raise. limp로 시작하지 않는다.'},
   {s:'10만 PF · HJ · A9s · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'Open-vs-Limp correction',w:'최근 세션 교정: open 범위 안의 suited Ace는 Call로 시작하지 않고 Raise.'},
   {s:'10만 PF · MP · 앞에 1 limper · Hero 44',o:['자동 Call','자동 Fold','포지션·limper·뒤 cap risk 재평가'],a:'포지션·limper·뒤 cap risk 재평가',r:'Small-Pair Overlimp Review',w:'Strategy v1.1: 작은 pocket은 싸다는 이유로 자동 overlimp하지 않는다. 직접 정본이 없는 limped-pot 경계는 Review Only.'},
-  {s:'10만 PF · BTN · 87s · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'P10-PF04',w:'BTN의 position edge를 활용하는 open 범위.'}
+  {s:'10만 PF · BTN · 87s · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'P10-PF04',w:'BTN의 position edge를 활용하는 open 범위.'},
+  {s:'10만 PF · CO · 앞에 1 limper · Hero KJo',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF14 | Limped Pot Offsuit Fold',w:'2026-11-13 실전 교정: 림퍼 앞에서 KJo 레이즈 → 턴 A에 벳 → 레이즈 맞음. KJo는 1 limper 레이즈 범위(late 조건부 AJo·KQo 포함) 밖이고, 오프수트는 오버림프하지 않는다.'},
+  {s:'10만 PF · BTN · 앞에 2 limpers · Hero KQo',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF14 | Limped Pot Offsuit Fold',w:'2~3 limpers 레이즈 범위는 TT+, AQs+, AQo+, AK, KQs. KQo는 밖이고 오프수트는 림프콜하지 않는다. 정본 기준 폴드(약한 림퍼+조용한 블라인드면 레이즈 검토는 개인 판단).'},
+  {s:'10만 PF · MP · 앞에 3 limpers · Hero ATo',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF14 | Limped Pot Offsuit Fold',w:'Strategy v1.1: 2~3 limpers에서 ATo·KJo·QJo·KTo는 크게 축소. 오프수트는 레이즈 아니면 폴드.'}
  ],
  blind:[
   {s:'10만 PF · BB · 림퍼만 있음 · 이미 BB 5,000 납부 · 추가 Call 0 · 보통 패',o:['Fold','Check','Call'],a:'Check',r:'P10-PF12',w:'추가금액 0이면 Fold/Call이 아니라 Check. 단, 강한 value hand는 별도 Review 경계.'},
@@ -2485,7 +2548,10 @@ const DRILL_BANK={
  facing_raise:[
   {s:'10만 PF · MP · EP Raise · Hero KJo',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09',w:'EP raise에 dominated offsuit hand를 싸다는 이유로 따라가지 않는다.'},
   {s:'10만 PF · HJ · EP Raise · Hero QQ · cap 전',o:['Fold','Call','Cap'],a:'Cap',r:'P10-PF08',w:'10만 PF는 Raise 다음이 바로 Cap. QQ+ / AK는 premium value 구간.'},
-  {s:'10만 PF · CO · EP Raise · Hero ATo',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09',w:'dominance/OOP 위험을 가격보다 먼저 본다.'}
+  {s:'10만 PF · CO · EP Raise · Hero ATo',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09',w:'dominance/OOP 위험을 가격보다 먼저 본다.'},
+  {s:'10만 PF · HJ · EP Raise · Hero JTs · 포지션 괜찮음',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09 | vs EP Raise Dominated Fold',w:'2026-11-13 실전 교정: 수딧 커넥터는 앞자리 레이즈 콜 범위(TT~JJ, AQs) 밖이다. 포지션이 좋아도 폴드.'},
+  {s:'10만 PF · CO · EP Raise · Hero T9s',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09 | vs EP Raise Dominated Fold',w:'2026-11-13 실전 교정: 9-10s로 앞자리 레이즈 콜 → 패배. "싸니까 콜" 금지.'},
+  {s:'10만 PF · BTN · EP Raise · Hero JJ',o:['Fold','Call','Cap'],a:'Call',r:'P10-PF13 | vs EP Raise Value Call',w:'Strategy v1.1: 앞자리 레이즈에 TT~JJ, AQs는 콜. 캡은 QQ+/AK.'}
  ]
 };
 function forcedDrillPlan(blockNo){
@@ -2703,16 +2769,19 @@ function legacySnapshotCanonicalRecommendation(d,hand){
         const r=cfg.limp1,range=[...r.base,...((['HJ','CO','BTN'].includes(ps))?r.late:[])];
         if(rangeMatch(code,range))return canon('Raise',r.rule,r.explain);
         if(isPairCode(code)||isSuitedCode(code))return hold(isPairCode(code)?'Small-Pair Overlimp Review':'Speculative Overlimp Review','Strategy v1.1에서 자동 Call 정본이 없는 limped-pot 경계.');
+        if(cfg.limpOffFold&&code.endsWith('o'))return canon('Fold',cfg.limpOffFold.rule,cfg.limpOffFold.explain);
         return null;
       }
       if(n>=2&&n<=3&&cfg.limp23){
         if(rangeMatch(code,cfg.limp23.range))return canon('Raise',cfg.limp23.rule,cfg.limp23.explain);
         if(isPairCode(code)||isSuitedCode(code))return hold(isPairCode(code)?'Small-Pair Overlimp Review':'Speculative Overlimp Review','2~3 limper 경계는 Review Only.');
+        if(cfg.limpOffFold&&code.endsWith('o'))return canon('Fold',cfg.limpOffFold.rule,cfg.limpOffFold.explain);
         return null;
       }
       if(n>=4&&cfg.limp4){
         if(rangeMatch(code,cfg.limp4.range))return canon('Raise',cfg.limp4.rule,cfg.limp4.explain);
         if(isPairCode(code)||isSuitedCode(code))return hold('Multiway Overlimp Review','4+ limper pocket/suited hand은 자동 Call로 채점하지 않습니다.');
+        if(cfg.limpOffFold&&code.endsWith('o'))return canon('Fold',cfg.limpOffFold.rule,cfg.limpOffFold.explain);
         return null;
       }
     }
@@ -2726,6 +2795,8 @@ function legacySnapshotCanonicalRecommendation(d,hand){
         if(facing==='Capped'&&limit==='10만')return canon('Call','P10-PF08 | vs EP Raise Premium','이미 캡이므로 QQ+/AK는 추가금액을 Call.');
         return canon(cfg.vsEP3bet.action,cfg.vsEP3bet.rule,cfg.vsEP3bet.explain);
       }
+      if(ep && limit==='10만' && facing==='Raised' && cfg.vsEPCall && rangeMatch(code,cfg.vsEPCall.range))return canon('Call',cfg.vsEPCall.rule,cfg.vsEPCall.explain);
+      if(ep && limit==='10만' && facing==='Raised' && cfg.vsEPFoldSpec && rangeMatch(code,cfg.vsEPFoldSpec.range))return canon('Fold',cfg.vsEPFoldSpec.rule,cfg.vsEPFoldSpec.explain);
     }
     return null;
   }
@@ -2734,6 +2805,13 @@ function legacySnapshotCanonicalRecommendation(d,hand){
     const hc=d.handClass||'',risk=d.boardRisk||{},rc=Number(risk.count)||0,players=Number(d.playersActive)||0;
     if(st==='flop' && ['set','straight','strong_two_pair'].includes(hc) && rc<=1)
       return canon(tc>0?'Raise':'Bet','P10-F01 | Flop Strong Made Value','플랍 strong made hand direct value.');
+    if(st==='turn'&&Array.isArray(d.publicActionHistory)&&typeof d.board==='string'){
+      const cards=d.board.trim().split(/\s+/).filter(Boolean).map(x=>({r:x[0],s:x.slice(1),v:RV[x[0]]}));
+      if(cards.length>=4&&cards.every(c=>Number.isFinite(c.v))){
+        const tr=p10TurnRule({street:'turn',tc,hc,risk:{...risk,paired:!!risk.paired,flushComplete:!!risk.flushComplete,straightRisk:!!risk.straightRisk},players,history:d.publicActionHistory,heroPos:ps,board:cards,heroCards:d.heroCards,aggressive:!!d.opponentReadSnapshot?.aggressive});
+        if(tr)return tr;
+      }
+    }
     if(st==='river'){
       if(tc===0 && ['straight','set','strong_two_pair','nut_flush','near_nut'].includes(hc) && rc<=1)
         return canon('Bet','P10-R03 | River Safe Strong Value','안전한 강한 리버 made hand는 value bet.');
@@ -3036,6 +3114,9 @@ function runV3SelfTests(){const bad=[];for(const [k,arr] of Object.entries(DRILL
 const FIELD_PROFILES={
  Soft:{skills:['Recreational','Recreational','Recreational','Average','Average','Average','Regular','Strong'],styles:{'Calling Station':.28,'Loose-Passive':.26,'Tight-Passive':.14,Regular:.10,'Tight-Aggressive':.08,'Loose-Aggressive':.06,'Tricky-Aggressive':.04,Maniac:.04}},
  Normal:{skills:['Recreational','Recreational','Average','Average','Regular','Regular','Regular','Strong'],styles:{'Calling Station':.18,'Loose-Passive':.18,'Tight-Passive':.14,Regular:.18,'Tight-Aggressive':.14,'Loose-Aggressive':.10,'Tricky-Aggressive':.05,Maniac:.03}},
+ // 2026-11-13 강원랜드 10만 현장 관찰(8명): 레귤러 2 · 니트 1 · 루즈패시브 3 · 콜링스테이션 1 · 루즈어그로 1.
+ // 림프는 넓게(J8o·72s 등), 레이즈는 강한 패 위주. 표본 1세션이라 잠정값.
+ 'Kangwon Live':{skills:['Recreational','Recreational','Recreational','Recreational','Average','Average','Regular','Regular'],styles:{'Calling Station':.14,'Loose-Passive':.36,'Tight-Passive':.12,Regular:.24,'Tight-Aggressive':.00,'Loose-Aggressive':.12,'Tricky-Aggressive':.00,Maniac:.02}},
  'Reg Heavy':{skills:['Average','Average','Regular','Regular','Regular','Regular','Strong','Strong'],styles:{'Calling Station':.10,'Loose-Passive':.10,'Tight-Passive':.12,Regular:.25,'Tight-Aggressive':.23,'Loose-Aggressive':.12,'Tricky-Aggressive':.06,Maniac:.02}}
 };
 const BUCKETS=['PF_EP_BOUNDARY','PF_MP_SMALL_PAIR','PF_BTN_SMALL_PAIR','PF_BLIND_DEFENSE','PF_OTHER','FLOP_VALUE','TURN_OVERPAIR_SAFE','TURN_OVERPAIR_COMPLETION','TURN_TPTK_RAISED','TURN_DRAW_ODDS','TURN_MULTI_BET_EXIT','TURN_OTHER','RIVER_BLUFF_CATCH','RIVER_STRONG_VALUE','RIVER_NON_NUT','OPPONENT_READ'];
@@ -3244,7 +3325,7 @@ function solverDecisionLookup(){ // Solves are never matched by board alone. Onl
  return legalRecommendation({action:p.actions[p.probabilities.indexOf(Math.max(...p.probabilities))],mix:p,gradeable:false,tier:'solver',resolution:'Solver Approx',confidence:'Low',rule:'Conditional HU CFR v0.1',why:'명시 범위 조건부 CFR · 완전 게임 GTO/실전 EV 아님',source:'Solver Core v0.1'});
 }
 
-function drillIsCanonical(d){return /^P10-(PF0[1-589]|PF12|R0[1-4]|F01)(?: |$| v)/.test(d.r)&&!/Test|Review|Override|Candidate|재평가/.test(d.r+' '+d.w)}
+function drillIsCanonical(d){return /^P10-(PF0[1-589]|PF1[234]|R0[1-4]|F01|T0[45])(?: |$| v)/.test(d.r)&&!/Test|Review|Override|Candidate|재평가/.test(d.r+' '+d.w)}
 
 const V3_SELF_TEST=runV3SelfTests();if(initialSkillBag('exam').filter(x=>x==='Strong').length<1)V3_SELF_TEST.bad.push('exam-strong');
 if(initialSkillBag('simulation').filter(x=>['Regular','Strong'].includes(x)).length!==4)V3_SELF_TEST.bad.push('simulation-skillmix');
@@ -3316,7 +3397,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 
 window.PokerOSDebug={version:'5.1-candidate',getState:()=>S,setState:x=>S=x,startSession,newHand,act,advance,nextStreet,recommendation,aiPreflopAction,strength,skillCfg,aiPostflopAction,fieldPostflopAction,postflopMultiwayFactor,postflopStyleCfg,shapeAdaptivePreflopAction,adaptivePressureBetChance,adaptivePressureRaiseBackChance,fieldSkillBag,FIELD_PROFILES,BUCKETS,bucketFor,recordBucket,bucketWeight,getLeaks:()=>leakProfile,setLeaks:x=>leakProfile=x,applyScenarioBias,weightedPublicRange,comboPublicWeight,conditionedEquity,estimateShowdownEquity,publicDeck,ev7,cmp,handClass,boardRiskFor,actualSemantic,strictSnapshot,snapshotCanonicalRecommendation,historyRegrade,legalRecommendation,drillIsCanonical,DRILL_BANK,answerDrill,loadHistory,saveHistory,exportHistory,serializableSession,persistSession,restoreSession,accountingAudit,runV3SelfTests,shouldPauseForResult,scheduleNextHand,parseSolverCards,solverLabRun,solverDecisionLookup,recordPublicAction,weightedChoice,cap,step,CFG,heroRebuy,checkOpponentRead,setAuto:x=>{autoNext=x;if(autoTimer)clearTimeout(autoTimer)},setFast:x=>{if(S)S.fastForward=x},mode,trainingProfile:()=>trainingProfile,render,renderHistory};
 // Phase 3: conditional HU subgames, provisional public priors, never hard graded.
-const V5_VERSIONS={trainer:'v5.1 Candidate',decision:'v3.0 Candidate',range:'v2.1 Dual Public Range',solver:'v0.3 Candidate',population:'v0.2 Provisional'};
+const V5_VERSIONS={trainer:'v5.2 Candidate (2026-11-13 field corrections)',decision:'v3.0 Candidate',range:'v2.1 Dual Public Range',solver:'v0.3 Candidate',population:'v0.2 Provisional'};
 const SOLVER_BUCKETS=['SOLVER_TURN_CALL_FOLD','SOLVER_TURN_RAISE','SOLVER_RIVER_THIN_VALUE','SOLVER_RIVER_BLUFF_CATCH','SOLVER_FREQUENCY_LEAK'];
 BUCKETS.push(...SOLVER_BUCKETS);
 const V5_KEY='poker_os_solver_learning_v2';
@@ -3694,6 +3775,8 @@ if(!restored||S?.sessionEnded){renderHistory();renderEdgeMetrics()}
 if(!restored){
   $('status').textContent='새 세션을 시작하세요.';
 }
+// Patch 2026-11-13: rake cap 확정 · EP raise call/fold 보강 · 림프 팟 오프수트 폴드 · 턴 T04/T05/T06 · 현장 field profile
+Object.assign(PokerOSDebug,{patch:'5.2-candidate-20261113-field-corrections',p10TurnRule,canonicalRecommendation,CANON,RAKE_CAP,calcRake});
 })();
 </script>
 </body>
