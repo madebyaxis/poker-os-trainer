@@ -508,12 +508,18 @@ const ADAPTIVE_CHALLENGE_DEAL_RATE=.82;
 // v4.1: Adaptive mode deliberately creates more Turn/River decisions.
 // Simulation/Exam stay natural so their P/L and decision frequencies are not contaminated.
 const POSTFLOP_PRESSURE_PLAN={both:.25,turn:.25,river:.25,none:.25};
-const ADAPTIVE_TARGET_BASE={Unopened:.30,Limpers:.40,Raised:.25,Capped:.05};
-const PERSONAL_BASE_MISS_CODES=['44','22','55','A9s','88'];
+// 2026-11-13 개인 기록 분석(97핸드/173결정 + 현장 세션): 앞 레이즈에 투기 핸드 콜이 1순위 누수 → Raised 노출 상향
+const ADAPTIVE_TARGET_BASE={Unopened:.25,Limpers:.38,Raised:.32,Capped:.05};
+const PERSONAL_BASE_MISS_CODES=['44','22','55','A9s','88','T9s','KQo'];
+// 기록에서 레이즈를 맞고 콜해 손실·정본 위반이 반복된 핸드(트레이너 10건 + 현장 JTs·9-10s)
+const PERSONAL_VS_RAISE_SPEC_CODES=['T9s','T8s','JTs','85s','A8s','ATs','AJs','KQs','KQo','KJo'];
+// 림프 팟 오프수트 레이즈/콜(트레이너 HJ KQo, 현장 KJo·KQo)
+const PERSONAL_LIMP_OFFSUIT_CODES=['KQo','KJo','ATo','QJo'];
 const PERSONAL_OPEN_LIMP_CODES=['44','55','66','A9s'];
 const PERSONAL_SMALL_PAIR_BOUNDARY_CODES=['22','33','44','55','66'];
 const PERSONAL_TURN_STICKY_CODES=['66','77','88','99','AJs','ATs','QJs','JTs','T9s','98s','87s','76s'];
-const PERSONAL_WEIGHT_FLOOR={river:8.0,turn:8.5,strong_value:7.5,preflop:6.5,blind:4.5,facing_raise:1.8};
+// facing_raise: 드릴 정답률은 높지만(10/12) 실전·시뮬에서 레이즈 콜 누수가 반복 → 2026-11-13 하한 1.8→6.0
+const PERSONAL_WEIGHT_FLOOR={river:8.0,turn:8.5,strong_value:7.5,preflop:6.5,blind:4.5,facing_raise:6.0};
 const TRAINING_PROFILE_DEFAULT={
   drills:{
     river:{name:'River cheap-call 차단',weight:5,seen:0,correct:0,streak:0},
@@ -708,9 +714,9 @@ function chooseAdaptivePreflopTarget(){
   if(!S||S.trainingMode!=='adaptive')return '';
   const ps=pos(S.hero);
   if(ps==='UTG')return 'Unopened';
-  if(ps==='UTG+1')return weightedChoice({Unopened:.50,Limpers:.25,Raised:.25});
-  if(ps==='UTG+2')return weightedChoice({Unopened:.38,Limpers:.34,Raised:.25,Capped:.03});
-  if(ps==='MP')return weightedChoice({Unopened:.32,Limpers:.40,Raised:.25,Capped:.03});
+  if(ps==='UTG+1')return weightedChoice({Unopened:.45,Limpers:.25,Raised:.30});
+  if(ps==='UTG+2')return weightedChoice({Unopened:.33,Limpers:.34,Raised:.30,Capped:.03});
+  if(ps==='MP')return weightedChoice({Unopened:.27,Limpers:.38,Raised:.32,Capped:.03});
   return weightedChoice(ADAPTIVE_TARGET_BASE);
 }
 function recentCanonicalPreflopMissCodes(){
@@ -778,6 +784,8 @@ function adaptiveHolePool(ps,target){
     const pb=pairBoundary[ps]||PERSONAL_SMALL_PAIR_BOUNDARY_CODES;
     pool.push(...pb,...pb,...pb);
   }
+  if(target==='Raised')pool.push(...PERSONAL_VS_RAISE_SPEC_CODES,...PERSONAL_VS_RAISE_SPEC_CODES,...PERSONAL_VS_RAISE_SPEC_CODES);
+  if(target==='Limpers')pool.push(...PERSONAL_LIMP_OFFSUIT_CODES,...PERSONAL_LIMP_OFFSUIT_CODES);
   const misses=recentCanonicalPreflopMissCodes();
   if(misses.length)pool.push(...misses,...misses,...misses);
   const sv=trainingProfile?.drills?.strong_value;
@@ -2562,7 +2570,10 @@ const DRILL_BANK={
   {s:'턴 · Hero nut straight · 3way · 상대 Bet · cap 전',o:['Call','Raise'],a:'Raise',r:'Strong made value',w:'강한 made hand는 한 베팅 더 받아내는 것이 핵심 edge.'},
   {s:'리버 · Hero non-nut flush · 상대가 강하게 Bet · 보드 flush',o:['Fold','Call','Raise'],a:'Call',r:'P10-R02',w:'non-nut flush는 불필요한 raise를 줄이고 showdown value를 실현.'},
   {s:'플랍 · Hero QQ overpair · board T-4-3 two-tone · 큰 멀티웨이 팟 · Bet 후 추가 Raise · 가격 약 5%',o:['Fold','Call','Raise'],a:'Call',r:'Strong made hand vs aggression review',w:'최근 실제 패턴 교정: overpair는 강한 액션만 보고 자동 Fold하지 않는다. 싼 가격이면 한 번 더 Call하고 다음 street에서 재계산.'},
-  {s:'리버 · Hero A-high nut flush · paired board · 상대 Check',o:['Check','Bet'],a:'Bet',r:'Strong river value',w:'nut/near-nut는 보드가 무섭다는 이유로 체크백하지 않는다. 상대가 체크했으면 받을 수 있는 마지막 한 베팅을 찾는다.'}
+  {s:'리버 · Hero A-high nut flush · paired board · 상대 Check',o:['Check','Bet'],a:'Bet',r:'Strong river value',w:'nut/near-nut는 보드가 무섭다는 이유로 체크백하지 않는다. 상대가 체크했으면 받을 수 있는 마지막 한 베팅을 찾는다.'},
+  {s:'리버 · Hero TT · J-x-x-8-blank · 5way · 턴에 레이저 포함 전원 Check · 콜링스테이션 남음 · 내가 먼저 액션',o:['Check','Bet'],a:'Bet',r:'Thin value review',w:'2026-11-13 현장: 전원 체크로 쇼다운해 이겼지만 얇은 밸류를 놓침. 턴 전원 체크 + 블랭크 리버면 원페어로 얇게 벳, 레이즈 맞으면 폴드. (비채점 개념 훈련)'},
+  {s:'턴 · Hero overpair · 드라이 보드 · 플랍 Bet에 콜러 2명 · 턴 블랭크 · 내가 먼저 액션',o:['Check','Bet'],a:'Bet',r:'Turn value continue review',w:'트레이너 기록 분석: 플랍 벳 후 턴 블랭크에서 체크로 멈춘 경우가 5회(모델 권고 Bet). 위험요소가 없으면 턴에도 밸류를 이어간다. (비채점)'},
+  {s:'리버 · Hero J♣ 원카드 플러시 · 보드 4♣ 2♦ 6♣ A♣ Q♣ · 상대 Bet 1회',o:['Fold','Call','Raise'],a:'Call',r:'P10-R02 | Non-nut Flush No-Raise',w:'트레이너 기록: 이 상황에서 폴드해 1.5만 손실. 넛이 아닌 플러시는 레이즈하지 않되 벳 한 번은 콜로 쇼다운 가치를 챙긴다.'}
  ],
  preflop:[
   {s:'10만 PF · UTG · KJo · unopened',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF01',w:'EP는 weak offsuit broadway를 줄이고 range edge를 만든다.'},
