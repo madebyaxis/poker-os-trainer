@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Poker OS Regression</title>
+<style>body{font-family:system-ui,sans-serif;background:#0f1522;color:#e9edf5;padding:16px;font-size:15px}.ok{color:#5fe0a6}.bad{color:#ff8b9a}pre{white-space:pre-wrap;font-size:12px;background:#182036;padding:8px;border-radius:8px}iframe{width:1px;height:1px;border:0;opacity:0}</style>
+</head><body>
+<h2>Poker OS 회귀 테스트</h2>
+<p>앱을 숨은 창으로 불러와 정본 규칙·레이크·턴 규칙만 검사합니다. 핸드 기록은 바꾸지 않습니다.</p>
+<div id="out">실행 중…</div>
+<iframe id="app" src="../index.html"></iframe>
+<script src="regression.js"></script>
+<script>
+document.getElementById('app').addEventListener('load',()=>setTimeout(()=>{
+  const out=document.getElementById('out');
+  try{
+    const D=document.getElementById('app').contentWindow.PokerOSDebug;
+    const r=runPokerOSRegression(D);
+    out.innerHTML=`<h3 class="${r.failed.length?'bad':'ok'}">${r.passed} / ${r.total} PASS</h3>`+
+      (r.failed.length?'<pre>'+r.failed.map(f=>'✗ '+f.name+'\n'+JSON.stringify(f.got,null,1)).join('\n\n')+'</pre>':'<p class="ok">모든 검사를 통과했습니다.</p>');
+  }catch(e){out.innerHTML='<p class="bad">실행 오류: '+e+'</p>'}
+},800));
+</script>
+</body></html>
