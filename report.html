@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Poker OS 플레이 리포트 · 누적 시간별 손익</title>
+<style>
+:root{
+ color-scheme:dark;
+ --surface-0:#0c110d;--surface-1:#121a14;--surface-2:#18221a;--line:#2a372c;
+ --text-primary:#f0efec;--text-secondary:#c3c2b7;--text-muted:#8f8e86;
+ --series-1:#3987e5;--series-2:#d95926;--series-3:#199e70;
+ --good:#0ca30c;--critical:#e66767;--grid:#ffffff14;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-0);color:var(--text-primary);font:14px/1.5 system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:14px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:8px;margin-bottom:10px}
+h1{font-size:19px;margin:0}
+.sub{color:var(--text-secondary);font-size:12.5px}
+a{color:#9ec5ff}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;background:var(--surface-1);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px}
+.ctl{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--text-secondary)}
+select,input,button,textarea{font:inherit;color:var(--text-primary);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+button{cursor:pointer}button.primary{background:#1d3b2a;border-color:#2f6b47}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;padding:6px 11px}
+.seg button.on{background:#264733;font-weight:800}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px}
+.kpi{background:var(--surface-1);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpi .k{font-size:11.5px;color:var(--text-secondary)}
+.kpi .v{font-size:21px;font-weight:850;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .s{font-size:11px;color:var(--text-muted)}
+.card{background:var(--surface-1);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.card h2{font-size:15px;margin:0 0 2px}
+.card .desc{font-size:12px;color:var(--text-secondary);margin-bottom:8px}
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.axis text{fill:var(--text-muted);font-size:11px}
+.tip{position:absolute;pointer-events:none;background:#0b0f0cf2;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px;white-space:nowrap;transform:translate(-50%,-110%);display:none;z-index:5}
+.tip b{font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th{color:var(--text-secondary);font-weight:700;position:sticky;top:0;background:var(--surface-1)}
+.tblwrap{max-height:420px;overflow:auto}
+.pos{color:#5fd07a}.neg{color:#ff8b8b}
+.note{font-size:11.5px;color:var(--text-muted)}
+.empty{padding:26px;text-align:center;color:var(--text-secondary)}
+details summary{cursor:pointer;color:var(--text-secondary)}
+textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+@media (max-width:640px){.kpi .v{font-size:18px}h1{font-size:17px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <header>
+  <div>
+   <h1>플레이 리포트 · 누적 시간별 손익</h1>
+   <div class="sub">트레이너 기록은 이 브라우저의 Poker OS 데이터에서 자동으로 읽습니다. 실전 기록은 아래에서 불러온 것만 보이며 이 브라우저에만 저장됩니다.</div>
+  </div>
+  <a href="index.html">← 트레이너로</a>
+ </header>
+
+ <div class="controls">
+  <div class="ctl">기록<div class="seg" id="srcSeg"><button data-v="trainer" class="on">트레이너</button><button data-v="real">실전</button></div></div>
+  <div class="ctl">테이블<div class="seg" id="limSeg"><button data-v="all" class="on">전체</button><button data-v="10만">10만</button><button data-v="30만">30만</button></div></div>
+  <div class="ctl">단위<div class="seg" id="unitSeg"><button data-v="won" class="on">원</button><button data-v="bb">BB</button></div></div>
+  <div class="ctl" id="modeCtl">훈련 모드<select id="modeSel"><option value="all">전체</option><option value="simulation">실전 시뮬</option><option value="adaptive">Adaptive</option><option value="exam">시험</option></select></div>
+  <div class="ctl" id="hphCtl">현장 환산 핸드/시간<input id="hph" type="number" min="10" max="60" step="1" value="30" style="width:84px"></div>
+ </div>
+
+ <div class="kpis" id="kpis"></div>
+
+ <div class="card">
+  <h2>누적 플레이 시간별 손익</h2>
+  <div class="desc" id="curveDesc"></div>
+  <div class="legend" id="curveLegend"></div>
+  <div class="chart" id="curve"></div>
+ </div>
+
+ <div class="card">
+  <h2>세션 경과 시간대별 손익</h2>
+  <div class="desc">세션을 시작한 뒤 몇 시간째에 벌고 잃었는지 봅니다. 막대는 그 시간대의 시간당 손익(합계 ÷ 그 시간대에 친 시간)입니다. 표본 시간이 적은 구간은 흐리게 표시합니다.</div>
+  <div class="chart" id="buckets"></div>
+ </div>
+
+ <div class="card">
+  <h2>세션 목록</h2>
+  <div class="desc">재투입(리바인)은 손실로 보지 않습니다. 세션 손익은 최종 스택 − 총 투입액입니다.</div>
+  <div class="tblwrap"><table id="sessTable"></table></div>
+  <div class="row"><button id="exportCsv">세션 CSV 내보내기</button><span class="note" id="tableNote"></span></div>
+ </div>
+
+ <div class="card" id="importCard">
+  <h2>실전 기록 불러오기</h2>
+  <div class="desc">JSON 파일(poker-os-real-sessions-v1) 또는 CSV를 불러옵니다. 실전 기록은 이 브라우저의 저장소에만 남고 서버나 저장소로 올라가지 않습니다.</div>
+  <div class="row"><input type="file" id="realFile" accept=".json,.csv,text/csv,application/json"><button id="realClear">실전 기록 지우기</button><span class="note" id="realStatus"></span></div>
+  <details style="margin-top:8px"><summary>CSV 붙여넣기 · 형식</summary>
+   <p class="note">헤더: <code>date,limit,hours,pl,points</code> · limit은 10만/30만 · pl은 원 단위(재투입 제외 손익) · points는 선택이며 <code>시간:누적손익;시간:누적손익</code> 형식입니다.<br>예: <code>2026-11-14,10만,1.67,160000,0:0;0.8:90000;1.67:160000</code></p>
+   <textarea id="realPaste" placeholder="date,limit,hours,pl,points"></textarea>
+   <div class="row"><button class="primary" id="realPasteBtn">붙여넣은 CSV 추가</button></div>
+  </details>
+ </div>
+
+ <p class="note">현장 환산 시간은 트레이너 핸드 수를 시간당 핸드 수로 나눈 값입니다(기본 30핸드/h, 미측정 가정). 트레이너 손익은 가상칩 훈련 결과라 실전 EV가 아닙니다.</p>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const LEDGER_KEY='poker_os_pl_ledger_v1',V5_ARCHIVE_KEY='poker_os_history_v5_lzw1',LEGACY_KEY='kangwon_limit_holdem_trainer_history_v30',REAL_KEY='poker_os_real_sessions_v1',PREF_KEY='poker_os_report_prefs_v1';
+const BB={'10만':5000,'30만':20000};
+const MODE_KO={simulation:'실전 시뮬',adaptive:'Adaptive',exam:'시험'};
+let prefs={src:'trainer',lim:'all',unit:'won',mode:'all',hph:30};
+try{Object.assign(prefs,JSON.parse(localStorage.getItem(PREF_KEY)||'{}'))}catch{}
+const savePrefs=()=>{try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch{}};
+
+// ----- data -----
+function archiveDecode(packed){
+ if(!packed.startsWith('POKER_LZW1:'))return packed;const input=packed.slice(11),out=[];let dict=[],next=257,w='';
+ const reset=()=>{dict=[];for(let i=0;i<256;i++)dict[i]=String.fromCharCode(i);next=257;w=''};reset();
+ for(let i=0;i<input.length;i++){const code=input.charCodeAt(i);if(code===256){reset();continue}const entry=dict[code]!==undefined?dict[code]:code===next&&w?w+w[0]:null;if(entry===null)throw Error('Invalid archive');out.push(entry);if(w&&next<65535)dict[next++]=w+entry[0];w=entry}
+ return decodeURIComponent(escape(out.join('')));
+}
+function loadTrainerRows(){
+ try{const l=JSON.parse(localStorage.getItem(LEDGER_KEY)||'null');if(Array.isArray(l)&&l.length)return l}catch{}
+ let hist=[];
+ try{const v=localStorage.getItem(V5_ARCHIVE_KEY);if(v!==null)hist=JSON.parse(archiveDecode(v));else hist=JSON.parse(localStorage.getItem(LEGACY_KEY)||'[]')}catch(e){console.error(e)}
+ return (Array.isArray(hist)?hist:[]).map(h=>({t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',pl:Number(h.handPL)||0,bb:Number(h.bb)||BB[h.limit]||5000,m:h.trainingMode||'',rk:Number(h.rake)||0}));
+}
+function loadReal(){try{const x=JSON.parse(localStorage.getItem(REAL_KEY)||'[]');return Array.isArray(x)?x:[]}catch{return []}}
+function saveReal(arr){localStorage.setItem(REAL_KEY,JSON.stringify(arr))}
+
+// 공통 세션 형식: {id,date,lim,hours,pl,points:[[h,cum원]],hands?,mode?}
+function trainerSessions(){
+ const hph=Math.max(5,Number(prefs.hph)||30),rows=loadTrainerRows().filter(r=>prefs.mode==='all'||r.m===prefs.mode);
+ const by=new Map();for(const r of rows){const k=r.sid||('t'+r.t?.slice(0,13));if(!by.has(k))by.set(k,[]);by.get(k).push(r)}
+ const out=[];
+ for(const [id,rs] of by){rs.sort((a,b)=>String(a.t).localeCompare(String(b.t)));let cum=0;const pts=[[0,0]];rs.forEach((r,i)=>{cum+=r.pl;pts.push([(i+1)/hph,cum])});
+  out.push({id,date:String(rs[0].t||'').slice(0,16).replace('T',' '),lim:rs[0].lim,hours:rs.length/hph,pl:cum,points:pts,hands:rs.length,mode:rs[0].m,rake:rs.reduce((a,r)=>a+r.rk,0)})}
+ return out.sort((a,b)=>a.date.localeCompare(b.date));
+}
+function realSessions(){
+ return loadReal().map((s,i)=>{const pts=Array.isArray(s.points)&&s.points.length>=2?s.points.map(p=>[Number(p[0]),Number(p[1])]):[[0,0],[Number(s.hours)||0,Number(s.pl)||0]];
+  return {id:s.id||('R'+i),date:s.date||'',lim:s.limit||'10만',hours:Number(s.hours)||pts[pts.length-1][0],pl:Number(s.pl)||pts[pts.length-1][1],points:pts,note:s.note||''}}).sort((a,b)=>(a.date+a.id).localeCompare(b.date+b.id));
+}
+function currentSessions(){const all=prefs.src==='real'?realSessions():trainerSessions();return all.filter(s=>prefs.lim==='all'||s.lim===prefs.lim)}
+const conv=(v,lim)=>prefs.unit==='bb'?v/(BB[lim]||5000):v;
+
+// ----- metrics -----
+function cumulative(sessions){
+ const pts=[{h:0,v:0,s:null}];let H=0,V=0;
+ for(const s of sessions){let prevH=0,prevV=0;for(const [h,v] of s.points.slice(1)){const dh=Math.max(0,h-prevH),dv=conv(v-prevV,s.lim);H+=dh;V+=dv;prevH=h;prevV=v;pts.push({h:H,v:V,s})}
+  const tail=Math.max(0,s.hours-prevH);if(tail>1e-9){H+=tail;pts.push({h:H,v:V,s})}}
+ return pts;
+}
+function drawdown(pts){let peak=-Infinity,mdd=0,at=null;for(const p of pts){if(p.v>peak)peak=p.v;if(peak-p.v>mdd){mdd=peak-p.v;at=p}}return {mdd,at}}
+function sessionMdd(s){let peak=0,m=0;for(const [,v] of s.points){if(v>peak)peak=v;m=Math.max(m,peak-v)}return m}
+function buckets(sessions,maxB=12){
+ const b=Array.from({length:maxB},()=>({pl:0,h:0,n:new Set()}));
+ for(const s of sessions){const P=s.points;for(let i=1;i<P.length;i++){let [h0,v0]=P[i-1];const [h1,v1]=P[i];if(h1<=h0)continue;const slope=(v1-v0)/(h1-h0);
+   while(h0<h1-1e-9){const k=Math.min(maxB-1,Math.floor(h0+1e-9)),end=k===maxB-1?h1:Math.min(h1,k+1),dh=end-h0;b[k].pl+=conv(slope*dh,s.lim);b[k].h+=dh;b[k].n.add(s.id);h0=end}}}
+ return b.map((x,i)=>({label:i===maxB-1?`${i}+`:`${i}`,range:i===maxB-1?`${i}시간 이후`:`${i}~${i+1}시간째`,pl:x.pl,h:x.h,n:x.n.size,rate:x.h>0?x.pl/x.h:0}));
+}
+
+// ----- format -----
+function fmtV(v,sign=true){if(prefs.unit==='bb'){const s=(Math.round(v*10)/10).toFixed(1);return (sign&&v>0?'+':'')+s+'BB'}const m=v/10000;const a=Math.abs(m);const s=a>=100?m.toFixed(0):a>=10?m.toFixed(1):m.toFixed(2);return (sign&&v>0?'+':'')+String(parseFloat(s))+'만'}
+function fmtWon(v){return (v>0?'+':'')+Math.round(v).toLocaleString('ko-KR')+'원'}
+function fmtH(h){const m=Math.round(h*60);return h>=10?h.toFixed(1)+'h':`${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`}
+const cls=v=>v>0?'pos':v<0?'neg':'';
+function niceTicks(min,max,n=5){const span=max-min||1,step0=span/n,mag=10**Math.floor(Math.log10(step0)),err=step0/mag,step=(err>=7.5?10:err>=3.5?5:err>=1.5?2:1)*mag;const t=[];for(let x=Math.ceil(min/step)*step;x<=max+1e-9;x+=step)t.push(+x.toFixed(10));return t}
+
+// ----- render -----
+const tip=$('tip');
+function showTip(html,x,y){tip.innerHTML=html;tip.style.left=x+'px';tip.style.top=y+'px';tip.style.display='block'}
+function hideTip(){tip.style.display='none'}
+
+function renderKpis(sessions,pts){
+ const H=sessions.reduce((a,s)=>a+s.hours,0),V=pts[pts.length-1].v,wins=sessions.filter(s=>s.pl>0).length,dd=drawdown(pts);
+ const hands=sessions.reduce((a,s)=>a+(s.hands||0),0);
+ const bb100=prefs.src==='trainer'&&hands?sessions.reduce((a,s)=>a+s.pl/(BB[s.lim]||5000),0)/hands*100:null;
+ const best=sessions.reduce((m,s)=>Math.max(m,conv(s.pl,s.lim)),-Infinity),worst=sessions.reduce((m,s)=>Math.min(m,conv(s.pl,s.lim)),Infinity);
+ const items=[
+  ['누적 손익',fmtV(V),cls(V),prefs.src==='trainer'?'가상칩 훈련 결과':'재투입 제외'],
+  ['누적 시간',fmtH(H),'',prefs.src==='trainer'?`${hands.toLocaleString()}핸드 ÷ ${prefs.hph}/h`:`세션 ${sessions.length}회`],
+  ['시간당',H>0?fmtV(V/H):'-',cls(V),bb100!=null?`BB/100 ${(bb100>0?'+':'')+bb100.toFixed(1)}`:'전체 평균'],
+  ['세션 승률',sessions.length?Math.round(100*wins/sessions.length)+'%':'-','',`${wins}승 ${sessions.length-wins}패`],
+  ['최대 낙폭(MDD)',dd.mdd?'-'+fmtV(dd.mdd,false):'0','neg','누적 곡선 기준'],
+  ['최고 / 최저 세션',sessions.length?`${fmtV(best)} / ${fmtV(worst)}`:'-','','세션 손익'],
+  ['1,000h까지',H<1000?fmtH(1000-H)+' 남음':'달성','',`진척 ${(Math.min(1,H/1000)*100).toFixed(1)}%`]
+ ];
+ $('kpis').innerHTML=items.map(([k,v,c,s])=>`<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join('');
+}
+
+function renderCurve(sessions,pts){
+ const el=$('curve');
+ $('curveLegend').innerHTML=`<span><i style="background:var(--series-1)"></i>누적 손익</span><span><i style="background:var(--text-muted);height:1px"></i>0선</span><span><i style="background:var(--critical);height:2px;opacity:.7"></i>최대 낙폭 구간</span>`;
+ const H=pts[pts.length-1].h;
+ $('curveDesc').textContent=prefs.src==='trainer'?`x축은 현장 환산 누적 시간(핸드 ÷ ${prefs.hph}/h), y축은 누적 손익. 세션 경계마다 곡선이 이어집니다.`:'x축은 실전 누적 플레이 시간, y축은 재투입을 뺀 누적 손익. 세션 안의 중간 기록이 있으면 그대로 그립니다.';
+ if(pts.length<2||H<=0){el.innerHTML='<div class="empty">표시할 기록이 없습니다.</div>';return}
+ const W=Math.max(320,el.clientWidth||900),Hh=Math.round(Math.min(360,Math.max(220,W*.42))),m={l:58,r:14,t:12,b:30},iw=W-m.l-m.r,ih=Hh-m.t-m.b;
+ // 다운샘플(화면 폭의 2배 정도만)
+ let P=pts;const maxN=Math.max(400,iw*2);if(P.length>maxN){const step=P.length/maxN,o=[];for(let i=0;i<P.length;i+=step)o.push(P[Math.floor(i)]);o.push(P[P.length-1]);P=o}
+ const vmin=Math.min(0,...P.map(p=>p.v)),vmax=Math.max(0,...P.map(p=>p.v)),pad=(vmax-vmin||1)*.06;
+ const y0=vmin-pad,y1=vmax+pad,X=h=>m.l+iw*h/H,Y=v=>m.t+ih*(1-(v-y0)/(y1-y0));
+ const yt=niceTicks(y0,y1,5),xt=niceTicks(0,H,Math.min(8,Math.max(3,Math.round(iw/110))));
+ const path=P.map((p,i)=>(i?'L':'M')+X(p.h).toFixed(1)+' '+Y(p.v).toFixed(1)).join('');
+ const area=path+`L${X(P[P.length-1].h).toFixed(1)} ${Y(0).toFixed(1)}L${X(0)} ${Y(0).toFixed(1)}Z`;
+ // MDD 구간
+ let peak=-Infinity,peakH=0,best={d:0,a:0,b:0};for(const p of pts){if(p.v>peak){peak=p.v;peakH=p.h}if(peak-p.v>best.d)best={d:peak-p.v,a:peakH,b:p.h}}
+ // 세션 경계(세션이 많으면 생략)
+ let bounds='';if(sessions.length<=40){let acc=0;for(const s of sessions.slice(0,-1)){acc+=s.hours;bounds+=`<line x1="${X(acc)}" x2="${X(acc)}" y1="${m.t}" y2="${m.t+ih}" stroke="var(--grid)" stroke-dasharray="2 4"/>`}}
+ el.innerHTML=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="누적 시간별 누적 손익 선 그래프">
+  <g class="axis">${yt.map(v=>`<line x1="${m.l}" x2="${m.l+iw}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end">${fmtV(v)}</text>`).join('')}
+  ${xt.map(h=>`<text x="${X(h)}" y="${m.t+ih+18}" text-anchor="middle">${h}h</text>`).join('')}</g>
+  ${bounds}
+  ${best.d>0?`<rect x="${X(best.a)}" y="${m.t}" width="${Math.max(1,X(best.b)-X(best.a))}" height="${ih}" fill="var(--critical)" opacity=".08"/>`:''}
+  <line x1="${m.l}" x2="${m.l+iw}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--text-muted)" stroke-width="1"/>
+  <path d="${area}" fill="var(--series-1)" opacity=".10"/>
+  <path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  <line id="cx" x1="0" x2="0" y1="${m.t}" y2="${m.t+ih}" stroke="var(--text-secondary)" stroke-width="1" opacity="0"/>
+  <circle id="cd" r="4.5" fill="var(--series-1)" stroke="var(--surface-1)" stroke-width="2" opacity="0"/>
+  <rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" id="hit"/>
+ </svg>`;
+ const svg=el.querySelector('svg'),cx=svg.querySelector('#cx'),cd=svg.querySelector('#cd');
+ const move=ev=>{const r=svg.getBoundingClientRect(),sx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left,scale=W/r.width,h=Math.max(0,Math.min(H,((sx*scale)-m.l)/iw*H));
+  let lo=0,hi=pts.length-1;while(lo<hi){const mid=(lo+hi)>>1;if(pts[mid].h<h)lo=mid+1;else hi=mid}const p=pts[lo];
+  cx.setAttribute('x1',X(p.h));cx.setAttribute('x2',X(p.h));cx.setAttribute('opacity',.5);cd.setAttribute('cx',X(p.h));cd.setAttribute('cy',Y(p.v));cd.setAttribute('opacity',1);
+  const er=el.getBoundingClientRect();showTip(`<b>${fmtH(p.h)}</b> 누적 <b class="${cls(p.v)}">${fmtV(p.v)}</b>${p.s?`<br><span class="note">${p.s.date} · ${p.s.lim} · 세션 ${fmtV(conv(p.s.pl,p.s.lim))}</span>`:''}`,er.left+window.scrollX+X(p.h)/scale,er.top+window.scrollY+Y(p.v)/scale-6)};
+ const leave=()=>{cx.setAttribute('opacity',0);cd.setAttribute('opacity',0);hideTip()};
+ svg.querySelector('#hit').addEventListener('mousemove',move);svg.querySelector('#hit').addEventListener('touchmove',move,{passive:true});svg.querySelector('#hit').addEventListener('touchstart',move,{passive:true});
+ svg.querySelector('#hit').addEventListener('mouseleave',leave);svg.querySelector('#hit').addEventListener('touchend',leave);
+}
+
+function renderBuckets(sessions){
+ const el=$('buckets'),B=buckets(sessions).filter((b,i,a)=>b.h>0||a.slice(i).some(x=>x.h>0));
+ if(!B.length){el.innerHTML='<div class="empty">표시할 기록이 없습니다.</div>';return}
+ const W=Math.max(320,el.clientWidth||900),Hh=240,m={l:58,r:10,t:14,b:44},iw=W-m.l-m.r,ih=Hh-m.t-m.b;
+ const vmax=Math.max(...B.map(b=>Math.abs(b.rate)),1e-9),ext=vmax*1.15,yt=niceTicks(-ext,ext,4),y0=Math.min(-ext,yt[0]),y1=Math.max(ext,yt[yt.length-1]);
+ const Y=v=>m.t+ih*(1-(v-y0)/(y1-y0)),bw=iw/B.length,gap=Math.min(10,bw*.25),totalH=B.reduce((a,b)=>a+b.h,0);
+ const bars=B.map((b,i)=>{const x=m.l+i*bw+gap/2,w=bw-gap,ya=Y(Math.max(0,b.rate)),yb=Y(Math.min(0,b.rate)),h=Math.max(1,yb-ya),thin=b.h<Math.max(2,totalH*.03),fill=b.rate>=0?'var(--series-3)':'var(--series-2)';
+  const r=Math.min(4,w/2,h);const up=b.rate>=0;
+  const d=up?`M${x} ${yb}V${ya+r}Q${x} ${ya} ${x+r} ${ya}H${x+w-r}Q${x+w} ${ya} ${x+w} ${ya+r}V${yb}Z`:`M${x} ${ya}V${yb-r}Q${x} ${yb} ${x+r} ${yb}H${x+w-r}Q${x+w} ${yb} ${x+w} ${yb-r}V${ya}Z`;
+  return `<g data-i="${i}"><rect x="${m.l+i*bw}" y="${m.t}" width="${bw}" height="${ih}" fill="transparent"/><path d="${d}" fill="${fill}" opacity="${thin?.35:1}"/><text x="${x+w/2}" y="${m.t+ih+15}" text-anchor="middle" class="bl">${b.label}</text>${bw>=34?`<text x="${x+w/2}" y="${m.t+ih+29}" text-anchor="middle" class="bl" opacity=".7">${b.h>=10?b.h.toFixed(0):b.h.toFixed(1)}h</text>`:''}</g>`}).join('');
+ el.innerHTML=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="세션 경과 시간대별 시간당 손익 막대 그래프">
+  <g class="axis">${yt.map(v=>`<line x1="${m.l}" x2="${m.l+iw}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end">${fmtV(v)}</text>`).join('')}</g>
+  <line x1="${m.l}" x2="${m.l+iw}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--text-muted)"/>
+  <g class="axis">${bars}<text x="${m.l+iw}" y="${Hh-2}" text-anchor="end">세션 시작 후 경과 시간(h)${bw>=34?' · 아랫줄은 표본 시간':''}</text></g></svg>`;
+ el.querySelectorAll('g[data-i]').forEach(g=>{const b=B[+g.dataset.i];const f=ev=>{const r=g.getBoundingClientRect();showTip(`<b>${b.range}</b><br>시간당 <b class="${cls(b.rate)}">${fmtV(b.rate)}</b> · 합계 ${fmtV(b.pl)}<br><span class="note">${b.h.toFixed(1)}시간 · 세션 ${b.n}개</span>`,r.left+window.scrollX+r.width/2,r.top+window.scrollY+20)};g.addEventListener('mousemove',f);g.addEventListener('touchstart',f,{passive:true});g.addEventListener('mouseleave',hideTip)});
+}
+
+function renderTable(sessions){
+ const tr=prefs.src==='trainer',head=tr?['날짜','테이블','모드','핸드','환산 시간','손익','시간당','세션 MDD']:['날짜','테이블','시간','손익','시간당','세션 MDD'];
+ const rows=[...sessions].reverse().map(s=>{const v=conv(s.pl,s.lim),mdd=conv(sessionMdd(s),s.lim);return `<tr title="${(s.note||'').replace(/"/g,'')}"><td>${tr?s.date:s.date.slice(2)}</td><td>${s.lim}</td>${tr?`<td>${MODE_KO[s.mode]||s.mode||'-'}</td><td>${s.hands}</td>`:''}<td>${fmtH(s.hours)}</td><td class="${cls(v)}">${fmtV(v)}</td><td class="${cls(v)}">${s.hours>0?fmtV(v/s.hours):'-'}</td><td class="neg">${mdd?'-'+fmtV(mdd,false):'0'}</td></tr>`}).join('');
+ $('sessTable').innerHTML=`<thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="8" class="empty">기록 없음</td></tr>`}</tbody>`;
+ $('tableNote').textContent=sessions.length?`${sessions.length}개 세션`:'';
+}
+
+function render(){
+ document.querySelectorAll('.seg').forEach(seg=>{const key={srcSeg:'src',limSeg:'lim',unitSeg:'unit'}[seg.id];seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===prefs[key]))});
+ $('modeSel').value=prefs.mode;$('hph').value=prefs.hph;
+ $('modeCtl').style.display=$('hphCtl').style.display=prefs.src==='trainer'?'':'none';
+ const sessions=currentSessions(),pts=cumulative(sessions);
+ renderKpis(sessions,pts);renderCurve(sessions,pts);renderBuckets(sessions);renderTable(sessions);
+ const n=loadReal().length;$('realStatus').textContent=n?`실전 세션 ${n}개 저장됨`:'저장된 실전 기록 없음';
+ if(prefs.src==='real'&&!n)$('curve').innerHTML='<div class="empty">아직 실전 기록이 없습니다. 아래 "실전 기록 불러오기"에서 파일을 불러오세요.</div>';
+}
+
+// ----- import / export -----
+function parseCSV(text){
+ const lines=text.trim().split(/\r?\n/).filter(Boolean);if(!lines.length)return [];
+ const head=lines[0].split(',').map(x=>x.trim().toLowerCase());const hasHead=head.includes('date');const idx=k=>hasHead?head.indexOf(k):['date','limit','hours','pl','points'].indexOf(k);
+ return lines.slice(hasHead?1:0).map((ln,i)=>{const c=ln.split(',').map(x=>x.trim());const pts=(c[idx('points')]||'').split(';').filter(Boolean).map(x=>x.split(':').map(Number)).filter(x=>x.length===2&&x.every(Number.isFinite));
+  return {id:'CSV-'+Date.now()+'-'+i,date:c[idx('date')],limit:/30/.test(c[idx('limit')])?'30만':'10만',hours:Number(c[idx('hours')]),pl:Number(String(c[idx('pl')]).replace(/[^0-9.-]/g,'')),points:pts.length>=2?pts:undefined}}).filter(s=>s.date&&Number.isFinite(s.hours)&&Number.isFinite(s.pl));
+}
+function mergeReal(incoming){const cur=loadReal(),key=s=>s.id||(s.date+'|'+s.limit+'|'+s.hours+'|'+s.pl),seen=new Map(cur.map(s=>[key(s),s]));for(const s of incoming)seen.set(key(s),s);const arr=[...seen.values()];saveReal(arr);return incoming.length}
+$('realFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const text=await f.text();let arr=[];
+ try{if(/^\s*[\[{]/.test(text)){const j=JSON.parse(text);arr=Array.isArray(j)?j:Array.isArray(j.sessions)?j.sessions:[]}else arr=parseCSV(text)}catch(err){$('realStatus').textContent='불러오기 실패: '+err.message;return}
+ const n=mergeReal(arr);prefs.src='real';savePrefs();render();$('realStatus').textContent=`${n}개 세션을 불러왔습니다 · 총 ${loadReal().length}개`;e.target.value=''});
+$('realPasteBtn').addEventListener('click',()=>{const arr=parseCSV($('realPaste').value);if(!arr.length){$('realStatus').textContent='읽을 수 있는 행이 없습니다';return}mergeReal(arr);$('realPaste').value='';prefs.src='real';savePrefs();render()});
+$('realClear').addEventListener('click',()=>{if(!confirm('이 브라우저에 저장된 실전 기록을 지울까요? (트레이너 기록은 그대로)'))return;localStorage.removeItem(REAL_KEY);render()});
+$('exportCsv').addEventListener('click',()=>{const s=currentSessions(),lines=['date,limit,mode,hands,hours,pl_won,hourly_won,session_mdd_won'];for(const x of s)lines.push([x.date,x.lim,x.mode||'',x.hands||'',x.hours.toFixed(3),Math.round(x.pl),x.hours?Math.round(x.pl/x.hours):'',Math.round(sessionMdd(x))].join(','));
+ const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`poker-os-${prefs.src}-sessions.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
+
+// ----- controls -----
+for(const [id,key] of [['srcSeg','src'],['limSeg','lim'],['unitSeg','unit']])$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;prefs[key]=b.dataset.v;savePrefs();render()});
+$('modeSel').addEventListener('change',e=>{prefs.mode=e.target.value;savePrefs();render()});
+$('hph').addEventListener('change',e=>{prefs.hph=Math.max(10,Math.min(60,Number(e.target.value)||30));savePrefs();render()});
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,150)});
+window.PokerReport={render,currentSessions,cumulative,buckets,parseCSV,archiveDecode};
+render();
+})();
+</script>
+</body>
+</html>

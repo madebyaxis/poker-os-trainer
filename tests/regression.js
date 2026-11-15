@@ -55,3 +55,22 @@ function runPokerOSRegression(D){
   return {passed:out.filter(x=>x.pass).length,total:out.length,failed:out.filter(x=>!x.pass)};
 }
 if(typeof module!=='undefined')module.exports={runPokerOSRegression};
+
+// v5.3 (2026-11-15) 강원랜드 현장형 업데이트 검사
+function runPokerOSRegressionV53(D){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const P=D.FIELD_PROFILES;
+  ok('Kangwon 30 profile 존재',!!P['Kangwon 30'],Object.keys(P));
+  const s30=P['Kangwon 30'].styles,s10=P['Kangwon Live'].styles;
+  const aggr=s=>['Regular','Tight-Aggressive','Loose-Aggressive','Tricky-Aggressive','Maniac'].reduce((a,k)=>a+(s[k]||0),0);
+  ok('30만 필드 레귤러·공격형 비중 > 10만',aggr(s30)>aggr(s10),[aggr(s30),aggr(s10)]);
+  ok('30만 style 합 = 1',Math.abs(Object.values(s30).reduce((a,b)=>a+b,0)-1)<.001,s30);
+  ok('30만 skill bag 8명',P['Kangwon 30'].skills.length===8,P['Kangwon 30'].skills);
+  const names=[...D.KANGWON_REGULARS['10만'],...D.KANGWON_REGULARS['30만']].map(r=>r.name);
+  ok('단골 이름 중복 없음',new Set(names).size===names.length,names);
+  ok('10만 스톱선 = Founder 확정(-20만/+25만/+30만)',D.STOP_LINES['10만'].loss===-200000&&D.STOP_LINES['10만'].review===250000&&D.STOP_LINES['10만'].win===300000,D.STOP_LINES['10만']);
+  ok('콤프 10만 2천/h · 30만 3천/h',D.COMP_PER_HOUR['10만']===2000&&D.COMP_PER_HOUR['30만']===3000,D.COMP_PER_HOUR);
+  ok('손익 원장 배열',Array.isArray(D.ensurePLLedger()),null);
+  ok('10만에서는 30만 공격 레이어 미적용',D.kangwon30PreflopAggression({type:'Maniac',agg:.9,seat:0,hole:[]},5000,.5,{position:1})===null||D.getState()?.cfg?.label==='30만',null);
+  return out;
+}

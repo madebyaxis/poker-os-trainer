@@ -130,19 +130,30 @@ select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);back
  .confidenceWrap select{min-height:30px}
 }
 .stackShort{display:none}
+/* v5.3 현장형 */
+.reportLink{color:#9ec5ff;font-weight:800;text-decoration:none;white-space:nowrap}
+.liveBar{margin:0 0 8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#121a14;font-size:12.5px;line-height:1.5;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.liveBar b{font-variant-numeric:tabular-nums}
+.liveBar .lbItem{white-space:nowrap}
+.liveBar.review{border-color:#c98500;background:#231d0d}
+.liveBar.stop{border-color:#e66767;background:#2a1414}
+.liveBar .lbFlag{font-weight:900}
+.liveBar.review .lbFlag{color:#f2c463}.liveBar.stop .lbFlag{color:#ff9a9a}
+@media (max-width:650px){.seat .regTag{font-size:8px;padding:0 2px;margin-left:2px}}
+.regTag{font-size:9px;font-weight:900;color:#11161f;background:#d9b75b;border-radius:5px;padding:0 4px;margin-left:3px;vertical-align:1px}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.2 Candidate</h1><div class="sub">2026-11-13 현장 교정 반영 · rake 5%/cap 2만 · Solver OFF(속도) · 3초 Auto-Next</div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.3 Candidate</h1><div class="sub">2026-11-15 현장형 업데이트 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
       <div class="field"><label>리뷰</label><select id="reviewMode"><option value="after">핸드 종료 후</option><option value="live">즉시 코치</option></select></div>
       <div class="field"><label>훈련 모드</label><select id="trainingMode" aria-describedby="trainingModeHelp"><option value="adaptive">Adaptive · 약점 집중</option><option value="simulation">실전 시뮬 · 필드 재현</option><option value="exam">시험 모드 · 강한 상대</option></select><div id="trainingModeHelp" class="modeNote" style="max-width:240px;margin-top:4px">Adaptive · 개인 약점을 더 자주 만나도록 샘플링합니다.</div></div>
       <div class="field"><label>세션 목표</label><select id="sessionTarget"><option value="50">50핸드</option><option value="100" selected>100핸드</option><option value="200">200핸드</option></select></div>
-      <div class="field"><label>잠정 Field profile</label><select id="tableProfile"><option>Normal</option><option>Soft</option><option value="Kangwon Live">강원랜드 현장(11/13 관찰)</option><option>Reg Heavy</option></select></div>
+      <div class="field"><label>잠정 Field profile</label><select id="tableProfile"><option>Normal</option><option>Soft</option><option value="Kangwon Live">강원랜드 10만 현장</option><option value="Kangwon 30">강원랜드 30만 현장</option><option>Reg Heavy</option></select></div>
       <button class="btn primary" id="start">새 세션</button>
       <button class="btn autoOn" id="autoToggle" type="button">자동 진행 ON</button>
       <button class="btn rebuyBtn" id="rebuyHero" type="button" disabled>리바인</button>
@@ -153,6 +164,7 @@ select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);back
 
   <div class="layout">
     <section class="game">
+      <div class="liveBar" id="liveBar" aria-live="polite">새 세션을 시작하면 현장 시계가 켜집니다.</div>
       <div class="table">
         <div class="center">
           <div class="street" id="street">대기</div>
@@ -1044,6 +1056,7 @@ function startSession(){
    if(i===hero)players.push({seat:i,name:'J',type:'Hero',loose:.45,agg:.55,stack:cfg.buyin,...lifecycleDefaults()});
    else{const o=initialPool[oi++];players.push(fieldStyle({seat:i,name:o[0],type:o[1],loose:o[2],agg:o[3],skill:skills[si++],stack:cfg.buyin,...lifecycleDefaults()},chosenProfile))}
  }
+ const seatedRegulars=seatKangwonRegulars(players,cfg,chosenProfile,hero,$('trainingMode').value);
  S={cfg,hero,btn:Math.floor(Math.random()*9),hand:0,startStack:cfg.buyin,heroTotalBuyin:cfg.buyin,heroNeedsRebuy:false,resumeAutoAfterRebuy:true,players,deck:[],board:[],pot:0,street:'idle',currentBet:0,actor:null,acted:new Set(),handOver:true,decisions:[],fastForward:false,winnerSeats:[],winnerText:'',historySaved:false,preflopLimpers:0,preflopRaised:false,preflopRaiseCount:0,preflopRaiserSeat:null,lastAggressorSeat:null,prevStreetAggressorSeat:null,streetAggressionCount:0,heroReachedRiver:false,heroParticipatedHand:false,heroProfile:{actions:0,folds:0,calls:0,checks:0,raises:0,facedBet:0,foldsToBet:0,callsVsBet:0,raisesVsBet:0},sessionRake:0,handRake:0,lastPotGross:0,lastPotNet:0,lastUncalledRefund:0,initialChips:cfg.buyin*9,chipsAdded:0,chipsRemoved:0,trainingMode:$('trainingMode').value,sessionTarget:Number($('sessionTarget').value)||100,sessionEnded:false,endAfterHand:false,tableProfile:$('tableProfile').value,fieldMonitor:{},sessionId:'S-'+Date.now(),sessionStartedAt:new Date().toISOString(),heroDecisionStartedAt:0,heroDecisionActiveMs:0,heroDecisionLastTick:0,heroPreflopFacingRecorded:false,heroFirstFacing:'',trainingGateActive:false,forcedDrillQueue:[],trainingGateRemaining:0,readGateActive:false,pendingReadCheckpoint:0,endAfterTrainingGate:false,resumeAutoAfterGate:true,lastAdaptiveBlockHand:0,trainingPreflopTarget:'',trainingHeroHoleCode:'',adaptiveRecentCodes:[],postflopPressurePlan:{label:'none',turn:false,river:false,used:{turn:false,river:false},responseUsed:{turn:false,river:false}},aiHandActionStats:emptyAIHandActionStats()};
  $('log').innerHTML='';$('review').innerHTML='<div class="reviewItem"><b>세션 시작</b><p>가상칩 훈련입니다. 실제 베팅/결제 기능은 없습니다.</p></div>';
  syncTrainingModeUI();
@@ -3836,6 +3849,179 @@ if(!restored){
 }
 // Patch 2026-11-13: rake cap 확정 · EP raise call/fold 보강 · 림프 팟 오프수트 폴드 · 턴 T04/T05/T06 · 현장 field profile
 Object.assign(PokerOSDebug,{patch:'5.2-candidate-20261113-field-corrections',p10TurnRule,canonicalRecommendation,CANON,RAKE_CAP,calcRake});
+// ===== Patch 2026-11-15 v5.3: 강원랜드 현장형 업데이트 =====
+// 1) 10만/30만 필드 분리(30만은 레귤러·공격형 비중↑)  2) 단골 레귤러(이름 고정, 관찰 기록이 세션 간 누적)
+// 3) 30만 공격형의 스틸·아이소·라이트 3벳, 헤즈업 배럴 강화  4) 현장 시계(30핸드/h 환산)·콤프·스톱 라인
+// 5) 손익 원장(핸드별 요약, 500핸드 제한 없음) → report.html 에서 누적 시간별 손익을 본다.
+const LIVE_HANDS_PER_HOUR=30; // 현장 딜링 속도 가정(미측정). report.html에서 바꿀 수 있다.
+const COMP_PER_HOUR={'10만':2000,'30만':3000}; // Founder 진술 2026-11-13
+// 10만은 Founder 확정 기준. 30만은 하지 않는 원칙이라 10만 기준을 BB(×4)로 환산한 참고선.
+const STOP_LINES={'10만':{loss:-200000,review:250000,win:300000,maxHours:10,label:'Founder 확정'},'30만':{loss:-800000,review:1000000,win:1200000,maxHours:10,label:'10만 기준 BB 환산(참고)'}};
+FIELD_PROFILES['Kangwon 30']={
+ // 30만 현장 서술(2026-11-15 Founder): 레귤러도 있고 공격적인 사람도 있고 다양함. 수치는 잠정.
+ skills:['Recreational','Average','Average','Regular','Regular','Regular','Strong','Strong'],
+ styles:{'Calling Station':.08,'Loose-Passive':.14,'Tight-Passive':.08,Regular:.22,'Tight-Aggressive':.18,'Loose-Aggressive':.17,'Tricky-Aggressive':.09,Maniac:.04}
+};
+const KANGWON_REGULARS={
+ '10만':[
+  {name:'변상철',type:'Regular',loose:.44,agg:.52,skill:'Regular'},
+  {name:'도경민',type:'Loose-Passive',loose:.70,agg:.22,skill:'Recreational'},
+  {name:'석현수',type:'Calling Station',loose:.80,agg:.18,skill:'Recreational'},
+  {name:'왕지석',type:'Loose-Aggressive',loose:.64,agg:.72,skill:'Average'},
+  {name:'곽정훈',type:'Nit',loose:.20,agg:.26,skill:'Average'}
+ ],
+ '30만':[
+  {name:'장도현',type:'Tight-Aggressive',loose:.30,agg:.72,skill:'Strong'},
+  {name:'민경수',type:'Regular',loose:.42,agg:.56,skill:'Regular'},
+  {name:'홍석진',type:'Loose-Aggressive',loose:.64,agg:.80,skill:'Regular'},
+  {name:'구본재',type:'Tricky-Aggressive',loose:.50,agg:.70,skill:'Strong'},
+  {name:'엄태호',type:'Maniac',loose:.84,agg:.90,skill:'Average'},
+  {name:'성윤기',type:'Tight-Passive',loose:.26,agg:.24,skill:'Regular'},
+  {name:'탁진우',type:'Loose-Aggressive',loose:.66,agg:.74,skill:'Average'}
+ ]
+};
+const REGULAR_SEATS={'10만':[2,3],'30만':[3,4]};
+const REG_MEMORY_KEY='poker_os_regular_memory_v1';
+const PL_LEDGER_KEY='poker_os_pl_ledger_v1';
+const PL_LEDGER_MAX=30000;
+function v53ProfileFor(label){return label==='30만'?'Kangwon 30':'Kangwon Live'}
+function v53IsKangwonProfile(pr){return pr==='Kangwon Live'||pr==='Kangwon 30'}
+function regMemory(){try{return JSON.parse(localStorage.getItem(REG_MEMORY_KEY)||'{}')||{}}catch{return {}}}
+function saveRegMemory(m){try{localStorage.setItem(REG_MEMORY_KEY,JSON.stringify(m))}catch{}}
+function seatRegular(seat,r,stack){
+ const mem=regMemory()[r.name]||{};
+ const p={seat,name:r.name,type:r.type,loose:r.loose,agg:r.agg,skill:r.skill,stack,regular:true,...lifecycleDefaults()};
+ p.targetHands=randInt(70,160); // 단골은 오래 앉아 있다
+ if(mem.obs)p.obs={...p.obs,...deepClone(mem.obs)};
+ p.memHands=Number(mem.hands)||0;p.memSessions=(Number(mem.sessions)||0)+1;
+ return p;
+}
+function persistRegulars(){
+ if(!S)return;const m=regMemory();
+ for(const p of S.players){if(!p.regular)continue;m[p.name]={obs:deepClone(p.obs||{}),hands:(p.memHands||0)+(p.handsAtTable||0),sessions:p.memSessions||1,limit:S.cfg.label,lastSeen:new Date().toISOString()}}
+ saveRegMemory(m);
+}
+// 단골의 관찰 기록은 이전 세션 핸드 수까지 합쳐 판독한다(숨은 성향은 쓰지 않음).
+const v53ObservedOpponentProfile=observedOpponentProfile;
+observedOpponentProfile=function(p){
+ if(!p||!p.memHands)return v53ObservedOpponentProfile(p);
+ const h=p.handsAtTable;p.handsAtTable=(h||0)+p.memHands;try{return v53ObservedOpponentProfile(p)}finally{p.handsAtTable=h}
+};
+// 단골 착석은 startSession 안에서 첫 핸드를 돌리기 전에 한다(seatKangwonRegulars).
+function seatKangwonRegulars(players,cfg,profile,hero,trainingMode){
+ if(!v53IsKangwonProfile(profile)||trainingMode==='exam')return [];
+ const pool=shuffled(KANGWON_REGULARS[cfg.label]||[]),[lo,hi]=REGULAR_SEATS[cfg.label]||[2,3],n=Math.min(pool.length,randInt(lo,hi));
+ const seats=shuffled(players.filter(p=>p.seat!==hero).map(p=>p.seat)).slice(0,n);
+ seats.forEach((seat,i)=>{players[seat]=seatRegular(seat,pool[i],cfg.buyin)});
+ return seats.map(x=>players[x].name);
+}
+const v53StartSession=startSession;
+startSession=function(){
+ const before=S?.sessionId;v53StartSession();
+ if(!S||S.sessionId===before)return;
+ v53AfterSeating();
+ const regs=S.players.filter(p=>p.regular).map(p=>p.name);
+ if(regs.length)log(`단골 ${regs.length}명 착석: ${regs.join(', ')} · 관찰 기록은 세션 간 이어집니다`,'sys');
+ render();persistSession();
+};
+function v53AfterSeating(){S.v53={alerts:{},startedAt:Date.now()};v53RenderLiveBar()}
+const v53MakeOpponent=makeOpponent;
+makeOpponent=function(seat,excludeNames=[],forcedSkill=null){
+ if(S&&v53IsKangwonProfile(S.tableProfile)&&S.trainingMode!=='exam'){
+  const pool=(KANGWON_REGULARS[S.cfg.label]||[]).filter(r=>!excludeNames.includes(r.name)&&!S.players.some(p=>p.name===r.name));
+  if(pool.length&&Math.random()<(S.cfg.label==='30만'?.35:.22)){const r=pool[Math.floor(Math.random()*pool.length)];return seatRegular(seat,r,S.cfg.buyin)}
+ }
+ return v53MakeOpponent(seat,excludeNames,forcedSkill);
+};
+// 30만 공격형: CO·BTN·SB 스틸, 림퍼 아이소 레이즈, 스틸 상대로 라이트 3벳.
+const AGGRESSIVE_TYPES=['Tight-Aggressive','Loose-Aggressive','Tricky-Aggressive','Maniac','Regular'];
+const v53PreflopBase=aiPreflopAction;
+function kangwon30PreflopAggression(p,tc,sc,k){
+ if(!S||S.cfg.label!=='30만'||!AGGRESSIVE_TYPES.includes(p.type))return null;
+ const canRaise=S.currentBet<cap()&&p.stack>tc;if(!canRaise)return null;
+ const ps=pos(p.seat),code=holeCode(p.hole),group=preflopGroup(code),facing=preflopFacing(),late=['CO','BTN','SB'].includes(ps),ip=['HJ','CO','BTN'].includes(ps);
+ const a=Math.max(0,p.agg-.45),skill=k.position,suited=code.endsWith('s'),conn=code.length>=2&&Math.abs(RV[code[0]]-RV[code[1]])<=2;
+ if(!allowNonPremiumTrainingRaise(group))return null;
+ if(facing==='Unopened'&&late&&tc>0){
+  const playable=group!=='weak'||(suited&&(code[0]==='A'||code[0]==='K'||conn));
+  const q=playable?Math.min(.92,.35+a*1.1*skill+(ps==='BTN'?.12:0)):(p.type==='Maniac'?.22:0);
+  if(Math.random()<q){p.auditIntent={tag:'30k-steal',reason:ps};return 'raise'}
+  return null;
+ }
+ if(facing==='Limpers'&&ip&&S.preflopLimpers<=3&&['strong','broadway','pair'].includes(group)){
+  if(group==='pair'&&RV[code[0]]<7)return null;
+  if(Math.random()<Math.min(.8,.25+a*1.2*skill)){p.auditIntent={tag:'30k-iso',reason:S.preflopLimpers+'limpers'};return 'raise'}
+  return null;
+ }
+ if(facing==='Raised'&&S.preflopRaiseCount===1){
+  const rp=S.preflopRaiserSeat==null?'':pos(S.preflopRaiserSeat),vsSteal=['CO','BTN','SB'].includes(rp);
+  const cand=group==='strong'||(group==='pair'&&RV[code[0]]>=8)||(vsSteal&&(group==='broadway'||(suited&&code[0]==='A')));
+  if(!cand)return null;
+  const q=Math.min(.75,(a*.9+(p.type==='Maniac'?.15:0))*(vsSteal?1.6:.8)*(ip||['SB','BB'].includes(ps)?1:.6));
+  if(Math.random()<q){p.auditIntent={tag:'30k-light-3bet',reason:'vs '+rp};return 'raise'}
+ }
+ return null;
+}
+aiPreflopAction=function(p,tc,sc,k){return kangwon30PreflopAggression(p,tc,sc,k)||v53PreflopBase(p,tc,sc,k)};
+const v53StyleCfg=postflopStyleCfg;
+postflopStyleCfg=function(p){
+ const c=v53StyleCfg(p);
+ if(!S||S.cfg?.label!=='30만'||!AGGRESSIVE_TYPES.includes(p?.type)||S.street==='idle')return c;
+ if(live().length>2)return c;
+ const b=x=>Math.min(.95,x*1.25);return {...c,stab:b(c.stab),barrel:b(c.barrel),bluff:b(c.bluff),riverBluff:b(c.riverBluff),semi:Math.min(.95,c.semi*1.15)};
+};
+// 손익 원장: 핸드별 요약만 남겨 500핸드 보관 제한과 무관하게 누적 리포트를 만든다.
+function loadPLLedger(){try{const x=JSON.parse(localStorage.getItem(PL_LEDGER_KEY)||'null');return Array.isArray(x)?x:null}catch{return null}}
+function savePLLedger(arr){try{localStorage.setItem(PL_LEDGER_KEY,JSON.stringify(arr.slice(-PL_LEDGER_MAX)));return true}catch{return false}}
+function ledgerRow(h){return {t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',pl:Number(h.handPL)||0,bb:Number(h.bb)||bbForLimit(h.limit),m:h.trainingMode||'',pr:h.tableProfile||'',rk:Number(h.rake)||0,ms:Number(h.performanceTelemetry?.handDurationMs)||0}}
+function ensurePLLedger(){let l=loadPLLedger();if(!l){l=loadHistory().map(ledgerRow);savePLLedger(l)}return l}
+const v53SaveCurrentHand=saveCurrentHand;
+saveCurrentHand=function(){
+ const already=!S||S.historySaved;v53SaveCurrentHand();
+ if(already||!S||!S.historySaved)return;
+ try{const hist=loadHistory(),last=hist[hist.length-1];if(last&&last.sessionId===S.sessionId){const l=ensurePLLedger();l.push(ledgerRow(last));savePLLedger(l)}}catch(e){console.error('ledger',e)}
+ persistRegulars();v53CheckStops();
+};
+function v53SessionNumbers(){
+ const hero=S.players[S.hero],pl=hero.stack-(S.heroTotalBuyin||S.startStack),hands=S.hand||0,hours=hands/LIVE_HANDS_PER_HOUR;
+ return {pl,hands,hours,bb:pl/S.cfg.bb,comp:Math.round(hours*(COMP_PER_HOUR[S.cfg.label]||0)),rake:S.sessionRake||0,lines:STOP_LINES[S.cfg.label]||STOP_LINES['10만']};
+}
+function v53Hm(h){const m=Math.round(h*60);return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`}
+function v53Man(x){const v=x/10000;return (v>=0?'+':'')+(Math.abs(v)>=100?v.toFixed(0):v.toFixed(1).replace(/\.0$/,''))+'만'}
+function v53State(n){const L=n.lines;if(n.pl<=L.loss||n.pl>=L.win||n.hours>=L.maxHours)return 'stop';if(n.pl>=L.review||n.pl<=L.loss*.75)return 'review';return ''}
+function v53RenderLiveBar(){
+ const el=$('liveBar');if(!el)return;if(!S){el.className='liveBar';return}
+ const n=v53SessionNumbers(),L=n.lines,st=v53State(n);
+ const flag=st==='stop'?(n.pl<=L.loss?'손실 한도 도달 · 종료':n.pl>=L.win?'수익 종료선 도달 · 종료':'최대 시간 도달 · 종료'):st==='review'?(n.pl>=L.review?'수익 종료 검토 구간':'손실 한도 접근'):'정상';
+ el.className='liveBar '+st;
+ el.innerHTML=`<span class="lbItem">⏱ 현장 환산 <b>${v53Hm(n.hours)}</b> (${n.hands}핸드 ÷ ${LIVE_HANDS_PER_HOUR}/h)</span>`+
+  `<span class="lbItem">세션 <b>${v53Man(n.pl)}</b> (${n.bb>=0?'+':''}${n.bb.toFixed(1)}BB)</span>`+
+  `<span class="lbItem">시간당 <b>${n.hours>=.25?v53Man(n.pl/n.hours):'-'}</b></span>`+
+  `<span class="lbItem">레이크 ${fmt(n.rake)} · 콤프≈${fmt(n.comp)}</span>`+
+  `<span class="lbItem">스톱 ${v53Man(L.loss)} / 검토 ${v53Man(L.review)} / 종료 ${v53Man(L.win)} · ${L.maxHours}h <small>(${L.label})</small></span>`+
+  `<span class="lbItem lbFlag">${flag}</span>`;
+}
+function v53CheckStops(){
+ if(!S||!S.v53)return;const n=v53SessionNumbers(),L=n.lines,a=S.v53.alerts;
+ const fire=(key,msg)=>{if(a[key])return;a[key]=true;log('현장 규칙 · '+msg,'sys');$('hint').textContent='현장 규칙 · '+msg};
+ if(n.pl<=L.loss)fire('loss',`세션 손실 ${v53Man(L.loss)} 도달. 실전이라면 여기서 종료합니다(만회 연장·리밋 상승 금지).`);
+ else if(n.pl<=L.loss*.75)fire('lossNear',`손실 ${v53Man(n.pl)} · 한도까지 ${v53Man(L.loss-n.pl).replace('-','')} 남음. 타이트하게.`);
+ if(n.pl>=L.win)fire('win',`수익 ${v53Man(L.win)} 도달. 실전이라면 종료합니다.`);
+ else if(n.pl>=L.review)fire('review',`수익 ${v53Man(L.review)} 구간 · 종료 검토. 컨디션·테이블 상태를 점검하세요.`);
+ if(n.hours>=L.maxHours)fire('hours',`현장 환산 ${L.maxHours}시간 도달. 실전이라면 종료합니다.`);
+}
+const v53Render=render;
+render=function(reveal=false){
+ v53Render(reveal);if(!S)return;
+ const seats=$('seats')?.children||[];S.players.forEach((p,i)=>{if(!p.regular||!seats[i])return;const top=seats[i].querySelector('.seat-top .name');if(top&&!top.querySelector('.regTag')){const r=observedOpponentProfile(p);top.insertAdjacentHTML('beforeend',`<span class="regTag" title="단골 · 누적 ${(p.memHands||0)+(p.handsAtTable||0)}핸드 관찰 · ${r.enough?r.label:'판독 표본 부족'}">단골</span>`)}});
+ v53RenderLiveBar();
+};
+$('limit').addEventListener('change',()=>{const pr=$('tableProfile');if(pr&&(v53IsKangwonProfile(pr.value)||pr.value==='Normal'))pr.value=v53ProfileFor(CFG[$('limit').value].label)});
+if(!S){$('tableProfile').value=v53ProfileFor(CFG[$('limit').value].label)}
+if(S&&!S.v53)S.v53={alerts:{},startedAt:Date.now()};
+ensurePLLedger();
+if(S)render();
+Object.assign(PokerOSDebug,{patch:'5.3-candidate-20261115-kangwon-live',FIELD_PROFILES,KANGWON_REGULARS,STOP_LINES,COMP_PER_HOUR,LIVE_HANDS_PER_HOUR,kangwon30PreflopAggression,aiPreflopAction,postflopStyleCfg,observedOpponentProfile,startSession,makeOpponent,saveCurrentHand,render,loadPLLedger,ensurePLLedger,regMemory,v53SessionNumbers,v53State});
 })();
 </script>
 </body>
