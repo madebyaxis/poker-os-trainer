@@ -159,7 +159,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.4 Candidate</h1><div class="sub">2026-11-15 현장형 업데이트 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.5 Candidate</h1><div class="sub">2026-11-16 현장형 프리플랍 범위 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -4110,6 +4110,75 @@ v54BuildDock();
 if(!localStorage.getItem(COACH_KEY))buildCoachSnapshot();else{try{const s=JSON.parse(localStorage.getItem(COACH_KEY));if(s.schema!==COACH_SCHEMA)buildCoachSnapshot()}catch{buildCoachSnapshot()}}
 if(S)render();
 Object.assign(PokerOSDebug,{patch:'5.4-candidate-20261116-dock-coach',buildCoachSnapshot,coachRowsForHand,appendCoachSnapshot,saveCurrentHand,renderHistory,endSession,render,v54ShowTab});
+// ===== Patch 2026-11-16 v5.5: 강원랜드 현장형 프리플랍 범위 =====
+// 문제: AI가 K3o·72o·T2o 같은 패로 들어오고(그럴싸하지 않음), 동시에 현장보다 너무 쉽게 폴드했다.
+// 해결: 강원랜드 프로필에서는 스타일별 '참가 가능한 패 등급'으로 프리플랍을 결정한다.
+//  - 아무 패나 들어오지 않는다: 등급 6(정크)은 거의 플레이하지 않음.
+//  - 대신 림프·콜은 현장처럼 넓다: 루즈 패시브·콜링스테이션은 등급 5(Ax 오프, 수딧 갭퍼, 오프 커넥터 등)까지 림프하고,
+//    한 번 림프한 패는 레이즈가 나와도 웬만하면 따라온다(현장 관찰: 레이즈해도 4~5명 콜).
+const PF_TIERS=[
+ ['QQ+','AK'],
+ ['TT+','AQs+','AQo+','AJs','KQs'],
+ ['77+','ATs+','AJo+','KTs+','QTs+','JTs','KQo'],
+ ['22+','A2s+','ATo+','K8s+','Q9s+','J9s+','T8s+','98s','87s','76s','65s','97s','KTo+','QTo+','JTo'],
+ // 등급5 = 현장 루즈 플레이어가 실제로 림프하는 '그럴싸한' 패: 모든 Ax, 수딧 K/Q, 높은 오프 브로드웨이, 수딧 갭퍼, 오프 커넥터
+ ['A2o+','K2s+','K7o+','Q4s+','Q8o+','J6s+','J8o+','T6s+','T8o+','95s+','85s+','74s+','63s+','52s+','42s+','32s','97o+','86o+','75o+','65o','54o']
+];
+function pfTier(code){for(let i=0;i<PF_TIERS.length;i++)if(rangeMatch(code,PF_TIERS[i]))return i+1;return 6}
+// open: 먼저 들어갈 때 최대 등급(EP/MP/LP) · rais: 먼저 레이즈하는 최대 등급 · vs: 레이즈에 새로 콜 · inv: 이미 돈 넣은 상태에서 레이즈에 콜 · cap: 리레이즈 · t5: 등급5를 실제로 칠 확률 · junk: 정크 확률 · slow: 프리미엄 림프(슬로우) 확률
+const KANGWON_PF_STYLE={
+ // 2026-11-13 현장 관찰 기준 튜닝: 림프 평균 3~4명(많으면 5~6명), 레이즈해도 4~5명 콜.
+ 'Nit':{open:[3,3,4],rais:[1,2,2],vs:2,inv:3,cap:1,t5:0,junk:0,slow:.05},
+ 'Tight-Passive':{open:[3,4,4],rais:[1,1,1],vs:3,inv:4,cap:1,t5:.10,junk:0,slow:.30},
+ 'Regular':{open:[4,4,5],rais:[2,2,3],vs:3,inv:4,cap:1,t5:.30,junk:0,slow:.10},
+ 'Tight-Aggressive':{open:[3,4,4],rais:[3,3,4],vs:3,inv:4,cap:2,t5:.15,junk:0,slow:.05},
+ 'Loose-Passive':{open:[5,5,5],rais:[1,1,1],vs:5,inv:5,cap:1,t5:.80,junk:.015,slow:.40},
+ 'Calling Station':{open:[5,5,5],rais:[1,1,1],vs:5,inv:5,cap:1,t5:.95,junk:.03,slow:.55},
+ 'Loose-Aggressive':{open:[4,5,5],rais:[3,3,4],vs:4,inv:5,cap:2,t5:.60,junk:.015,slow:.05},
+ 'Tricky-Aggressive':{open:[4,4,5],rais:[2,3,4],vs:4,inv:5,cap:2,t5:.50,junk:.01,slow:.35},
+ 'Maniac':{open:[5,5,5],rais:[4,4,5],vs:5,inv:5,cap:3,t5:.90,junk:.06,slow:.05}
+};
+function kangwonPosIdx(ps){return ['UTG','UTG+1','UTG+2'].includes(ps)?0:['MP','HJ'].includes(ps)?1:2}
+function kangwonRangePreflop(p,tc,k){
+ const cfgS=KANGWON_PF_STYLE[p.type]||KANGWON_PF_STYLE.Regular,ps=pos(p.seat),code=holeCode(p.hole),tier=pfTier(code),facing=preflopFacing();
+ const canRaise=S.currentBet<cap()&&p.stack>tc,inv=(p.streetBet||0)>0,limpers=S.preflopLimpers||0,callers=Math.max(0,live().length-1);
+ const R=()=>canRaise?'raise':'call',noise=k?.noise||.1;
+ // 실력이 낮을수록 경계 패에서 한 등급씩 흔들린다(그래도 정크로는 거의 안 간다).
+ const t=tier<6&&Math.random()<noise*.35?Math.max(1,tier+(Math.random()<.5?-1:1)):tier;
+ const limpedIn=inv&&!['SB','BB'].includes(ps); // 스스로 림프한 사람은 레이즈가 와도 웬만하면 따라온다
+ const playable=(max)=>t<=Math.min(4,max)||(max>=5&&t===5&&Math.random()<(limpedIn?.92:cfgS.t5))||(t===6&&Math.random()<(limpedIn?.6:cfgS.junk));
+ p.auditIntent={tag:'kangwon-range',reason:`${p.type}:T${tier}:${facing}`};
+ if(facing==='Unopened'||facing==='Limpers'){
+  if(ps==='BB'&&tc<=0){if(t<=Math.max(1,cfgS.rais[2]-1)&&canRaise&&Math.random()<.35+.5*p.agg)return 'raise';return 'check'}
+  const pi=kangwonPosIdx(ps);let openMax=cfgS.open[pi];
+  if(facing==='Limpers'&&limpers>=2&&pi>=1)openMax=Math.min(5,openMax+1); // 림퍼가 많고 뒷자리면 더 넓게
+  if(ps==='SB'&&facing==='Limpers')openMax=Math.min(5,openMax+1); // 반값 컴플리트
+  const raiseMax=facing==='Limpers'?Math.max(1,cfgS.rais[pi]-1):cfgS.rais[pi];
+  if(t<=raiseMax&&canRaise){if(t===1&&Math.random()<cfgS.slow)return 'call';if(Math.random()<.55+.45*p.agg)return 'raise'}
+  if(playable(openMax)){if(S.cfg.label==='10만'&&facing==='Unopened')recordPreflopFieldDecision('open_limp',p,tc);return 'call'}
+  return tc>0?'fold':'check';
+ }
+ // 레이즈·캡 직면
+ if(facing==='Raised'){
+  if(t<=cfgS.cap&&canRaise&&Math.random()<(t===1?.85:.45))return 'raise';
+  let max=inv?cfgS.inv:cfgS.vs;
+  if(ps==='BB'||ps==='SB')max=Math.max(max,inv?cfgS.inv:cfgS.vs);
+  if(callers>=3)max=Math.min(5,max+(inv?1:0)); // 이미 여럿 들어간 팟은 싸 보여서 더 따라간다
+  if(callers>=2&&(S.cfg.label==='10만'?!['Nit','Tight-Aggressive'].includes(p.type):['Loose-Passive','Calling Station','Loose-Aggressive','Maniac'].includes(p.type)))max=Math.min(5,max+1); // 10만은 추가 5천이라 현장에서 레이즈에도 4~5명이 따라온다
+  return playable(max)?'call':'fold';
+ }
+ // Capped: 이미 넣은 사람은 대부분 따라오고, 새로 들어오는 사람은 좁게.
+ const max=inv?cfgS.inv:Math.max(1,cfgS.vs-2);
+ return playable(max)?'call':'fold';
+}
+const v55PreflopPrev=aiPreflopAction;
+aiPreflopAction=function(p,tc,sc,k){
+ if(!S||!v53IsKangwonProfile(S.tableProfile))return v55PreflopPrev(p,tc,sc,k);
+ const tier=pfTier(holeCode(p.hole));
+ if(tier<=5){const a=kangwon30PreflopAggression(p,tc,sc,k);if(a)return a}
+ return kangwonRangePreflop(p,tc,k);
+};
+Object.assign(PokerOSDebug,{patch:'5.5-candidate-20261116-kangwon-ranges',pfTier,PF_TIERS,KANGWON_PF_STYLE,kangwonRangePreflop,aiPreflopAction});
 })();
 </script>
 </body>

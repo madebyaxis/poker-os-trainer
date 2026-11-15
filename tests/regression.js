@@ -84,3 +84,15 @@ function runPokerOSRegressionV54(D,doc){
   const snap=D.buildCoachSnapshot();ok('코칭 스냅샷 생성',snap&&Array.isArray(snap.decisions)&&Array.isArray(snap.hands),snap&&snap.schema);
   return out;
 }
+
+// v5.5 (2026-11-16) 강원랜드 현장형 프리플랍 범위
+function runPokerOSRegressionV55(D){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const t=c=>D.pfTier(c);
+  ok('AA·AK 등급1',t('AA')===1&&t('AKo')===1&&t('AKs')===1,[t('AA'),t('AKo')]);
+  ok('72o·K3o·T2o 정크(6)',t('72o')===6&&t('K3o')===6&&t('T2o')===6,[t('72o'),t('K3o'),t('T2o')]);
+  ok('A5o·J9o·87o·K4s 등급5(현장 루즈 림프 패)',[t('A5o'),t('J9o'),t('87o'),t('K4s')].every(x=>x===5),[t('A5o'),t('J9o'),t('87o'),t('K4s')]);
+  ok('44·T9s·KTo 등급4',[t('44'),t('T9s'),t('KTo')].every(x=>x===4),[t('44'),t('T9s'),t('KTo')]);
+  ok('스타일 9종 설정',Object.keys(D.KANGWON_PF_STYLE).length===9,Object.keys(D.KANGWON_PF_STYLE));
+  return out;
+}

@@ -3,11 +3,20 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v5.4 Candidate** (2026-11-16 게임 화면 정리 · 리포트 코칭) — v5.3 강원랜드 현장형 기반
+- Trainer: **v5.5 Candidate** (2026-11-16 강원랜드 현장형 프리플랍 범위) — v5.4 게임 화면 정리·리포트 코칭 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v5.5 변경점 (2026-11-16) · 강원랜드 현장형 프리플랍 범위
+- **문제:** AI가 K3o·72o·T2o·93o 같은 패로 들어오는 반면, 레이즈가 나오면 현장보다 쉽게 폴드했다(측정: 10만 플랍 진입 약 3명, 레이즈 뒤 따라오는 인원 약 1.9명).
+- **해결:** 강원랜드 프로필(10만·30만 현장)에서는 시작 패를 5개 등급 + 정크로 나누고, 스타일별로 "먼저 들어가는 최대 등급 / 먼저 레이즈 / 레이즈에 새로 콜 / 이미 림프한 뒤 레이즈에 콜 / 리레이즈" 기준으로 프리플랍을 결정한다(`KANGWON_PF_STYLE`).
+  - 등급5는 현장 루즈 플레이어가 실제로 림프하는 그럴싸한 패: 모든 Ax, 수딧 K·Q, 높은 오프 브로드웨이, 수딧 갭퍼, 오프 커넥터. 정크(72o·K3o 등)는 루즈 스타일도 1~6%만 친다.
+  - 스스로 림프한 사람은 레이즈가 와도 대부분 따라오고, 10만은 이미 2명 이상 들어간 팟이면 한 등급 더 넓게 따라온다.
+  - 실력이 낮을수록 경계 패에서 한 등급씩 흔들린다.
+- **측정(히어로 전부 폴드, 10만 52핸드):** 플랍 진입 평균 4.1명, 레이즈 뒤 따라오는 인원 3.4명, 레이즈 직면 폴드율 36%, 정크 진입 0건. 30만은 레귤러 비중 때문에 플랍 3.1명·폴드율 약 60~70%로 더 단단하다. 수치는 잠정이며 현장 관찰로 조정한다.
+- 강원랜드 프로필이 아닌 Normal·Soft·Reg Heavy는 기존 로직 그대로다.
 
 ## v5.4 변경점 (2026-11-16) · 게임 화면 정리 + 리포트 코칭
 - **게임 화면:** 오른쪽 패널을 없애고 테이블을 한 열로 넓혔다. 플레이 중 필요한 것만 테이블 아래 탭 도크로 옮겼다: 핸드 리뷰 · 액션 로그 · 훈련 체크(Decision Drill·상대 읽기, 체크포인트가 걸리면 자동으로 열리고 노란 점 표시) · 기록(JSON 백업·가져오기·초기화). 세션 정보(핸드 번호·포지션·회계 검증)는 현장 시계 바로 합쳤다. 기존 분석 패널 DOM은 숨긴 채 남겨 기존 코드가 그대로 동작한다.
@@ -47,7 +56,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 43개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 48개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages
