@@ -74,3 +74,13 @@ function runPokerOSRegressionV53(D){
   ok('10만에서는 30만 공격 레이어 미적용',D.kangwon30PreflopAggression({type:'Maniac',agg:.9,seat:0,hole:[]},5000,.5,{position:1})===null||D.getState()?.cfg?.label==='30만',null);
   return out;
 }
+
+// v5.4 (2026-11-16) 게임 화면 도크 · 코칭 스냅샷
+function runPokerOSRegressionV54(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  ok('플레이 도크 생성',!!doc.getElementById('playDock'),null);
+  ok('오른쪽 패널 숨김',doc.querySelector('aside.side')?.classList.contains('stash'),null);
+  for(const id of ['review','log','decisionLab','readSeat','exportHistory'])ok(`도크로 이동: #${id}`,!!doc.getElementById(id)?.closest('#playDock'),null);
+  const snap=D.buildCoachSnapshot();ok('코칭 스냅샷 생성',snap&&Array.isArray(snap.decisions)&&Array.isArray(snap.hands),snap&&snap.schema);
+  return out;
+}

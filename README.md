@@ -2,12 +2,19 @@
 
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
-## Current build (2026-11-15 기준)
-- Trainer: **v5.3 Candidate** (2026-11-15 강원랜드 현장형) — v5.2 field corrections 기반
+## Current build (2026-11-16 기준)
+- Trainer: **v5.4 Candidate** (2026-11-16 게임 화면 정리 · 리포트 코칭) — v5.3 강원랜드 현장형 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v5.4 변경점 (2026-11-16) · 게임 화면 정리 + 리포트 코칭
+- **게임 화면:** 오른쪽 패널을 없애고 테이블을 한 열로 넓혔다. 플레이 중 필요한 것만 테이블 아래 탭 도크로 옮겼다: 핸드 리뷰 · 액션 로그 · 훈련 체크(Decision Drill·상대 읽기, 체크포인트가 걸리면 자동으로 열리고 노란 점 표시) · 기록(JSON 백업·가져오기·초기화). 세션 정보(핸드 번호·포지션·회계 검증)는 현장 시계 바로 합쳤다. 기존 분석 패널 DOM은 숨긴 채 남겨 기존 코드가 그대로 동작한다.
+- **세션 종료:** 디브리프를 리포트에 저장하고 "리포트에서 이 세션 코칭 보기" 링크를 띄운다(`report.html?sid=…`).
+- **리포트 코칭 탭(기본 탭):** 한눈에 판정(정본 일치율·VPIP·PFR·레이즈 맞고 콜·밸류 놓침·고확신 오류·결정 시간·훈련 BB/100에 좋음/주의/교정 배지), 지금 집중할 것 Top 3(오류 유형별 묶음, 최근성·확신·누수 위험 가중, 최근 예시와 한 줄 교정), 잘하고 있는 것, 교정할 핸드 카드(정본 교정/고확신/프리/포스트/모델 참고 필터), 스트리트별 정확도, 약점 버킷·복습 일정, 세션 디브리프. 세션 목록에서 세션을 누르면 그 세션만 본다.
+- **코칭 스냅샷:** 트레이너가 저장 기록을 현재 정본(Strategy v1.1)으로 다시 채점해 `poker_os_coach_v1`에 저장하고, 리포트는 이것을 읽는다. 추가금 0인데 정답이 콜/폴드로 재구성되는 결정은 채점에서 뺀다.
+- 테스트: `tests/run.html` 43개.
 
 ## v5.3 변경점 (2026-11-15) · 강원랜드 현장형
 - **테이블별 필드 분리:** `강원랜드 10만 현장`(기존 Kangwon Live)과 `강원랜드 30만 현장`(신규). 테이블을 바꾸면 프로필이 자동으로 따라간다. 30만은 레귤러·TAG·LAG·트리키 비중이 높고 실력 분포도 강하다(Founder 서술 기반 잠정값).
@@ -40,7 +47,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 35개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 43개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages
@@ -54,7 +61,7 @@
 - 서버·Notion으로 자동 전송하지 않습니다. 기기·브라우저 간 동기화도 없습니다.
 - 브라우저 데이터를 지우면 기록이 사라집니다. **월 1회 이상 앱의 JSON 내보내기로 백업**하세요.
 - 저장 키는 v5.1과 같아서 업데이트 후에도 기존 기록이 유지됩니다.
-- v5.3 추가 키: `poker_os_pl_ledger_v1`(손익 원장, 최대 30,000핸드), `poker_os_regular_memory_v1`(단골 관찰), `poker_os_real_sessions_v1`(불러온 실전 기록), `poker_os_report_prefs_v1`(리포트 설정).
+- v5.3 추가 키: `poker_os_pl_ledger_v1`(손익 원장, 최대 30,000핸드), `poker_os_regular_memory_v1`(단골 관찰), `poker_os_real_sessions_v1`(불러온 실전 기록), `poker_os_report_prefs_v1`(리포트 설정), `poker_os_coach_v1`(v5.4 코칭 스냅샷).
 
 ## 알려진 한계
 - 현장 환산 시간(30핸드/h)은 미측정 가정이다. 리포트에서 바꿀 수 있다.

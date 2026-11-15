@@ -130,6 +130,19 @@ select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);back
  .confidenceWrap select{min-height:30px}
 }
 .stackShort{display:none}
+/* v5.4 도크 */
+.layout.solo{grid-template-columns:minmax(0,1fr);max-width:980px;margin:0 auto}
+aside.side.stash{display:none!important}
+.playDock{margin-top:10px;border:1px solid var(--line);border-radius:14px;background:#101410;overflow:hidden}
+.dockTabs{display:flex;gap:2px;align-items:center;border-bottom:1px solid var(--line);padding:4px;overflow-x:auto}
+.dockTabs button{background:transparent;border:0;color:#c3c2b7;padding:8px 11px;border-radius:9px;font-weight:700;white-space:nowrap;cursor:pointer}
+.dockTabs button.on{background:#264733;color:#fff}
+.dockTabs .dockReport{margin-left:auto;color:#9ec5ff;font-weight:800;text-decoration:none;padding:8px 10px;white-space:nowrap}
+.dockPane{padding:10px;max-height:46vh;overflow:auto}
+.dockPane .log{max-height:none}
+.dockSub{font-size:12px;font-weight:800;color:#c3c2b7;margin:6px 0}
+.dockNote{font-size:12px;color:#c3c2b7;margin:0 0 8px}
+.dockDot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#f2c463;margin-left:3px;vertical-align:1px}
 /* v5.3 현장형 */
 .reportLink{color:#9ec5ff;font-weight:800;text-decoration:none;white-space:nowrap}
 .liveBar{margin:0 0 8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#121a14;font-size:12.5px;line-height:1.5;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
@@ -146,7 +159,7 @@ select,.btn{min-height:42px;border-radius:10px;border:1px solid var(--line);back
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.3 Candidate</h1><div class="sub">2026-11-15 현장형 업데이트 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.4 Candidate</h1><div class="sub">2026-11-15 현장형 업데이트 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -4022,6 +4035,81 @@ if(S&&!S.v53)S.v53={alerts:{},startedAt:Date.now()};
 ensurePLLedger();
 if(S)render();
 Object.assign(PokerOSDebug,{patch:'5.3-candidate-20261115-kangwon-live',FIELD_PROFILES,KANGWON_REGULARS,STOP_LINES,COMP_PER_HOUR,LIVE_HANDS_PER_HOUR,kangwon30PreflopAggression,aiPreflopAction,postflopStyleCfg,observedOpponentProfile,startSession,makeOpponent,saveCurrentHand,render,loadPLLedger,ensurePLLedger,regMemory,v53SessionNumbers,v53State});
+// ===== Patch 2026-11-16 v5.4: 게임 화면 정리 + 리포트 코칭 데이터 =====
+// 오른쪽 패널을 게임 화면에서 뺀다. 플레이 중 꼭 필요한 것(핸드 리뷰·액션 로그·훈련 체크포인트·기록 관리)은
+// 테이블 아래 탭 도크로 옮기고, 분석·누적·디브리프는 report.html에서 본다(DOM은 숨겨 두어 기존 코드가 그대로 동작).
+const COACH_KEY='poker_os_coach_v1';
+const COACH_SCHEMA='poker-os-coach-v1-20261116b';
+function coachRowsForHand(h){
+ const rows=[];
+ for(const d of h.decisions||[]){
+  let cur=null;try{cur=snapshotCanonicalRecommendation(d,h)}catch(e){cur=null}
+  const sem=d.actualSemantic||d.actual,rec=cur?.action||'Review';let reg=classifySnapshotRegrade(d,h,cur);
+  // 추가금 0인데 정답이 콜/폴드로 나오는 경우는 엔진 재구성 오류로 보고 채점에서 뺀다.
+  if(reg.cls==='correction'&&!(Number(d.toCall)>0)&&['Call','Fold'].includes(rec))reg={cls:'review_only'};
+  const row={t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',hn:h.handNo,m:h.trainingMode||'',pos:d.pos||h.position||'',hole:h.hole||'',code:d.hole||'',st:d.street,fc:d.facing||'',lp:Number.isFinite(d.limpers)?d.limpers:null,tc:Number(d.toCall)||0,pa:d.playersActive??null,hc:d.handClass||'',act:sem,rec,cls:reg.cls,conf:d.userConfidence||'',ms:Number.isFinite(d.decisionMs)?Math.round(d.decisionMs):null,pl:Number(h.handPL)||0,bb:Number(h.bb)||bbForLimit(h.limit)};
+  if(reg.cls==='correction'||(d.tier!=='canonical'&&d.rec&&d.rec!=='Review'&&d.rec!==sem)){
+   Object.assign(row,{board:d.board||'',fboard:h.board||'',pot:Number(d.pot)||0,rule:cur?.rule||'',why:cur?.why||'',orec:d.rec||'',otier:d.tier||'',owhy:d.why||'',orule:d.rule||'',pr:d.preflopRaiserPos||'',
+    leak:decisionLeakRiskBB({...d,rec,tier:cur?.tier,source:cur?.source},h),tip:memoryTip({...d,rec:reg.cls==='correction'?rec:d.rec,gradeable:true,actualSemantic:sem})});
+  }
+  rows.push(row);
+ }
+ return rows;
+}
+function coachHandRow(h){const d=firstPreflopDecision(h);return {t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',m:h.trainingMode||'',pl:Number(h.handPL)||0,bb:Number(h.bb)||bbForLimit(h.limit),pf:d?(d.actualSemantic||d.actual):'',fc:d?(d.facing||h.heroFirstFacing||''):'',pos:h.position||'',sd:!!h.showdownReached}}
+function buildCoachSnapshot(){
+ try{
+  const hist=loadHistory(),snap={schema:COACH_SCHEMA,builtAt:new Date().toISOString(),strategy:STRATEGY_VERSION,hands:hist.map(coachHandRow),decisions:hist.flatMap(coachRowsForHand),leaks:leakProfile,sessions:{}};
+  localStorage.setItem(COACH_KEY,JSON.stringify(snap));return snap;
+ }catch(e){console.error('coach snapshot',e);return null}
+}
+function appendCoachSnapshot(h){
+ try{const s=JSON.parse(localStorage.getItem(COACH_KEY)||'null');if(!s||s.schema!==COACH_SCHEMA)return buildCoachSnapshot();
+  s.hands.push(coachHandRow(h));s.decisions.push(...coachRowsForHand(h));s.hands=s.hands.slice(-500);
+  const keep=new Set(s.hands.map(x=>x.t));s.decisions=s.decisions.filter(x=>keep.has(x.t));s.leaks=leakProfile;s.builtAt=new Date().toISOString();
+  if(S?.sessionEnded||S?.v54Debrief)s.sessions[S.sessionId]=S.v54Debrief||null;
+  localStorage.setItem(COACH_KEY,JSON.stringify(s));return s}catch(e){console.error(e)}
+}
+const v54SaveCurrentHand=saveCurrentHand;
+saveCurrentHand=function(){const before=!S||S.historySaved;v54SaveCurrentHand();if(before||!S||!S.historySaved)return;const hist=loadHistory(),last=hist[hist.length-1];if(last&&last.sessionId===S.sessionId)appendCoachSnapshot(last)};
+const v54RenderHistory=renderHistory;
+renderHistory=function(){v54RenderHistory();
+ // 가져오기 후에도 손익 원장에 빠진 핸드를 채운다(키: 저장 시각+세션).
+ try{const l=ensurePLLedger(),seen=new Set(l.map(r=>r.t+'|'+r.sid));let add=0;for(const h of loadHistory()){const k=h.savedAt+'|'+(h.sessionId||'');if(!seen.has(k)){l.push(ledgerRow(h));seen.add(k);add++}}if(add){l.sort((a,b)=>String(a.t).localeCompare(String(b.t)));savePLLedger(l)}}catch(e){}
+ buildCoachSnapshot()};
+const v54EndSession=endSession;
+endSession=function(manual=true){const was=S&&S.sessionEnded;v54EndSession(manual);if(!S||was||!S.sessionEnded)return;
+ try{const s=JSON.parse(localStorage.getItem(COACH_KEY)||'null')||buildCoachSnapshot();if(s){s.sessions=s.sessions||{};s.sessions[S.sessionId]={html:$('sessionDebrief')?.innerHTML||'',endedAt:new Date().toISOString(),limit:S.cfg.label,hands:S.hand};localStorage.setItem(COACH_KEY,JSON.stringify(s))}}catch(e){}
+ const url='report.html?sid='+encodeURIComponent(S.sessionId);$('hint').innerHTML=`세션 종료 · <a class="reportLink" href="${url}">리포트에서 이 세션 코칭 보기 →</a>`;log('세션 리포트는 플레이 리포트 페이지에서 확인합니다','sys');
+};
+// --- 화면 재배치 ---
+function v54BuildDock(){
+ if($('playDock'))return;
+ const game=document.querySelector('section.game'),side=document.querySelector('aside.side');if(!game||!side)return;
+ const dock=document.createElement('div');dock.className='playDock';dock.id='playDock';
+ dock.innerHTML=`<div class="dockTabs" role="tablist"><button data-t="review" class="on">핸드 리뷰</button><button data-t="log">액션 로그</button><button data-t="train">훈련 체크 <span id="dockTrainDot" class="dockDot" hidden></span></button><button data-t="data">기록</button><a class="dockReport" href="report.html">리포트 →</a></div>
+ <div class="dockPane" data-p="review"></div><div class="dockPane" data-p="log" hidden></div><div class="dockPane" data-p="train" hidden></div><div class="dockPane" data-p="data" hidden></div>`;
+ game.appendChild(dock);
+ const pane=k=>dock.querySelector(`.dockPane[data-p="${k}"]`),card=id=>$(id)?.closest('.sidecard');
+ pane('review').appendChild($('review'));
+ pane('log').appendChild($('log'));
+ const cur=card('decisionLab'),read=card('readSeat');
+ if(cur){const h=document.createElement('div');h.className='dockSub';h.textContent='Decision Drill · 체크포인트';pane('train').appendChild(h);for(const id of ['trainingGateStatus','decisionLab'])pane('train').appendChild($(id));pane('train').appendChild($('nextDrill').parentElement)}
+ if(read){const h=document.createElement('div');h.className='dockSub';h.textContent='상대 읽기 테스트';pane('train').appendChild(h);[...read.children].filter(x=>x.tagName!=='H2').forEach(x=>pane('train').appendChild(x))}
+ const hist=card('exportHistory');if(hist){const btns=$('exportHistory').parentElement;pane('data').insertAdjacentHTML('beforeend','<p class="dockNote">플레이 기록은 이 브라우저에만 저장됩니다. 월 1회 이상 JSON으로 백업하세요. 분석·교정 핸드·세션 디브리프는 <a class="reportLink" href="report.html">플레이 리포트</a>에서 봅니다.</p>');pane('data').appendChild(btns);pane('data').appendChild($('exportPanel'))}
+ dock.querySelector('.dockTabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;v54ShowTab(b.dataset.t)});
+ side.classList.add('stash');document.querySelector('.layout')?.classList.add('solo');
+}
+function v54ShowTab(t){const dock=$('playDock');if(!dock)return;dock.querySelectorAll('.dockTabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));dock.querySelectorAll('.dockPane').forEach(p=>p.hidden=p.dataset.p!==t)}
+const v54Render=render;
+render=function(reveal=false){v54Render(reveal);if(!S)return;const gate=!!(S.trainingGateActive||S.readGateActive);const dot=$('dockTrainDot');if(dot)dot.hidden=!gate;if(gate&&!S.v54GateShown){S.v54GateShown=true;v54ShowTab('train')}if(!gate)S.v54GateShown=false};
+// 현장 바에 핸드 번호·회계 검증을 붙인다(세션 패널 대체).
+const v54LiveBar=v53RenderLiveBar;
+v53RenderLiveBar=function(){v54LiveBar();const el=$('liveBar');if(!el||!S)return;const au=accountingAudit();el.insertAdjacentHTML('afterbegin',`<span class="lbItem">${S.cfg.label} · Hand <b>${S.hand}</b> · ${pos(S.hero)}</span>`);if(!au.ok)el.insertAdjacentHTML('beforeend',`<span class="lbItem lbFlag" style="color:#ff9a9a">회계 불일치 ${fmt(au.diff)}</span>`)};
+v54BuildDock();
+if(!localStorage.getItem(COACH_KEY))buildCoachSnapshot();else{try{const s=JSON.parse(localStorage.getItem(COACH_KEY));if(s.schema!==COACH_SCHEMA)buildCoachSnapshot()}catch{buildCoachSnapshot()}}
+if(S)render();
+Object.assign(PokerOSDebug,{patch:'5.4-candidate-20261116-dock-coach',buildCoachSnapshot,coachRowsForHand,appendCoachSnapshot,saveCurrentHand,renderHistory,endSession,render,v54ShowTab});
 })();
 </script>
 </body>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Poker OS 플레이 리포트 · 누적 시간별 손익</title>
+<title>Poker OS 플레이 리포트 · 코칭·손익</title>
 <style>
 :root{
  color-scheme:dark;
@@ -52,6 +52,27 @@ th{color:var(--text-secondary);font-weight:700;position:sticky;top:0;background:
 details summary{cursor:pointer;color:var(--text-secondary)}
 textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+.tabs{display:flex;gap:4px;margin:0 0 10px;border-bottom:1px solid var(--line)}
+.tabs button{background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;padding:9px 14px;font-weight:800;color:var(--text-secondary)}
+.tabs button.on{color:var(--text-primary);border-bottom-color:var(--series-1)}
+.sessFilter{background:#16233a;border:1px solid #2c4a78;border-radius:10px;padding:8px 10px;margin-bottom:10px;font-size:12.5px}
+.verdict{display:grid;gap:6px}
+.vrow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 10px;background:var(--surface-2);border-radius:10px}
+.badge{font-size:11px;font-weight:900;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.b-good{background:#0f3b1d;color:#7fe39a}.b-warn{background:#3a2c0a;color:#f2c463}.b-bad{background:#3d1515;color:#ff9a9a}.b-na{background:#26292a;color:var(--text-muted)}
+.vrow .vt{font-weight:700}.vrow .vs{font-size:12px;color:var(--text-secondary)}.vrow .vv{font-weight:850;font-variant-numeric:tabular-nums;text-align:right}
+.focus{border:1px solid var(--line);border-left:3px solid var(--series-2);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--surface-2)}
+.focus .ft{font-weight:850}.focus .fm{font-size:12px;color:var(--text-secondary);margin-top:2px}.focus .fx{font-size:12.5px;margin-top:6px}
+.strength{border-left-color:var(--series-3)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.chips button{padding:5px 10px;border-radius:99px;font-size:12px}.chips button.on{background:#264733;border-color:#2f6b47;font-weight:800}
+.hand{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--surface-2)}
+.hand .hh{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}.hand .cards{font-weight:900;font-size:15px;letter-spacing:.02em}
+.hand .meta{font-size:12px;color:var(--text-secondary)}
+.hand .ar{margin-top:6px;font-size:13.5px}.hand .ar b{font-weight:900}
+.hand .why{margin-top:4px;font-size:12.5px;color:var(--text-secondary)}.hand .tipx{margin-top:4px;font-size:12.5px;color:#f2c463}
+.suit-r{color:#ff8b8b}.suit-b{color:#e9edf5}
+.debrief{font-size:12.5px;line-height:1.6;color:var(--text-secondary)}
+tr.clickable{cursor:pointer}tr.clickable:hover td{background:#1d2a20}
 @media (max-width:640px){.kpi .v{font-size:18px}h1{font-size:17px}}
 </style>
 </head>
@@ -59,7 +80,7 @@ textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;fon
 <div class="wrap">
  <header>
   <div>
-   <h1>플레이 리포트 · 누적 시간별 손익</h1>
+   <h1>플레이 리포트 · 코칭 · 손익</h1>
    <div class="sub">트레이너 기록은 이 브라우저의 Poker OS 데이터에서 자동으로 읽습니다. 실전 기록은 아래에서 불러온 것만 보이며 이 브라우저에만 저장됩니다.</div>
   </div>
   <a href="index.html">← 트레이너로</a>
@@ -73,6 +94,23 @@ textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;fon
   <div class="ctl" id="hphCtl">현장 환산 핸드/시간<input id="hph" type="number" min="10" max="60" step="1" value="30" style="width:84px"></div>
  </div>
 
+ <nav class="tabs" id="tabs"><button data-v="coach" class="on">코칭</button><button data-v="pl">손익</button><button data-v="sess">세션·기록</button></nav>
+ <div id="sessFilter" class="sessFilter" hidden></div>
+
+ <section data-tab="coach">
+  <div id="coachEmpty" class="card empty" hidden></div>
+  <div class="card"><h2>한눈에 판정</h2><div class="desc" id="verdictDesc"></div><div id="verdict" class="verdict"></div></div>
+  <div class="card"><h2>지금 집중할 것</h2><div class="desc">현재 정본(Strategy v1.1)으로 다시 채점해 틀린 결정을 유형별로 묶었습니다. 많이·최근에·비싸게 틀린 순서입니다.</div><div id="focus"></div></div>
+  <div class="card"><h2>잘하고 있는 것</h2><div class="desc">정본 채점 표본 8개 이상, 일치율 높은 상황입니다. 그대로 유지하면 됩니다.</div><div id="strengths"></div></div>
+  <div class="card"><h2>교정할 핸드</h2><div class="desc">정본과 다르게 친 결정입니다. "모델 참고"는 정본이 없는 구간에서 엔진 권고와 달랐던 결정이라 채점에는 넣지 않습니다.</div>
+   <div class="chips" id="fixChips"><button data-v="canon" class="on">정본 교정</button><button data-v="hi">고확신 오류</button><button data-v="pre">프리플랍</button><button data-v="post">포스트플랍</button><button data-v="model">모델 참고</button></div>
+   <div id="fixList"></div><div class="row"><button id="fixMore" hidden>더 보기</button><span class="note" id="fixNote"></span></div></div>
+  <div class="card"><h2>스트리트별 정확도</h2><div class="tblwrap"><table id="streetTable"></table></div></div>
+  <div class="card"><h2>약점 버킷 · 복습 일정</h2><div class="desc">Adaptive가 출제 비중을 정할 때 쓰는 약점 기록입니다. 오답률이 높고 복습 시점이 지난 버킷이 먼저 나옵니다.</div><div class="tblwrap"><table id="bucketTable"></table></div></div>
+  <div class="card" id="debriefCard" hidden><h2>세션 디브리프</h2><div id="debrief" class="debrief"></div></div>
+ </section>
+
+ <section data-tab="pl" hidden>
  <div class="kpis" id="kpis"></div>
 
  <div class="card">
@@ -88,9 +126,12 @@ textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;fon
   <div class="chart" id="buckets"></div>
  </div>
 
+ </section>
+
+ <section data-tab="sess" hidden>
  <div class="card">
   <h2>세션 목록</h2>
-  <div class="desc">재투입(리바인)은 손실로 보지 않습니다. 세션 손익은 최종 스택 − 총 투입액입니다.</div>
+  <div class="desc">재투입(리바인)은 손실로 보지 않습니다. 세션 손익은 최종 스택 − 총 투입액입니다. 트레이너 세션을 누르면 그 세션만 코칭으로 봅니다.</div>
   <div class="tblwrap"><table id="sessTable"></table></div>
   <div class="row"><button id="exportCsv">세션 CSV 내보내기</button><span class="note" id="tableNote"></span></div>
  </div>
@@ -106,6 +147,7 @@ textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;fon
   </details>
  </div>
 
+ </section>
  <p class="note">현장 환산 시간은 트레이너 핸드 수를 시간당 핸드 수로 나눈 값입니다(기본 30핸드/h, 미측정 가정). 트레이너 손익은 가상칩 훈련 결과라 실전 EV가 아닙니다.</p>
 </div>
 <div class="tip" id="tip"></div>
@@ -116,7 +158,7 @@ const $=id=>document.getElementById(id);
 const LEDGER_KEY='poker_os_pl_ledger_v1',V5_ARCHIVE_KEY='poker_os_history_v5_lzw1',LEGACY_KEY='kangwon_limit_holdem_trainer_history_v30',REAL_KEY='poker_os_real_sessions_v1',PREF_KEY='poker_os_report_prefs_v1';
 const BB={'10만':5000,'30만':20000};
 const MODE_KO={simulation:'실전 시뮬',adaptive:'Adaptive',exam:'시험'};
-let prefs={src:'trainer',lim:'all',unit:'won',mode:'all',hph:30};
+let prefs={src:'trainer',lim:'all',unit:'won',mode:'all',hph:30,tab:'coach'};
 try{Object.assign(prefs,JSON.parse(localStorage.getItem(PREF_KEY)||'{}'))}catch{}
 const savePrefs=()=>{try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch{}};
 
@@ -256,7 +298,7 @@ function renderBuckets(sessions){
 
 function renderTable(sessions){
  const tr=prefs.src==='trainer',head=tr?['날짜','테이블','모드','핸드','환산 시간','손익','시간당','세션 MDD']:['날짜','테이블','시간','손익','시간당','세션 MDD'];
- const rows=[...sessions].reverse().map(s=>{const v=conv(s.pl,s.lim),mdd=conv(sessionMdd(s),s.lim);return `<tr title="${(s.note||'').replace(/"/g,'')}"><td>${tr?s.date:s.date.slice(2)}</td><td>${s.lim}</td>${tr?`<td>${MODE_KO[s.mode]||s.mode||'-'}</td><td>${s.hands}</td>`:''}<td>${fmtH(s.hours)}</td><td class="${cls(v)}">${fmtV(v)}</td><td class="${cls(v)}">${s.hours>0?fmtV(v/s.hours):'-'}</td><td class="neg">${mdd?'-'+fmtV(mdd,false):'0'}</td></tr>`}).join('');
+ const rows=[...sessions].reverse().map(s=>{const v=conv(s.pl,s.lim),mdd=conv(sessionMdd(s),s.lim);return `<tr title="${(s.note||'').replace(/"/g,'')}" class="${tr?'clickable':''}" data-sid="${tr?s.id:''}"><td>${tr?s.date:s.date.slice(2)}</td><td>${s.lim}</td>${tr?`<td>${MODE_KO[s.mode]||s.mode||'-'}</td><td>${s.hands}</td>`:''}<td>${fmtH(s.hours)}</td><td class="${cls(v)}">${fmtV(v)}</td><td class="${cls(v)}">${s.hours>0?fmtV(v/s.hours):'-'}</td><td class="neg">${mdd?'-'+fmtV(mdd,false):'0'}</td></tr>`}).join('');
  $('sessTable').innerHTML=`<thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="8" class="empty">기록 없음</td></tr>`}</tbody>`;
  $('tableNote').textContent=sessions.length?`${sessions.length}개 세션`:'';
 }
@@ -266,7 +308,8 @@ function render(){
  $('modeSel').value=prefs.mode;$('hph').value=prefs.hph;
  $('modeCtl').style.display=$('hphCtl').style.display=prefs.src==='trainer'?'':'none';
  const sessions=currentSessions(),pts=cumulative(sessions);
- renderKpis(sessions,pts);renderCurve(sessions,pts);renderBuckets(sessions);renderTable(sessions);
+ document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===prefs.tab));document.querySelectorAll('section[data-tab]').forEach(x=>x.hidden=x.dataset.tab!==prefs.tab);
+ renderCoach();renderKpis(sessions,pts);renderCurve(sessions,pts);renderBuckets(sessions);renderTable(sessions);
  const n=loadReal().length;$('realStatus').textContent=n?`실전 세션 ${n}개 저장됨`:'저장된 실전 기록 없음';
  if(prefs.src==='real'&&!n)$('curve').innerHTML='<div class="empty">아직 실전 기록이 없습니다. 아래 "실전 기록 불러오기"에서 파일을 불러오세요.</div>';
 }
@@ -286,6 +329,110 @@ $('realPasteBtn').addEventListener('click',()=>{const arr=parseCSV($('realPaste'
 $('realClear').addEventListener('click',()=>{if(!confirm('이 브라우저에 저장된 실전 기록을 지울까요? (트레이너 기록은 그대로)'))return;localStorage.removeItem(REAL_KEY);render()});
 $('exportCsv').addEventListener('click',()=>{const s=currentSessions(),lines=['date,limit,mode,hands,hours,pl_won,hourly_won,session_mdd_won'];for(const x of s)lines.push([x.date,x.lim,x.mode||'',x.hands||'',x.hours.toFixed(3),Math.round(x.pl),x.hours?Math.round(x.pl/x.hours):'',Math.round(sessionMdd(x))].join(','));
  const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`poker-os-${prefs.src}-sessions.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
+
+// ----- coaching (트레이너 기록, index.html이 만든 재채점 스냅샷 사용) -----
+const COACH_KEY='poker_os_coach_v1';
+const STREET_KO={preflop:'프리플랍',flop:'플랍',turn:'턴',river:'리버'};
+const ACT_KO={Fold:'폴드',Check:'체크',Call:'콜',Bet:'벳',Raise:'레이즈','3-bet':'3벳',Cap:'캡',Review:'재평가','Re-raise':'리레이즈'};
+const FACING_KO={Unopened:'아무도 안 들어옴',Limpers:'림프 팟',Raised:'레이즈 직면',Capped:'캡 직면',Bet:'벳 직면',CheckedTo:'먼저 액션'};
+const BUCKET_KO={PF_EP_BOUNDARY:'프리플랍 앞자리 경계 패',PF_MP_SMALL_PAIR:'프리플랍 MP 소형 페어',PF_BTN_SMALL_PAIR:'프리플랍 BTN 소형 페어',PF_BLIND_DEFENSE:'블라인드 방어',PF_OTHER:'프리플랍 기타',FLOP_VALUE:'플랍 밸류',TURN_OVERPAIR_SAFE:'턴 오버페어(안전 보드)',TURN_OVERPAIR_COMPLETION:'턴 오버페어(완성 보드)',TURN_TPTK_RAISED:'턴 TPTK 레이즈 맞음',TURN_DRAW_ODDS:'턴 드로우 가격',TURN_MULTI_BET_EXIT:'턴 연속 액션 탈출',TURN_OTHER:'턴 기타',RIVER_BLUFF_CATCH:'리버 블러프 캐치',RIVER_STRONG_VALUE:'리버 강한 밸류',RIVER_NON_NUT:'리버 넛 아닌 플러시',OPPONENT_READ:'상대 읽기'};
+let sidFilter=new URLSearchParams(location.search).get('sid')||'';
+let fixFilter='canon',fixShow=10;
+if(sidFilter)prefs.tab='coach';
+function loadCoach(){try{return JSON.parse(localStorage.getItem(COACH_KEY)||'null')}catch{return null}}
+const isAgg=a=>['Bet','Raise','3-bet','Cap','Re-raise'].includes(a);
+const pct=(a,b)=>b?Math.round(100*a/b)+'%':'-';
+function median(a){const x=a.filter(Number.isFinite).sort((p,q)=>p-q);return x.length?x[Math.floor(x.length/2)]:null}
+function cardsHtml(str){return String(str||'').split(' ').filter(Boolean).map(c=>`<span class="${/[♥♦]/.test(c)?'suit-r':'suit-b'}">${c}</span>`).join(' ')}
+function coachFiltered(snap){
+ const f=r=>(prefs.lim==='all'||r.lim===prefs.lim)&&(prefs.mode==='all'||r.m===prefs.mode)&&(!sidFilter||r.sid===sidFilter);
+ return {hands:(snap.hands||[]).filter(f),dec:(snap.decisions||[]).filter(f)};
+}
+function patternOf(r){
+ const st=STREET_KO[r.st]||r.st,a=r.act,c=r.rec;
+ if(r.st==='preflop'){
+  if(['Raised','Capped'].includes(r.fc)&&a==='Call'&&c==='Fold')return ['pf-call-vs-raise','레이즈를 맞고 콜','폴드가 정답인 패로 레이즈에 따라갔습니다. 앞자리 레이즈엔 TT+/AQs+/AK만.'];
+  if(['Raised','Capped'].includes(r.fc)&&a==='Fold'&&c!=='Fold')return ['pf-fold-vs-raise','레이즈 상대로 강한 패 폴드','콜·캡해야 할 패를 레이즈가 무서워 접었습니다.'];
+  if(a!=='Fold'&&c==='Fold')return ['pf-enter-weak','들어가면 안 되는 패로 참여','범위 밖 패로 림프·레이즈했습니다. 포지션·림퍼 수별 범위를 다시 보세요.'];
+  if(a==='Call'&&isAgg(c))return ['pf-passive','레이즈할 패를 콜·림프','강한 패로 팟을 키우지 않았습니다.'];
+  if(isAgg(a)&&!isAgg(c))return ['pf-over','콜·체크할 패를 레이즈','범위보다 넓게 레이즈했습니다.'];
+  if(a==='Fold')return ['pf-fold-good','쳐야 할 패를 폴드','수익 나는 진입을 놓쳤습니다.'];
+  return ['pf-other','프리플랍 기타',''];
+ }
+ if(a==='Check'&&isAgg(c))return [r.st+'-miss-value',`${st} 밸류 벳 놓침`,'강한 패로 체크해 공짜 카드를 줬습니다.'];
+ if(a==='Call'&&c==='Fold')return [r.st+'-loose-call',`${st}에서 접어야 할 콜`,'"한 번만 더" 콜. 위험 요소가 겹치면 정리합니다.'];
+ if(a==='Fold'&&c!=='Fold')return [r.st+'-tight-fold',`${st}에서 너무 이른 폴드`,'가격이 맞거나 이기고 있는 패를 접었습니다.'];
+ if(a==='Call'&&isAgg(c))return [r.st+'-passive',`${st}에서 레이즈할 패를 콜`,'밸류를 더 받을 수 있었습니다.'];
+ if(isAgg(a)&&!isAgg(c))return [r.st+'-over',`${st} 과한 공격`,'약한 패·위험 보드에서 벳·레이즈했습니다.'];
+ return [r.st+'-other',`${st} 기타`,''];
+}
+function situationOf(r){return r.st==='preflop'?`프리플랍 · ${FACING_KO[r.fc]||r.fc||'-'}`:`${STREET_KO[r.st]} · ${r.tc>0?'벳 직면':'먼저 액션'}`}
+function vrow(badge,title,sub,val){const B={good:['b-good','좋음'],warn:['b-warn','주의'],bad:['b-bad','교정'],na:['b-na','표본 부족']}[badge];return `<div class="vrow"><span class="badge ${B[0]}">${B[1]}</span><div><div class="vt">${title}</div><div class="vs">${sub}</div></div><div class="vv">${val}</div></div>`}
+function renderCoach(){
+ const snap=loadCoach(),empty=$('coachEmpty'),secs=[...document.querySelectorAll('section[data-tab="coach"] > .card:not(#coachEmpty)')];
+ const sf=$('sessFilter');sf.hidden=!sidFilter;if(sidFilter)sf.innerHTML=`세션 필터: <b>${sidFilter}</b> 만 보고 있습니다 · <a href="#" id="clearSid">전체 보기</a>`;
+ $('clearSid')?.addEventListener('click',e=>{e.preventDefault();sidFilter='';history.replaceState(null,'','report.html');render()});
+ if(prefs.src==='real'||!snap){empty.hidden=false;empty.innerHTML=prefs.src==='real'?'실전 기록은 결정 단위 데이터가 없어 코칭은 트레이너 기록으로만 합니다. 위에서 "트레이너"를 고르세요.':'코칭 데이터가 아직 없습니다. 트레이너를 한 번 열면(또는 핸드를 한 판 치면) 자동으로 만들어집니다.';secs.forEach(x=>x.hidden=true);return}
+ empty.hidden=true;secs.forEach(x=>x.hidden=false);$('debriefCard').hidden=true;
+ const {hands,dec}=coachFiltered(snap);
+ const canon=dec.filter(r=>r.cls==='good'||r.cls==='correction'),wrong=canon.filter(r=>r.cls==='correction');
+ const model=dec.filter(r=>r.cls!=='correction'&&r.orec&&r.otier!=='canonical'&&r.orec!=='Review'&&r.orec!==r.act);
+ $('verdictDesc').textContent=`${hands.length}핸드 · 결정 ${dec.length}개 · 정본 채점 ${canon.length}개 (${snap.strategy||'Strategy v1.1'} 기준 재채점, ${String(snap.builtAt||'').slice(0,16).replace('T',' ')} 갱신)`;
+ // 판정
+ const rows=[];
+ const rate=canon.length?1-wrong.length/canon.length:null,recent=canon.slice(-150),prev=canon.slice(-300,-150);
+ const rr=recent.length?1-recent.filter(r=>r.cls==='correction').length/recent.length:null,pr=prev.length?1-prev.filter(r=>r.cls==='correction').length/prev.length:null;
+ const trend=rr!=null&&pr!=null&&prev.length>=30?(rr-pr>=.02?' · 최근 상승 ↑':rr-pr<=-.02?' · 최근 하락 ↓':' · 최근 유지'):'';
+ rows.push(vrow(canon.length<20?'na':rate>=.9?'good':rate>=.8?'warn':'bad','정본 일치율',`목표 90% 이상 · 최근 ${recent.length}결정 ${rr==null?'-':Math.round(rr*100)+'%'}${trend}`,rate==null?'-':Math.round(rate*100)+'%'));
+ const pf=hands.filter(h=>h.pf),vp=pf.filter(h=>['Call','Raise','Cap','3-bet','Bet'].includes(h.pf)).length/(pf.length||1),pfr=pf.filter(h=>['Raise','Cap','3-bet'].includes(h.pf)).length/(pf.length||1);
+ rows.push(vrow(pf.length<30?'na':vp>=.18&&vp<=.24?'good':vp>=.14&&vp<=.28?'warn':'bad','참여율(VPIP)',`목표 18~24% · ${vp>.24?'너무 많이 들어갑니다':vp<.18?'너무 적게 들어갑니다':'범위 안'}`,pf.length?Math.round(vp*100)+'%':'-'));
+ rows.push(vrow(pf.length<30?'na':pfr>=.09&&pfr<=.12?'good':pfr>=.06&&pfr<=.15?'warn':'bad','레이즈 비율(PFR)',`목표 9~12% · VPIP 대비 ${vp?Math.round(pfr/vp*100):0}%가 레이즈`,pf.length?Math.round(pfr*100)+'%':'-'));
+ const fr=canon.filter(r=>r.st==='preflop'&&['Raised','Capped'].includes(r.fc)),frBad=fr.filter(r=>r.cls==='correction'&&r.act==='Call'&&r.rec==='Fold').length;
+ rows.push(vrow(fr.length<8?'na':frBad/fr.length<=.05?'good':frBad/fr.length<=.15?'warn':'bad','레이즈 맞고 투기 패 콜',`레이즈 직면 ${fr.length}회 중 폴드가 정답인데 콜`,`${frBad}회`));
+ const vb=canon.filter(r=>r.st!=='preflop'&&isAgg(r.rec)),vbBad=vb.filter(r=>r.cls==='correction'&&r.act==='Check').length;
+ rows.push(vrow(vb.length<8?'na':vbBad/vb.length<=.08?'good':vbBad/vb.length<=.2?'warn':'bad','밸류 벳 놓침',`벳·레이즈가 정답인 ${vb.length}회 중 체크`,`${vbBad}회`));
+ const hi=wrong.filter(r=>r.conf==='high').length;
+ rows.push(vrow(canon.length<20?'na':hi/canon.length<=.02?'good':hi/canon.length<=.05?'warn':'bad','고확신 오류',`'확신 높음'으로 틀린 결정 · 기준 자체가 잘못 외워진 신호`,`${hi}회`));
+ const ms=median(dec.map(r=>r.ms));
+ rows.push(vrow(ms==null?'na':ms<=8000?'good':ms<=15000?'warn':'bad','결정 시간(중앙값)','현장 속도 기준 8초 이내',ms==null?'-':(ms/1000).toFixed(1)+'초'));
+ const bbs=hands.reduce((a,h)=>a+h.pl/(h.bb||5000),0),bb100=hands.length?bbs/hands.length*100:null;
+ rows.push(vrow(hands.length<100?'na':bb100>0?'good':'warn','훈련 손익',`BB/100 · 가상칩 결과라 실력 판정보다 참고용`,bb100==null?'-':(bb100>0?'+':'')+bb100.toFixed(1)));
+ $('verdict').innerHTML=rows.join('');
+ // 집중할 것
+ const groups=new Map(),now=Date.now();
+ for(const r of wrong){const [k,label,why]=patternOf(r);const g=groups.get(k)||{k,label,why,n:0,leak:0,score:0,last:null,tips:{}};g.n++;g.leak+=Number(r.leak)||0;const age=(now-Date.parse(r.t))/86400000;g.score+=1+Math.max(0,1-age/14)+(r.conf==='high'?.5:0);if(!g.last||r.t>g.last.t)g.last=r;if(r.tip)g.tips[r.tip]=(g.tips[r.tip]||0)+1;groups.set(k,g)}
+ const top=[...groups.values()].map(g=>({...g,score:g.score+g.leak*.5})).sort((a,b)=>b.score-a.score).slice(0,3);
+ const modelTop=(()=>{const m=new Map();for(const r of model){const [k,l]=patternOf({...r,rec:r.orec});m.set(l,(m.get(l)||0)+1)}return [...m.entries()].sort((a,b)=>b[1]-a[1])[0]})();
+ $('focus').innerHTML=(top.length?top.map((g,i)=>{const tip=Object.entries(g.tips).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';const l=g.last;return `<div class="focus"><div class="ft">${i+1}. ${g.label} · ${g.n}회</div><div class="fm">${g.why}${g.leak?` · 누수 위험 약 ${g.leak.toFixed(1)}BB`:''}</div>${tip?`<div class="fx">👉 ${tip}</div>`:''}${l?`<div class="fm" style="margin-top:6px">최근 예: ${l.pos} ${cardsHtml(l.hole)} · ${situationOf(l)} · 내 ${ACT_KO[l.act]||l.act} → 정답 ${ACT_KO[l.rec]||l.rec}</div>`:''}</div>`}).join(''):`<div class="focus strength"><div class="ft">정본 기준으로 교정할 반복 오류가 없습니다.</div><div class="fm">${canon.length<20?'표본이 아직 적습니다. 핸드를 더 쌓으면 정확해집니다.':'지금 기준을 그대로 유지하세요.'}</div></div>`)+(modelTop?`<p class="note">모델 참고(비채점) 불일치 ${model.length}건 · 가장 많은 유형: ${modelTop[0]} ${modelTop[1]}건</p>`:'');
+ // 잘하는 것
+ const sit=new Map();for(const r of canon){const k=situationOf(r),g=sit.get(k)||{k,n:0,ok:0};g.n++;if(r.cls==='good')g.ok++;sit.set(k,g)}
+ const good=[...sit.values()].filter(g=>g.n>=8&&g.ok/g.n>=.85).sort((a,b)=>(b.ok/b.n)*Math.log(b.n)-(a.ok/a.n)*Math.log(a.n)).slice(0,4);
+ $('strengths').innerHTML=good.length?good.map(g=>`<div class="focus strength"><div class="ft">${g.k} · ${Math.round(100*g.ok/g.n)}%</div><div class="fm">${g.ok}/${g.n} 정본 일치</div></div>`).join(''):'<p class="note">아직 표본 8개 이상·일치율 85% 이상인 상황이 없습니다.</p>';
+ // 교정할 핸드
+ let list=fixFilter==='model'?model:wrong;
+ if(fixFilter==='hi')list=wrong.filter(r=>r.conf==='high');else if(fixFilter==='pre')list=wrong.filter(r=>r.st==='preflop');else if(fixFilter==='post')list=wrong.filter(r=>r.st!=='preflop');
+ list=[...list].sort((a,b)=>String(b.t).localeCompare(String(a.t)));
+ document.querySelectorAll('#fixChips button').forEach(b=>b.classList.toggle('on',b.dataset.v===fixFilter));
+ $('fixList').innerHTML=list.slice(0,fixShow).map(r=>{const m=fixFilter==='model',rec=m?r.orec:r.rec;
+  const sitTxt=r.st==='preflop'?`${FACING_KO[r.fc]||r.fc}${r.lp?` · 림퍼 ${r.lp}명`:''}${r.pr?` · 레이저 ${r.pr}`:''}${r.tc?` · 추가 ${r.tc.toLocaleString()}원`:''}`:`보드 ${cardsHtml(r.board)} · ${r.pa??'-'}명 · ${r.tc?`추가 ${r.tc.toLocaleString()}원`:'먼저 액션'}${r.hc?` · ${r.hc}`:''}`;
+  return `<div class="hand"><div class="hh"><span class="cards">${cardsHtml(r.hole)}</span><span class="meta">${String(r.t).slice(5,16).replace('T',' ')} · ${r.lim} · ${r.pos} · ${STREET_KO[r.st]}</span><span class="meta ${cls(r.pl)}" style="margin-left:auto">핸드 ${fmtWon(r.pl)}</span></div>
+  <div class="meta">${sitTxt}</div>
+  <div class="ar">내 선택 <b class="neg">${ACT_KO[r.act]||r.act}</b> → ${m?'엔진 권고':'정답'} <b class="pos">${ACT_KO[rec]||rec}</b>${r.conf==='high'?' <span class="badge b-bad">확신 높음</span>':''}</div>
+  ${(m?r.owhy:r.why)?`<div class="why">${m?'':(r.rule?`<b>${r.rule}</b> · `:'')}${m?r.owhy:r.why}</div>`:''}${!m&&r.tip?`<div class="tipx">👉 ${r.tip}</div>`:''}
+  ${r.fboard&&r.fboard!==r.board?`<div class="meta">최종 보드 ${cardsHtml(r.fboard)}</div>`:''}</div>`}).join('')||'<div class="empty">해당하는 핸드가 없습니다.</div>';
+ $('fixMore').hidden=list.length<=fixShow;$('fixNote').textContent=list.length?`${Math.min(fixShow,list.length)} / ${list.length}개`:'';
+ // 스트리트 표
+ $('streetTable').innerHTML='<thead><tr><th>스트리트</th><th>정본 채점</th><th>일치</th><th>일치율</th><th>모델 참고 불일치</th><th>판단 보류</th></tr></thead><tbody>'+['preflop','flop','turn','river'].map(st=>{const c=canon.filter(r=>r.st===st),ok=c.filter(r=>r.cls==='good').length,rv=dec.filter(r=>r.st===st&&r.cls==='review_only').length,mm=model.filter(r=>r.st===st).length;return `<tr><td>${STREET_KO[st]}</td><td>${c.length}</td><td>${ok}</td><td class="${c.length&&ok/c.length<.8?'neg':''}">${pct(ok,c.length)}</td><td>${mm}</td><td>${rv}</td></tr>`}).join('')+'</tbody>';
+ // 버킷
+ const lk=snap.leaks||{},bk=Object.entries(lk).filter(([k,v])=>v&&typeof v==='object'&&BUCKET_KO[k]).map(([k,v])=>({k,n:v.canonicalAttempts||0,ok:v.correct||0,rec:(v.recent||[]).filter(x=>!x.ok).length,hi:v.highConfidenceWrong||0,due:v.due||0})).sort((a,b)=>(b.n?1-b.ok/b.n:0)-(a.n?1-a.ok/a.n:0));
+ $('bucketTable').innerHTML='<thead><tr><th>버킷</th><th>채점</th><th>정답률</th><th>최근10 오답</th><th>고확신 오답</th><th>다음 복습</th></tr></thead><tbody>'+(bk.map(b=>{const d=b.due?Math.round((b.due-now)/3600000):null;return `<tr><td>${BUCKET_KO[b.k]}</td><td>${b.n}</td><td class="${b.n&&b.ok/b.n<.8?'neg':''}">${pct(b.ok,b.n)}</td><td>${b.rec}</td><td>${b.hi}</td><td>${d==null?'-':d<=0?'지금':d<48?d+'시간 후':Math.round(d/24)+'일 후'}</td></tr>`}).join('')||'<tr><td colspan="6" class="empty">기록 없음</td></tr>')+'</tbody>';
+ // 디브리프
+ const db=sidFilter&&snap.sessions?.[sidFilter];if(db?.html){$('debriefCard').hidden=false;$('debrief').innerHTML=db.html}
+}
+document.getElementById('fixChips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;fixFilter=b.dataset.v;fixShow=10;renderCoach()});
+document.getElementById('fixMore').addEventListener('click',()=>{fixShow+=10;renderCoach()});
+document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;prefs.tab=b.dataset.v;savePrefs();render()});
+document.getElementById('sessTable').addEventListener('click',e=>{const tr=e.target.closest('tr[data-sid]');if(!tr||prefs.src!=='trainer')return;sidFilter=tr.dataset.sid;history.replaceState(null,'','report.html?sid='+encodeURIComponent(sidFilter));prefs.tab='coach';render();window.scrollTo(0,0)});
 
 // ----- controls -----
 for(const [id,key] of [['srcSeg','src'],['limSeg','lim'],['unitSeg','unit']])$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;prefs[key]=b.dataset.v;savePrefs();render()});
