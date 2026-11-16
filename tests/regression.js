@@ -109,3 +109,15 @@ function runPokerOSRegressionV56(D){
   ok('포스트플랍 함수 노출',typeof D.kangwonPostflop==='function'&&typeof D.kwMadeTier==='function'&&typeof D.kwDraws==='function',null);
   return out;
 }
+
+// v5.7 (2026-11-16) 방화범·공격 루즈 테이블 훈련
+function runPokerOSRegressionV57(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const s=D.FIELD_PROFILES['Kangwon Aggro']?.styles||{};
+  ok('공격·루즈 프로필 존재, style 합 = 1',Math.abs(Object.values(s).reduce((a,b)=>a+b,0)-1)<.001,s);
+  ok('공격 프로필 공격형(LAG·트리키·매니악) ≥ 45%',(s.Maniac||0)+(s['Loose-Aggressive']||0)+(s['Tricky-Aggressive']||0)>=.45,null);
+  ok('방화범 단골 2명',D.ARSONIST_POOL.filter(r=>r.arsonist).length===2,null);
+  ok('프로필 선택지에 공격 테이블',!!doc.querySelector('#tableProfile option[value="Kangwon Aggro"]'),null);
+  ok('캡 빈도 매니악 > LAG > 레귤러',D.CAP_RATE.Maniac>D.CAP_RATE['Loose-Aggressive']&&D.CAP_RATE['Loose-Aggressive']>D.CAP_RATE.Regular,D.CAP_RATE);
+  return out;
+}

@@ -91,6 +91,7 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:#1d2a20}
   <div class="ctl">테이블<div class="seg" id="limSeg"><button data-v="all" class="on">전체</button><button data-v="10만">10만</button><button data-v="30만">30만</button></div></div>
   <div class="ctl">단위<div class="seg" id="unitSeg"><button data-v="won" class="on">원</button><button data-v="bb">BB</button></div></div>
   <div class="ctl" id="modeCtl">훈련 모드<select id="modeSel"><option value="all">전체</option><option value="simulation">실전 시뮬</option><option value="adaptive">Adaptive</option><option value="exam">시험</option></select></div>
+  <div class="ctl" id="tpCtl">테이블 성향<select id="tpSel"><option value="all">전체</option><option value="aggro">공격·루즈 테이블(훈련)</option><option value="normal">일반 강원랜드</option></select></div>
   <div class="ctl" id="hphCtl">현장 환산 핸드/시간<input id="hph" type="number" min="10" max="60" step="1" value="30" style="width:84px"></div>
  </div>
 
@@ -158,7 +159,7 @@ const $=id=>document.getElementById(id);
 const LEDGER_KEY='poker_os_pl_ledger_v1',V5_ARCHIVE_KEY='poker_os_history_v5_lzw1',LEGACY_KEY='kangwon_limit_holdem_trainer_history_v30',REAL_KEY='poker_os_real_sessions_v1',PREF_KEY='poker_os_report_prefs_v1';
 const BB={'10만':5000,'30만':20000};
 const MODE_KO={simulation:'실전 시뮬',adaptive:'Adaptive',exam:'시험'};
-let prefs={src:'trainer',lim:'all',unit:'won',mode:'all',hph:30,tab:'coach'};
+let prefs={src:'trainer',lim:'all',unit:'won',mode:'all',hph:30,tab:'coach',tp:'all'};
 try{Object.assign(prefs,JSON.parse(localStorage.getItem(PREF_KEY)||'{}'))}catch{}
 const savePrefs=()=>{try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch{}};
 
@@ -180,7 +181,7 @@ function saveReal(arr){localStorage.setItem(REAL_KEY,JSON.stringify(arr))}
 
 // 공통 세션 형식: {id,date,lim,hours,pl,points:[[h,cum원]],hands?,mode?}
 function trainerSessions(){
- const hph=Math.max(5,Number(prefs.hph)||30),rows=loadTrainerRows().filter(r=>prefs.mode==='all'||r.m===prefs.mode);
+ const hph=Math.max(5,Number(prefs.hph)||30),rows=loadTrainerRows().filter(r=>(prefs.mode==='all'||r.m===prefs.mode)&&(!prefs.tp||prefs.tp==='all'||(prefs.tp==='aggro'?r.pr==='Kangwon Aggro':r.pr!=='Kangwon Aggro')));
  const by=new Map();for(const r of rows){const k=r.sid||('t'+r.t?.slice(0,13));if(!by.has(k))by.set(k,[]);by.get(k).push(r)}
  const out=[];
  for(const [id,rs] of by){rs.sort((a,b)=>String(a.t).localeCompare(String(b.t)));let cum=0;const pts=[[0,0]];rs.forEach((r,i)=>{cum+=r.pl;pts.push([(i+1)/hph,cum])});
@@ -305,8 +306,8 @@ function renderTable(sessions){
 
 function render(){
  document.querySelectorAll('.seg').forEach(seg=>{const key={srcSeg:'src',limSeg:'lim',unitSeg:'unit'}[seg.id];seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===prefs[key]))});
- $('modeSel').value=prefs.mode;$('hph').value=prefs.hph;
- $('modeCtl').style.display=$('hphCtl').style.display=prefs.src==='trainer'?'':'none';
+ $('modeSel').value=prefs.mode;$('tpSel').value=prefs.tp||'all';$('hph').value=prefs.hph;
+ $('modeCtl').style.display=$('tpCtl').style.display=$('hphCtl').style.display=prefs.src==='trainer'?'':'none';
  const sessions=currentSessions(),pts=cumulative(sessions);
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===prefs.tab));document.querySelectorAll('section[data-tab]').forEach(x=>x.hidden=x.dataset.tab!==prefs.tab);
  renderCoach();renderKpis(sessions,pts);renderCurve(sessions,pts);renderBuckets(sessions);renderTable(sessions);
@@ -345,7 +346,7 @@ const pct=(a,b)=>b?Math.round(100*a/b)+'%':'-';
 function median(a){const x=a.filter(Number.isFinite).sort((p,q)=>p-q);return x.length?x[Math.floor(x.length/2)]:null}
 function cardsHtml(str){return String(str||'').split(' ').filter(Boolean).map(c=>`<span class="${/[♥♦]/.test(c)?'suit-r':'suit-b'}">${c}</span>`).join(' ')}
 function coachFiltered(snap){
- const f=r=>(prefs.lim==='all'||r.lim===prefs.lim)&&(prefs.mode==='all'||r.m===prefs.mode)&&(!sidFilter||r.sid===sidFilter);
+ const f=r=>(prefs.lim==='all'||r.lim===prefs.lim)&&(prefs.mode==='all'||r.m===prefs.mode)&&(!sidFilter||r.sid===sidFilter)&&(prefs.tp==='all'||(prefs.tp==='aggro'?r.tp==='Kangwon Aggro':r.tp!=='Kangwon Aggro'));
  return {hands:(snap.hands||[]).filter(f),dec:(snap.decisions||[]).filter(f)};
 }
 function patternOf(r){
@@ -437,6 +438,7 @@ document.getElementById('sessTable').addEventListener('click',e=>{const tr=e.tar
 // ----- controls -----
 for(const [id,key] of [['srcSeg','src'],['limSeg','lim'],['unitSeg','unit']])$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;prefs[key]=b.dataset.v;savePrefs();render()});
 $('modeSel').addEventListener('change',e=>{prefs.mode=e.target.value;savePrefs();render()});
+$('tpSel').addEventListener('change',e=>{prefs.tp=e.target.value;savePrefs();render()});
 $('hph').addEventListener('change',e=>{prefs.hph=Math.max(10,Math.min(60,Number(e.target.value)||30));savePrefs();render()});
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,150)});
 window.PokerReport={render,currentSessions,cumulative,buckets,parseCSV,archiveDecode};

@@ -3,11 +3,17 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v5.6 Candidate** (2026-11-16 사연 있는 포스트플랍 · 30만 현장 테이블) — v5.5 기반
+- Trainer: **v5.7 Candidate** (2026-11-16 방화범·공격 루즈 테이블 훈련) — v5.6 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v5.7 변경점 (2026-11-16) · 방화범·공격 루즈 테이블 훈련
+- **캡 완화:** 공격형(LAG·트리키·매니악·TAG)은 레이즈 직면에서 할 만한 패로 캡을 종종 친다(`CAP_RATE`). 측정(30만 41핸드): 3벳·캡 나온 핸드 14.6%(v5.6은 약 0~2%), 플랍 진입 4.1명.
+- **방화범(arsonist) 단골:** 프리플랍 넓게 레이즈·캡, 포스트플랍은 플랍 약 70~100%·턴 약 40% 벳, 벳을 맞아도 자주 레이즈. 리버는 강할 때 위주. 좌석에 `방화범` 표시.
+- **새 프로필 `강원랜드 공격·루즈 테이블(훈련)`:** 방화범 1~2명 + LAG·매니악 + 콜링스테이션. 10만·30만 모두 선택 가능하며 테이블을 바꿔도 유지된다. 측정(10만 40핸드): 레이즈 나온 핸드 68%, 3벳·캡 32.5%, 플랍 진입 3.4명.
+- 현장 바에 공격 테이블 대응 포인트 표시. 리포트에 '테이블 성향' 필터(공격·루즈 / 일반)를 추가해 공격 테이블 성적만 따로 본다.
 
 ## v5.6 변경점 (2026-11-16) · 사연 있는 포스트플랍 + 30만 현장 테이블
 - **포스트플랍(강원랜드 프로필):** 패 등급(strong/good/marginal/weak/air) + 실제 드로우 아웃츠(거셧 4·양차 8·플러시 9·콤보 15) + 가격 + 이번 스트리트 레이즈 여부로 결정한다(`kangwonPostflop`).
@@ -64,7 +70,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 53개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 58개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages
