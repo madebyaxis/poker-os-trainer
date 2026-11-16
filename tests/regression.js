@@ -121,3 +121,12 @@ function runPokerOSRegressionV57(D,doc){
   ok('캡 빈도 매니악 > LAG > 레귤러',D.CAP_RATE.Maniac>D.CAP_RATE['Loose-Aggressive']&&D.CAP_RATE['Loose-Aggressive']>D.CAP_RATE.Regular,D.CAP_RATE);
   return out;
 }
+
+// v5.8 (2026-11-16) 속도 · 방화범 비공개 · 방화범도 사연 있게
+function runPokerOSRegressionV58(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  ok('기록 캐시 동작',Array.isArray(D.loadHistory())&&D.loadHistory()!==D.loadHistory(),null);
+  ok('좌석에 방화범 표시 없음',![...doc.querySelectorAll('.regTag')].some(x=>/방화범/.test(x.textContent+x.title)),null);
+  ok('방화범 함수 교체됨',/사연|story/.test(D.arsonistPostflop.toString()),null);
+  return out;
+}

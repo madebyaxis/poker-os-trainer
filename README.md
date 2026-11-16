@@ -3,11 +3,16 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v5.7 Candidate** (2026-11-16 방화범·공격 루즈 테이블 훈련) — v5.6 기반
+- Trainer: **v5.8 Candidate** (2026-11-16 속도 개선 · 방화범 비공개 · 방화범도 사연 있게) — v5.7 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v5.8 변경점 (2026-11-16) · 속도 개선 · 방화범 비공개 · 방화범도 사연 있게
+- **속도:** 히어로가 액션할 때마다 모델 에퀴티(몬테카를로)를 동기 계산해 리버에서 150~600ms 멈췄다. 히어로 차례가 오면 미리 계산해 두고(같은 공개 상태 캐시), 범위 샘플링의 카드 키 생성을 1회로 줄였다. 측정: 리버 히어로 액션 150~600ms → 약 4ms. 핸드 종료 때 500핸드 기록을 여러 번 압축 해제·압축하던 것을 메모리 캐시 + 0.7초 뒤 1회 저장으로 바꿨다(페이지를 떠날 때 즉시 저장). AI 액션 간격 260→170ms, 히어로 폴드 후 70ms.
+- **방화범 비공개:** 좌석의 방화범 표시와 현장 바의 방화범 이름을 없앴다. 누가 공격적인지는 액션과 쇼다운으로 직접 읽는다. 공격 테이블 프로필을 고르면 바에 "직접 읽으라"는 안내만 뜬다.
+- **방화범도 사연 있게:** 프리플랍 정크(등급6) 진입을 없애고 등급5는 뒷자리 위주. 포스트플랍 공격은 페어·드로우·오버카드 2장·주도권·겁주는 카드가 있을 때만. 아무것도 없으면 체크·폴드한다. 측정(공격 테이블 44핸드): 턴·리버 에어 먼저 벳 0%, 턴·리버 에어로 벳 맞으면 폴드 100%.
 
 ## v5.7 변경점 (2026-11-16) · 방화범·공격 루즈 테이블 훈련
 - **캡 완화:** 공격형(LAG·트리키·매니악·TAG)은 레이즈 직면에서 할 만한 패로 캡을 종종 친다(`CAP_RATE`). 측정(30만 41핸드): 3벳·캡 나온 핸드 14.6%(v5.6은 약 0~2%), 플랍 진입 4.1명.
@@ -70,7 +75,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 58개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 61개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages

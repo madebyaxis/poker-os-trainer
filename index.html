@@ -161,7 +161,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.7 Candidate</h1><div class="sub">2026-11-16 방화범·공격 루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.8 Candidate</h1><div class="sub">2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -1166,7 +1166,7 @@ function advance(){
  let guard=0;while(S.players[S.actor].folded||S.players[S.actor].allin){S.actor=nextSeat(S.actor);if(S.actor==null){if(complete())nextStreet();return}if(++guard>12){console.warn('advance guard exceeded');return}}
  render();
  if(S.actor===S.hero){enableHero();return}
- disableHero();setTimeout(()=>aiAct(S.actor),S.fastForward?8:260);
+ disableHero();setTimeout(()=>aiAct(S.actor),S.fastForward?8:(S.players[S.hero]?.folded?70:170));
 }
 
 function pfScore(h){
@@ -2367,7 +2367,7 @@ function act(seat,a,hero){
  if(hero&&a==='fold'){render();$('status').textContent='폴드 완료 · 상대 액션 진행 중…'}
  else if(!S.fastForward)render();
  persistSession();
- setTimeout(advance,S.fastForward?5:120)
+ setTimeout(advance,S.fastForward?5:(S.players[S.hero]?.folded?40:80))
 }
 function nextStreet(){
  if(S.street==='river'){showdown();return}
@@ -4393,7 +4393,7 @@ function arsonistPostflop(p,tc){
 const v57Postflop=fieldPostflopAction;
 fieldPostflopAction=function(p,tc,sc,k){
  if(S&&v53IsKangwonProfile(S.tableProfile)&&p.arsonist)return arsonistPostflop(p,tc);
- if(S&&S.tableProfile==='Kangwon Aggro'&&['Maniac','Loose-Aggressive'].includes(p.type)&&live().length<=3&&tc===0&&S.currentBet<cap()&&Math.random()<(p.type==='Maniac'?.35:.18)){
+ if(S&&S.tableProfile==='Kangwon Aggro'&&['Maniac','Loose-Aggressive'].includes(p.type)&&live().length<=3&&tc===0&&S.currentBet<cap()&&(kwMadeTier(p)!=='air'||kwDraws(p).outs>0||S.prevStreetAggressorSeat===p.seat)&&Math.random()<(p.type==='Maniac'?.35:.18)){
   p.auditIntent={tag:'bluff',reason:'aggro_table_pressure',street:S.street};return 'raise';
  }
  return v57Postflop(p,tc,sc,k);
@@ -4406,6 +4406,75 @@ v53RenderLiveBar=function(){v57LiveBar();const el=$('liveBar');if(!el||!S)return
  if(S.tableProfile==='Kangwon Aggro'||ars.length)el.insertAdjacentHTML('beforeend',`<span class="lbItem lbAggro">🔥 공격 테이블${ars.length?' · 방화범 '+ars.join(', '):''} — 범위 좁히고, 강한 패는 캡까지, 방화범에겐 체크콜로 받기, 애매한 패로 맞불 금지</span>`);
 };
 Object.assign(PokerOSDebug,{patch:'5.7-candidate-20261116-arsonist-aggro-table',ARSONIST_POOL,CAP_RATE,arsonistPreflop,arsonistPostflop,kangwonRangePreflop,fieldPostflopAction,seatKangwonRegulars,FIELD_PROFILES});
+// ===== Patch 2026-11-16 v5.8: 속도 · 방화범 비공개 · 방화범도 사연 있게 =====
+// (1) 속도: 핸드 종료 때마다 500핸드 기록을 여러 번 압축 해제했다(loadHistory). 메모리 캐시로 1회로 줄인다.
+//     히어로 결정마다 같은 상태의 에퀴티를 여러 번 계산했다(conditionedEquity·weightedPublicRange). 같은 공개 상태면 재사용한다.
+//     리버 멀티웨이 시행 360→220, AI 액션 지연 260→170ms(히어로 폴드 후 70ms).
+let v58HistCache=null;
+const v58Load=loadHistory,v58Save=saveHistory;
+loadHistory=function(){if(!v58HistCache)v58HistCache=v58Load();return v58HistCache.slice()};
+// 압축 저장(500핸드 LZW)은 핸드 종료 직후가 아니라 잠시 뒤에 한 번만 한다. 페이지를 떠날 때는 즉시 저장.
+let v58SaveTimer=null,v58Pending=null;
+function v58Flush(){if(v58SaveTimer){clearTimeout(v58SaveTimer);v58SaveTimer=null}if(v58Pending){const a=v58Pending;v58Pending=null;v58Save(a)}}
+saveHistory=function(arr){v58HistCache=Array.isArray(arr)?arr.slice(-500):null;v58Pending=v58HistCache;if(v58SaveTimer)clearTimeout(v58SaveTimer);v58SaveTimer=setTimeout(v58Flush,700);return true};
+window.addEventListener('pagehide',v58Flush);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')v58Flush()});
+window.addEventListener('storage',()=>{v58HistCache=null});
+const v58RenderHistory=renderHistory;renderHistory=function(){v58HistCache=null;v58RenderHistory()};
+const v58RowKeys=new WeakMap();
+// 범위 샘플링: 콤보 키를 한 번만 만들고 재사용한다(이전에는 시행마다 1,300개 콤보×카드 문자열을 새로 만들었다).
+sampleWeightedCombo=function(rows,used,rng){
+ let meta=v58RowKeys.get(rows);if(!meta){meta=rows.map(r=>[cardKey(r.cards[0]),cardKey(r.cards[1])]);v58RowKeys.set(rows,meta)}
+ let sum=0;const idx=[];for(let i=0;i<rows.length;i++){const m=meta[i];if(!used.has(m[0])&&!used.has(m[1])){idx.push(i);sum+=rows[i].weight}}
+ if(!sum)return null;let n=rng()*sum,pick=idx[idx.length-1];for(const i of idx){n-=rows[i].weight;if(n<=0){pick=i;break}}
+ used.add(meta[pick][0]);used.add(meta[pick][1]);return rows[pick].cards;
+};
+const v58EqCache=new Map(),v58RangeCache=new Map();
+function v58StateKey(){return [S.sessionId,S.hand,S.street,S.board.length,S.pot,S.currentBet,(S.publicActionHistory||[]).length,live().length].join('|')}
+const v58Range=weightedPublicRange;
+weightedPublicRange=function(o,h){const k=v58StateKey()+'|'+o.seat+'|'+(h?.hole||[]).map(cardKey).join('');if(v58RangeCache.has(k))return v58RangeCache.get(k);const r=v58Range(o,h);if(v58RangeCache.size>200)v58RangeCache.clear();v58RangeCache.set(k,r);return r};
+const v58Eq=conditionedEquity;
+conditionedEquity=function(p,trials){const t=Math.min(trials??MODEL_EQUITY_TRIALS,S.street==='river'&&live().length>2?220:(trials??MODEL_EQUITY_TRIALS));const k=v58StateKey()+'|'+p.seat+'|'+p.hole.map(cardKey).join('')+'|'+t;if(v58EqCache.has(k))return v58EqCache.get(k);const r=v58Eq(p,t);if(v58EqCache.size>200)v58EqCache.clear();v58EqCache.set(k,r);return r};
+// (2) 방화범 표시 제거: 현장에서는 누가 방화범인지 쳐 봐야 안다. 단골 표시도 방화범에게는 붙이지 않는다.
+const v58Render=render;
+render=function(reveal=false){v58Render(reveal);if(!S)return;
+ if(S.actor===S.hero&&!S.handOver&&S.street!=='preflop'&&!S.fastForward){const key=v58StateKey();if(S.v58Warm!==key){S.v58Warm=key;setTimeout(()=>{try{if(S&&v58StateKey()===key)fullPostflopModelDecision(S.players[S.hero])}catch(e){}},20)}}const seats=$('seats')?.children||[];S.players.forEach((p,i)=>{if(p.arsonist)seats[i]?.querySelector('.regTag')?.remove()})};
+v53RenderLiveBar=function(){v57LiveBar();const el=$('liveBar');if(!el||!S)return;el.querySelector('.lbAggro')?.remove();
+ if(S.tableProfile==='Kangwon Aggro')el.insertAdjacentHTML('beforeend','<span class="lbItem lbAggro">공격·루즈 테이블 훈련 — 누가 공격적인지는 쇼다운과 액션으로 직접 읽으세요</span>')};
+// (3) 방화범도 사연이 있어야 민다: 정크 진입 제거, 포스트플랍은 페어·드로우·오버카드·주도권이 있을 때만 공격.
+arsonistPreflop=function(p,tc){
+ const code=holeCode(p.hole),t=pfTier(code),facing=preflopFacing(),canRaise=S.currentBet<cap()&&p.stack>tc,R=Math.random,ps=pos(p.seat);
+ p.auditIntent={tag:'arsonist',reason:`T${t}:${facing}`};
+ if(ps==='BB'&&tc<=0)return canRaise&&t<=4&&R()<.55?'raise':'check';
+ if(t===6)return tc>0?'fold':'check';
+ const late=['CO','BTN','SB'].includes(ps);
+ if(facing==='Unopened'||facing==='Limpers'){if(t===5&&!late&&R()<.5)return tc>0?'fold':'check';return canRaise&&R()<(t<=2?.95:t<=4?.7:.4)?'raise':'call'}
+ if(facing==='Raised'){if(t===5&&R()<.55)return 'fold';return canRaise&&R()<(t<=2?.9:t<=4?.5:.2)?'raise':'call'}
+ return t<=4||R()<.4?'call':'fold';
+};
+arsonistPostflop=function(p,tc){
+ const tier=kwMadeTier(p),dr=kwDraws(p),st=S.street,n=live().length,canRaise=S.currentBet<cap()&&p.stack>tc,R=Math.random;
+ const maxB=Math.max(...S.board.map(c=>c.v)),overs=p.hole.filter(c=>c.v>maxB).length;
+ const initiative=S.prevStreetAggressorSeat===p.seat||(st==='flop'&&S.preflopRaiserSeat===p.seat&&S.prevStreetAggressorSeat==null);
+ const change=boardChangeProfile(),scare=['Flush Complete','Overcard','Straight Pressure','Paired'].includes(change.label);
+ // 사연: 메이드(페어 이상)·드로우·오버카드 2장·주도권·겁주는 카드. 아무 사연 없으면 체크/폴드.
+ const made=tier!=='air',draw=dr.outs>0,story=made||draw||(st==='flop'&&overs===2)||(initiative&&(st==='flop'||scare));
+ const strength=tier==='strong'?3:tier==='good'?2:tier==='marginal'||dr.outs>=8?1.5:tier==='weak'||draw?1:0;
+ const ret=(a,why)=>{p.auditIntent={tag:'arsonist',reason:why,street:st,tier};try{const m=(S.kwStats||(S.kwStats={})),key=`ARSONIST|${st}|${tc>0?'facing':'open'}|${tier}${dr.outs?'+d':''}`;(m[key]||(m[key]={}))[a]=(m[key][a]||0)+1}catch{}return a};
+ const mw=n>=5?.6:n>=4?.8:1,riverCut=st==='river'?.55:1;
+ if(tc>0){
+  if(tier==='strong')return ret(canRaise?'raise':'call','value');
+  if(canRaise&&strength>=1.5&&R()<.5*mw*riverCut)return ret('raise','pressure_with_hand');
+  if(canRaise&&strength>=1&&st==='flop'&&R()<.25*mw)return ret('raise','pressure_draw');
+  if(strength>=1.5||(strength>=1&&st!=='river')||(st==='flop'&&overs===2))return ret('call','sticky');
+  if(strength>=1&&st==='river'&&R()<.35)return ret('call','sticky_river');
+  return ret('fold','give_up');
+ }
+ if(canRaise&&strength>=2&&R()<.95)return ret('raise','value');
+ if(canRaise&&strength>=1&&R()<(st==='flop'?.85:st==='turn'?.65:.35)*mw)return ret('raise','fire_with_something');
+ if(canRaise&&story&&R()<(st==='flop'?.6:st==='turn'?.35:.12)*mw)return ret('raise','fire_with_story');
+ return ret('check','check');
+};
+Object.assign(PokerOSDebug,{patch:'5.8-candidate-20261116-speed-hidden-arsonist',arsonistPreflop,arsonistPostflop,loadHistory,saveHistory,conditionedEquity,weightedPublicRange,render});
 })();
 </script>
 </body>
