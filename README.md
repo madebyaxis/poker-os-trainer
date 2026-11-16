@@ -3,11 +3,19 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v5.5 Candidate** (2026-11-16 강원랜드 현장형 프리플랍 범위) — v5.4 게임 화면 정리·리포트 코칭 기반
+- Trainer: **v5.6 Candidate** (2026-11-16 사연 있는 포스트플랍 · 30만 현장 테이블) — v5.5 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v5.6 변경점 (2026-11-16) · 사연 있는 포스트플랍 + 30만 현장 테이블
+- **포스트플랍(강원랜드 프로필):** 패 등급(strong/good/marginal/weak/air) + 실제 드로우 아웃츠(거셧 4·양차 8·플러시 9·콤보 15) + 가격 + 이번 스트리트 레이즈 여부로 결정한다(`kangwonPostflop`).
+  - 약한 패(바텀 페어·보드만·A하이)는 턴·리버에서 거의 따라오지 않는다. 레이즈가 나온 스트리트에서는 약한 패가 콜하지 않는다.
+  - 블러프는 사연이 있을 때만: 주도권 c-bet(헤즈업·3way), 겁주는 카드가 떨어진 헤즈업 턴 배럴, 모두 체크한 헤즈업 막자리 스틸, 헤즈업 리버 소량. 4명 이상 멀티웨이 순수 블러프는 거의 없다.
+  - 측정(30만 54핸드): 플랍 먼저 액션 시 에어 벳 1%, 턴·리버 에어 벳 0%, 리버 에어·약한 패 벳 직면 폴드 100%, 턴 약한 패 직면 폴드 100%.
+- **30만 테이블:** 필드를 레귤러 2~4명 + 루즈 패시브·콜링스테이션 다수 + 매니악 소수로 바꾸고, 단골에 '캡 아저씨'(엄태호) 1명을 둔다. 레귤러도 앞자리는 림프가 많고, 림프한 사람은 레이즈에 거의 콜하며, 캡은 캡 아저씨 외에는 드물다(QQ+/AK도 절반은 콜).
+  - 측정(30만 54핸드): 플랍 진입 3.8명(이전 3.1), 핸드당 림프 2.3명, 레이즈 뒤 따라오는 인원 2.6명(이전 1.2), 3벳·캡 나온 핸드 1.9%.
 
 ## v5.5 변경점 (2026-11-16) · 강원랜드 현장형 프리플랍 범위
 - **문제:** AI가 K3o·72o·T2o·93o 같은 패로 들어오는 반면, 레이즈가 나오면 현장보다 쉽게 폴드했다(측정: 10만 플랍 진입 약 3명, 레이즈 뒤 따라오는 인원 약 1.9명).
@@ -56,7 +64,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 48개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 53개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages

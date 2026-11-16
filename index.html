@@ -159,7 +159,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.5 Candidate</h1><div class="sub">2026-11-16 현장형 프리플랍 범위 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.6 Candidate</h1><div class="sub">2026-11-16 사연 있는 포스트플랍 · 30만 현장 테이블 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -4179,6 +4179,150 @@ aiPreflopAction=function(p,tc,sc,k){
  return kangwonRangePreflop(p,tc,k);
 };
 Object.assign(PokerOSDebug,{patch:'5.5-candidate-20261116-kangwon-ranges',pfTier,PF_TIERS,KANGWON_PF_STYLE,kangwonRangePreflop,aiPreflopAction});
+// ===== Patch 2026-11-16 v5.6: 사연 있는 포스트플랍 + 30만 현장 테이블 =====
+// Founder 피드백(2026-11-16): 상대가 패 가치 대비 과하게 콜·벳·레이즈하고, 사연 없이 따라오거나 벳한다.
+// → 강원랜드 프로필의 포스트플랍을 '패 등급 + 드로우 아웃츠 + 가격 + 액션 신호(사연)'로 다시 짠다.
+//   · 약한 패(바텀 페어·보드만·A하이)는 턴·리버에서 거의 따라오지 않는다(콜링스테이션도 가끔만).
+//   · 블러프는 이유가 있을 때만: 프리플랍/전 스트리트 주도권 c-bet(헤즈업·3way), 겁주는 카드가 떨어진 헤즈업 배럴,
+//     모두 체크한 헤즈업 막자리 스틸. 4명 이상 멀티웨이 순수 블러프는 거의 없다(현장 밸류 헤비 관찰).
+//   · 드로우는 실제 아웃츠(거셧 4·양차 8·플러시 9·콤보 15)와 가격으로 따라온다. 멀티웨이는 약간 더 넓게.
+// 30만(2026-11-16 Founder): 림프가 꽤 자주 나오고 참여 인원이 지금보다 1~2명 많다. 림프 후 레이즈가 나오면 거의 다 콜.
+//   캡은 특정 인물(캡 아저씨) 말고는 자주 나오지 않는다. 프리플랍은 할 만한 패로 한다.
+function kwHoleContrib(p){
+ const b=S.board.map(c=>c.v),bu=[...new Set(b)].sort((x,y)=>y-x),h=p.hole.map(c=>c.v);
+ const pp=h[0]===h[1];
+ // 홀카드가 만든 페어의 위치(0=톱)
+ const hits=h.filter(v=>b.includes(v));
+ return {b,bu,h,pp,hits};
+}
+function kwDraws(p){
+ if(S.street==='river'||S.board.length<3)return {outs:0,fd:false,nfd:false,oesd:false,gut:false,label:'none'};
+ const all=[...p.hole,...S.board],sc={};all.forEach(c=>sc[c.s]=(sc[c.s]||0)+1);
+ let fd=false,nfd=false;for(const [s,n] of Object.entries(sc)){if(n===4&&p.hole.some(c=>c.s===s)){fd=true;const hs=p.hole.filter(c=>c.s===s).map(c=>c.v),bs=S.board.filter(c=>c.s===s).map(c=>c.v);const top=[14,13,12].find(v=>!bs.includes(v));nfd=hs.includes(top)||hs.includes(14)}}
+ const vals=new Set(all.map(c=>c.v));if(vals.has(14))vals.add(1);const hv=new Set(p.hole.map(c=>c.v));if(hv.has(14))hv.add(1);
+ const complete=new Set();
+ for(let r=1;r<=14;r++){if(vals.has(r))continue;const nv=new Set([...vals,r]);for(let hi=14;hi>=5;hi--){const w=[hi,hi-1,hi-2,hi-3,hi-4];if(w.every(v=>nv.has(v))&&w.some(v=>hv.has(v)&&v!==r)){complete.add(r===1?14:r);break}}}
+ const madeStraight=(()=>{for(let hi=14;hi>=5;hi--){const w=[hi,hi-1,hi-2,hi-3,hi-4];if(w.every(v=>vals.has(v)))return true}return false})();
+ const oesd=!madeStraight&&complete.size>=2,gut=!madeStraight&&complete.size===1;
+ let outs=(fd?9:0)+(oesd?8:gut?4:0);if(fd&&(oesd||gut))outs-=oesd?2:1;
+ return {outs,fd,nfd,oesd,gut,label:fd&&(oesd||gut)?'combo':fd?(nfd?'nfd':'fd'):oesd?'oesd':gut?'gutshot':'none'};
+}
+// 패 등급: strong / good / marginal / weak / air
+function kwMadeTier(p){
+ const hc=handClass(p),risk=boardRisk(),{bu,h,pp,hits}=kwHoleContrib(p);
+ const strongSet=['straight_flush','quads','full_house','nut_flush','near_nut','set','strong_two_pair'];
+ if(strongSet.includes(hc))return 'strong';
+ if(hc==='straight')return risk.flushComplete||risk.paired?'good':'strong';
+ if(hc==='flush')return risk.paired?'good':'strong';
+ if(hc==='trips')return hits.length?(Math.max(...h)>=10?'strong':'good'):'weak'; // 보드 트립스는 홀카드가 기여해야 의미
+ if(pp){const v=h[0];if(v>bu[0])return 'good';if(bu.includes(v))return 'strong';return v>(bu[1]||0)?'marginal':'weak'}
+ if(hits.length){
+  const r=Math.max(...hits),idx=bu.indexOf(r),kick=h.find(v=>v!==r)??r;
+  if(idx===0)return (kick>=11||kick===14)?'good':'marginal';
+  if(idx===1)return 'marginal';
+  return 'weak';
+ }
+ return 'air';
+}
+const KW_LOOSE=['Calling Station','Loose-Passive'],KW_AGGRO=['Loose-Aggressive','Tricky-Aggressive','Maniac','Tight-Aggressive','Regular'];
+function kangwonPostflop(p,tc,sc,k){
+ const tier=kwMadeTier(p),dr=kwDraws(p),risk=boardRisk(),n=live().length,st=S.street,canRaise=S.currentBet<cap()&&p.stack>tc;
+ const loose=KW_LOOSE.includes(p.type),station=p.type==='Calling Station',maniac=p.type==='Maniac',aggro=KW_AGGRO.includes(p.type),tight=['Nit','Tight-Passive','Tight-Aggressive'].includes(p.type);
+ const sty=postflopStyleCfg(p),initiative=S.prevStreetAggressorSeat===p.seat||(st==='flop'&&S.preflopRaiserSeat===p.seat&&S.prevStreetAggressorSeat==null);
+ const change=boardChangeProfile(),scare=['Flush Complete','Overcard','Straight Pressure'].includes(change.label);
+ const hist=(S.publicActionHistory||[]).filter(a=>a.street===st&&a.seat!==p.seat);
+ const raisedStreet=hist.some(a=>a.toCall>0&&['Raise','Re-raise','Cap'].includes(a.semantic))||tc>=step()*2;
+ const price=potOddsPct(tc,S.pot),R=Math.random,ret=(a,tag,reason)=>{p.auditIntent={tag,reason,street:st,tier,draw:dr.label};try{const m=(S.kwStats||(S.kwStats={})),key=`${st}|${tc>0?'facing':'open'}|${dr.outs>=8?tier+'+draw':tier}`;(m[key]||(m[key]={}))[a]=(m[key][a]||0)+1}catch{}return a};
+ const lastToAct=tc===0&&S.acted.size>=n-1;
+ if(tc>0){
+  if(tier==='strong'){const q=sty.valueRaise*(.7+.3*k.value)*(risk.count>=2?.6:1)*(n>=5?.85:1);return canRaise&&R()<q?ret('raise','value','kw_value_raise'):ret('call','value','kw_value_call')}
+  // 드로우 가격(한 장 기준 승률 ≈ 아웃츠×2.1%, 멀티웨이는 받을 돈이 많아 약간 넓게)
+  const drawEq=dr.outs*.021*(1+.12*Math.max(0,n-2))+(st==='flop'&&dr.outs?.02:0),tol=loose?1.25:aggro?1.05:.95;
+  const drawCall=dr.outs>0&&drawEq*tol>=price;
+  if(tier==='good'){
+   if(!raisedStreet&&canRaise&&aggro&&n<=3&&risk.count===0&&st!=='river'&&R()<.22*p.agg)return ret('raise','value','kw_good_raise');
+   if(raisedStreet&&st==='river'&&n>=3&&risk.count>=2&&!loose&&R()<.45)return ret('fold','respect','kw_good_vs_raise_wet');
+   if(raisedStreet&&st!=='flop'&&tight&&risk.count>=1&&R()<.35)return ret('fold','respect','kw_good_vs_raise');
+   return ret('call','value','kw_good_call');
+  }
+  if(dr.outs>=8&&canRaise&&aggro&&!raisedStreet&&n<=3&&st==='flop'&&R()<(dr.label==='combo'?.35:dr.label==='nfd'?.2:.1)*(.5+p.agg))return ret('raise','semi-bluff','kw_semi_raise');
+  if(tier==='marginal'){
+   const base=st==='flop'?(raisedStreet?(loose?.5:.12):(loose?.92:n<=4?.72:.5)):st==='turn'?(raisedStreet?(loose?.18:.04):(loose?.62:tight?.25:.42)):(raisedStreet?(station?.15:.03):(price<=.2?(loose?.6:.33):(loose?.35:.15)));
+   if(R()<base||drawCall)return ret('call','showdown','kw_marginal_call');
+   return ret('fold','showdown','kw_marginal_fold');
+  }
+  if(drawCall)return ret('call','draw','kw_draw_price');
+  if(tier==='weak'){
+   const q=st==='flop'?(raisedStreet?0:(loose&&price<.2?.3:p.type==='Regular'?.08:0)):st==='turn'?(raisedStreet?0:(station?.10:p.type==='Loose-Passive'?.05:0)):(raisedStreet?0:(station?.06:0));
+   return R()<q?ret('call','sticky','kw_weak_sticky'):ret('fold','weak','kw_weak_fold');
+  }
+  // air
+  if(st==='flop'&&!raisedStreet&&n===2&&['BTN','CO'].includes(pos(p.seat))&&(maniac||p.type==='Loose-Aggressive')&&dr.outs===0&&R()<.06)return ret('call','float','kw_float');
+  if(maniac&&canRaise&&n===2&&!raisedStreet&&R()<.04)return ret('raise','bluff','kw_maniac_bluff_raise');
+  return ret('fold','air','kw_air_fold');
+ }
+ // 먼저 액션 또는 모두 체크
+ if(tier==='strong'&&canRaise){const q=Math.min(.97,sty.value*(.9+.1*k.value)*(risk.count>=2?.85:1));if(R()<q)return ret('raise','value','kw_strong_bet')}
+ if(tier==='good'&&canRaise){const q=(n<=3?.82:.68)*(risk.count>=2?.7:1)*(loose||tight&&!aggro?.75:1);if(R()<q)return ret('raise','value','kw_good_bet')}
+ if(tier==='marginal'&&canRaise){const q=st==='flop'?(initiative&&n<=3?.45*(.6+p.agg):.12):(n<=2&&risk.count===0?(aggro?.3:.1):.04);if(R()<q)return ret('raise','thin-value','kw_thin_bet')}
+ if(dr.outs>=8&&canRaise&&st!=='river'){const q=(aggro?.42:.12)*(dr.label==='combo'?1.4:1)*(n<=3?1:.45);if(R()<q)return ret('raise','semi-bluff','kw_semi_bet')}
+ if(canRaise&&(tier==='weak'||tier==='air'||(dr.outs>0&&dr.outs<8))){
+  let q=0,why='';
+  const bluffScale=maniac?1.6:p.type==='Loose-Aggressive'?1.15:loose?.35:tight?.6:.8;
+  if(st==='flop'&&initiative&&n<=3){q=sty.cbet*.55*(n===2?1:.55)*(risk.count>=2?.6:1);why='kw_cbet_story'}
+  else if(st==='turn'&&initiative&&n===2&&scare&&aggro){q=.32*p.agg;why='kw_scare_barrel'}
+  else if(lastToAct&&n===2&&aggro&&st!=='river'){q=.22;why='kw_checked_to_steal'}
+  else if(st==='river'&&n===2&&initiative&&aggro){q=.07*p.agg;why='kw_river_bluff'}
+  if(q&&R()<q*bluffScale)return ret('raise','bluff',why);
+ }
+ return ret('check',tier==='air'?'air':'showdown','kw_check');
+}
+const v56PostflopPrev=fieldPostflopAction;
+fieldPostflopAction=function(p,tc,sc,k){
+ if(!S||!v53IsKangwonProfile(S.tableProfile))return v56PostflopPrev(p,tc,sc,k);
+ return kangwonPostflop(p,tc,sc,k);
+};
+// --- 30만 현장 테이블 ---
+FIELD_PROFILES['Kangwon 30']={
+ // 레귤러 2~4명 + 루즈 패시브·콜링스테이션 다수 + 캡 아저씨 같은 매니악 소수(2026-11-16 Founder·Session DB 메모).
+ skills:['Recreational','Recreational','Average','Average','Average','Regular','Regular','Strong'],
+ styles:{'Calling Station':.15,'Loose-Passive':.27,'Tight-Passive':.09,Regular:.20,'Tight-Aggressive':.11,'Loose-Aggressive':.10,'Tricky-Aggressive':.05,Maniac:.03}
+};
+KANGWON_REGULARS['30만']=[
+ {name:'장도현',type:'Tight-Aggressive',loose:.30,agg:.70,skill:'Strong'},   // 가장 강한 레귤러(눈썹 진한 레귤러 계열)
+ {name:'민경수',type:'Regular',loose:.42,agg:.55,skill:'Regular'},          // 안정형 레귤러
+ {name:'홍석진',type:'Loose-Aggressive',loose:.62,agg:.74,skill:'Regular'}, // 안 맞아도 미는 LAG 레귤러
+ {name:'구본재',type:'Regular',loose:.45,agg:.50,skill:'Strong'},           // 점잖은 타이트 레귤러
+ {name:'엄태호',type:'Maniac',loose:.84,agg:.92,skill:'Average',capper:true},// 캡 아저씨(아무 패로 캡)
+ {name:'성윤기',type:'Calling Station',loose:.80,agg:.20,skill:'Recreational'}, // 줄·수딧 끝까지 쫓는 사장
+ {name:'탁진우',type:'Loose-Passive',loose:.72,agg:.25,skill:'Recreational'}    // 싸다콜 루즈
+];
+const v56SeatRegular=seatRegular;
+seatRegular=function(seat,r,stack){const p=v56SeatRegular(seat,r,stack);if(r.capper)p.capper=true;return p};
+// 30만 공격 레이어 축소: 스틸·아이소·라이트 3벳이 캡을 너무 자주 만들었다.
+const v56Agg30=kangwon30PreflopAggression;
+kangwon30PreflopAggression=function(p,tc,sc,k){
+ const a=v56Agg30(p,tc,sc,k);if(!a)return null;
+ const tag=p.auditIntent?.tag;
+ if(tag==='30k-light-3bet')return (p.capper||p.type==='Maniac')&&Math.random()<.7?a:(Math.random()<.2?a:null);
+ if(tag==='30k-iso')return Math.random()<.45?a:null;
+ return a;
+};
+// 30만은 레귤러도 앞자리에선 림프가 많고, 림프한 사람은 레이즈에 거의 다 콜, 캡은 캡 아저씨 위주.
+const v56RangePF=kangwonRangePreflop;
+kangwonRangePreflop=function(p,tc,k){
+ if(S.cfg.label!=='30만')return v56RangePF(p,tc,k);
+ const base=KANGWON_PF_STYLE[p.type]||KANGWON_PF_STYLE.Regular,save=KANGWON_PF_STYLE[p.type];
+ const adj={...base,open:base.open.map((x,i)=>Math.min(5,x+(i>=1||KW_LOOSE.includes(p.type)?1:0))),rais:base.rais.map((x,i)=>i<2&&!p.capper?Math.max(1,x-1):x),inv:Math.min(5,base.inv+1),vs:Math.min(5,base.vs+(KW_LOOSE.includes(p.type)?0:1)),cap:p.capper?3:1,t5:Math.min(.95,base.t5+.1)};
+ KANGWON_PF_STYLE[p.type]=adj;
+ try{
+  let a=v56RangePF(p,tc,k);
+  // 캡 빈도: 캡 아저씨가 아니면 레이즈 직면 리레이즈를 대부분 콜로 바꾼다(QQ+/AK도 절반은 콜).
+  if(a==='raise'&&preflopFacing()==='Raised'&&!p.capper){const t=pfTier(holeCode(p.hole));if(!(t===1&&Math.random()<.5))a='call'}
+  return a;
+ }finally{KANGWON_PF_STYLE[p.type]=save}
+};
+Object.assign(PokerOSDebug,{patch:'5.6-candidate-20261116-story-postflop-30k',kwMadeTier,kwDraws,kangwonPostflop,fieldPostflopAction,kangwonRangePreflop,kangwon30PreflopAggression,FIELD_PROFILES,KANGWON_REGULARS});
 })();
 </script>
 </body>

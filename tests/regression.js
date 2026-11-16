@@ -96,3 +96,16 @@ function runPokerOSRegressionV55(D){
   ok('스타일 9종 설정',Object.keys(D.KANGWON_PF_STYLE).length===9,Object.keys(D.KANGWON_PF_STYLE));
   return out;
 }
+
+// v5.6 (2026-11-16) 사연 있는 포스트플랍 · 30만 현장 테이블
+function runPokerOSRegressionV56(D){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const s=D.FIELD_PROFILES['Kangwon 30'].styles,loose=(s['Calling Station']||0)+(s['Loose-Passive']||0);
+  ok('30만 필드 루즈 패시브·콜링 비중 ≥ 40%',loose>=.4,loose);
+  ok('30만 매니악은 소수(≤5%)',(s.Maniac||0)<=.05,s.Maniac);
+  ok('30만 style 합 = 1',Math.abs(Object.values(s).reduce((a,b)=>a+b,0)-1)<.001,null);
+  const caps=D.KANGWON_REGULARS['30만'].filter(r=>r.capper);
+  ok('30만 캡 아저씨 단골 1명',caps.length===1,caps.map(r=>r.name));
+  ok('포스트플랍 함수 노출',typeof D.kangwonPostflop==='function'&&typeof D.kwMadeTier==='function'&&typeof D.kwDraws==='function',null);
+  return out;
+}
