@@ -3,11 +3,16 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v5.8 Candidate** (2026-11-16 속도 개선 · 방화범 비공개 · 방화범도 사연 있게) — v5.7 기반
+- Trainer: **v5.9 Candidate** (2026-11-16 실전 기록 분석 반영) — v5.8 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v5.9 변경점 (2026-11-16) · 실전 기록(235핸드) 분석 반영
+- **30만 BB 채점 오류:** 30만 정본에 림퍼 2~3명·4명+ 규칙이 없어 BB AA 레이즈가 'Free Check'로 교정 처리됐다. 10만 v1.1 범위를 준용한 P30-PF06/PF07b를 추가했다(AA·KK 등 레이즈, 88·AJo는 체크 유지).
+- **상대 범위 추정 버그:** 페어드 보드에서 아무 패나 '투페어 이상'으로 봐서, 상대 레이즈를 약하게 읽고 히어로 오버페어 에퀴티를 0.75~0.9로 과대평가했다(실제 기록: AA·QQ로 트립스에 콜다운 −7~−8.5BB). 홀카드가 실제로 만든 등급으로 판단하고, 페어드 보드 레이즈는 트립스 쪽으로 가중한다(패시브로 관찰된 상대면 더 강하게, 숨은 성향은 쓰지 않음).
+- 테스트 65개.
 
 ## v5.8 변경점 (2026-11-16) · 속도 개선 · 방화범 비공개 · 방화범도 사연 있게
 - **속도:** 히어로가 액션할 때마다 모델 에퀴티(몬테카를로)를 동기 계산해 리버에서 150~600ms 멈췄다. 히어로 차례가 오면 미리 계산해 두고(같은 공개 상태 캐시), 범위 샘플링의 카드 키 생성을 1회로 줄였다. 측정: 리버 히어로 액션 150~600ms → 약 4ms. 핸드 종료 때 500핸드 기록을 여러 번 압축 해제·압축하던 것을 메모리 캐시 + 0.7초 뒤 1회 저장으로 바꿨다(페이지를 떠날 때 즉시 저장). AI 액션 간격 260→170ms, 히어로 폴드 후 70ms.
@@ -75,7 +80,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 61개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 65개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages

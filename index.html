@@ -161,7 +161,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.8 Candidate</h1><div class="sub">2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.9 Candidate</h1><div class="sub">2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -650,6 +650,11 @@ const CANON={
     },
     limp1:{base:['TT+','AQs+','AQo+','KQs'],late:[],rule:'P30-PF05 | 1 Limper Value Raise',
       explain:'30만에서는 한 명의 림퍼 뒤에서도 좋은 패 위주로 레이즈합니다.'},
+    // 2026-11-16: 30만에 2~3명·4명+ 림퍼 규칙이 없어 BB AA가 'Free Check'로 채점되던 오류 수정. 10만 v1.1 범위를 준용한다.
+    limp23:{range:['TT+','AQs+','AQo+','AK','KQs'],rule:'P30-PF06 | 2-3 Limpers Value Raise (10만 v1.1 준용)',
+      explain:'림퍼 2~3명 팟에서 TT+, AQ+, AK, KQs는 밸류 레이즈합니다. BB에서 추가금이 0원이어도 프리미엄은 체크가 아니라 레이즈입니다.'},
+    limp4:{range:['JJ+','AK','AQs+'],rule:'P30-PF07b | 4+ Limpers Value Raise (10만 v1.1 준용)',
+      explain:'림퍼 4명 이상이면 JJ+, AK, AQs만 밸류 레이즈합니다.'},
     vsEP3bet:{range:['QQ+','AK'],rule:'P30-PF07 | vs EP Premium Aggression',action:'3-bet',
       explain:'앞자리 레이즈 상대 QQ+와 AK는 프리미엄 밸류 재공격 구간입니다.'}
   }
@@ -4475,6 +4480,44 @@ arsonistPostflop=function(p,tc){
  return ret('check','check');
 };
 Object.assign(PokerOSDebug,{patch:'5.8-candidate-20261116-speed-hidden-arsonist',arsonistPreflop,arsonistPostflop,loadHistory,saveHistory,conditionedEquity,weightedPublicRange,render});
+// ===== Patch 2026-11-16 v5.9: 실전 기록 분석 반영 =====
+// (1) 상대 범위 추정 버그: 보드에 페어가 있으면 아무 패나 '투페어 이상(강함)'으로 봤다.
+//     → 페어드 보드에서 패시브 상대의 레이즈·체크레이즈(대개 트립스)를 과소평가하고, 히어로 오버페어 에퀴티를 0.75~0.9로 과대평가했다.
+//     홀카드가 실제로 만든 등급(effective category)으로 판단한다.
+function v59EffCat(cards,board){
+ const e=ev7([...cards,...board])[0],br=board.map(c=>c.v),hv=cards.map(c=>c.v),pocket=hv[0]===hv[1];
+ const hits=hv.filter(v=>br.includes(v)).length,made=(pocket?1:0)+hits;
+ if(e>=4)return e;                       // 스트레이트 이상(보드 단독 완성은 드묾, 그대로 둔다)
+ if(e===3)return (hits>=1||(pocket&&br.includes(hv[0])))?3:0; // 보드 트립스는 홀카드 기여가 있어야 강함
+ if(made>=2)return 2;                    // 진짜 투페어(홀카드 두 장 모두 관여 또는 포켓+보드 히트)
+ return made>=1?1:0;                     // 보드 페어 + 홀 페어 = 원페어 수준
+}
+const v59Combo=comboPublicWeight;
+comboPublicWeight=function(cards,opponent){
+ // 포스트플랍 액션이 없으면 기존 계산과 동일
+ const acts=publicActionsFor(opponent.seat);if(!acts.some(a=>a.street!=='preflop'))return v59Combo(cards,opponent);
+ let w=1;const read=observedOpponentProfile(opponent),code=holeCode(cards);
+ for(const a of acts){
+  if(a.street==='preflop'){
+   if(['Raise','3-bet','Cap'].includes(a.semantic)){const tokens=positionOpenRangeTokens(a.position)||['55+','ATs+','AJo+','KQs'];w*=rangeMatch(code,tokens)?1:.06;if(a.semantic==='Cap')w*=rangeMatch(code,['JJ+','AQs+','AK'])?1:.15}
+   else if(a.semantic==='Call')w*=pfScore(cards)>.36?1:.35;
+  }else{
+   const b=a.board||[],cat=v59EffCat(cards,b),fake={...opponent,hole:cards},saved=S.board,savedStreet=S.street;S.board=b;S.street=a.street;const dr=postflopDrawProfile(fake);S.board=saved;S.street=savedStreet;
+   const strong=cat>=2,draw=dr.flushDraw||dr.straightDraw,mw=a.players>=4,paired=new Set(b.map(c=>c.v)).size<b.length;
+   if(['Bet','Raise','Re-raise','Cap'].includes(a.semantic)){
+    const raise=a.toCall>0,turnRaise=a.street==='turn'&&raise;
+    w*=strong?1:cat===1?(turnRaise?.12:raise?.28:mw?.40:.70):draw&&a.street!=='river'?(turnRaise?.22:.55):mw?(turnRaise?.003:.035):turnRaise?.04:.25;
+    // 페어드 보드 레이즈는 트립스 이상 쪽으로 기운다(패시브로 관찰된 상대면 더 강하게).
+    // 숨은 성향이 아니라 공개 판독(관찰)만 쓴다.
+    if(raise&&paired&&cat<3)w*=['Observed Passive','Observed Call-heavy'].includes(read.label)?.35:.6;
+    if(read.label==='Observed Passive'&&!strong)w*=.45;
+   }else if(a.semantic==='Check')w*=strong?.55:1;
+   else if(a.semantic==='Call')w*=strong?.8:cat===1?1:draw?.8:.10;
+  }
+ }
+ return Math.max(1e-8,w);
+};
+Object.assign(PokerOSDebug,{patch:'5.9-candidate-20261116-history-analysis-fixes',v59EffCat,comboPublicWeight});
 })();
 </script>
 </body>

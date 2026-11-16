@@ -130,3 +130,15 @@ function runPokerOSRegressionV58(D,doc){
   ok('방화범 함수 교체됨',/사연|story/.test(D.arsonistPostflop.toString()),null);
   return out;
 }
+
+// v5.9 (2026-11-16) 실전 기록 분석 반영
+function runPokerOSRegressionV59(D){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const c=(r,s)=>({r,s,v:{A:14,K:13,Q:12,J:11,T:10}[r]||Number(r)});
+  const board=[c('T','♠'),c('T','♣'),c('3','♣'),c('K','♥')];
+  ok('페어드 보드 AA는 원페어 수준(1)',D.v59EffCat([c('A','♥'),c('A','♣')],board)===1,D.v59EffCat([c('A','♥'),c('A','♣')],board));
+  ok('페어드 보드 T9는 트립스(3)',D.v59EffCat([c('T','♥'),c('9','♣')],board)===3,null);
+  ok('KQ는 원페어(1)',D.v59EffCat([c('K','♦'),c('Q','♣')],board)===1,null);
+  ok('K3는 진짜 투페어(2)',D.v59EffCat([c('K','♦'),c('3','♦')],board)===2,null);
+  return out;
+}
