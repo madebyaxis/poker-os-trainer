@@ -154,3 +154,12 @@ function runPokerOSRegressionV60(D,doc){
   ok('내 바이인 입력칸',!!doc.getElementById('heroBuyin'),null);
   return out;
 }
+
+// v6.1 (2026-11-17) 칩·팟 연출 · 딜러
+function runPokerOSRegressionV61(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  ok('30만 칩 단위 1만원',D.CHIP_DENOM['30만'].fly===10000,D.CHIP_DENOM['30만']);
+  ok('딜러 그림 표시',!!doc.querySelector('.dealerFig svg'),null);
+  ok('칩 레이어는 클릭을 막지 않음',doc.querySelector('.chipLayer')&&getComputedStyle(doc.querySelector('.chipLayer')).pointerEvents==='none',null);
+  return out;
+}

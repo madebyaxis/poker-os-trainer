@@ -181,12 +181,30 @@ aside.side.stash{display:none!important}
  .card{width:44px;height:62px;font-size:15px}.board{min-height:62px}
  .s5,.s6{top:2px}.s1{bottom:4px}.s2,.s9{bottom:14px}
 }
+/* v6.1 칩·팟·딜러 */
+.chipLayer{position:absolute;inset:0;pointer-events:none;z-index:6;overflow:visible}
+.flyChip{position:absolute;left:-9px;top:-9px;width:18px;height:18px;border-radius:50%;will-change:transform;box-shadow:0 2px 4px #0008}
+.c5k,.flyChip.c5k{background:radial-gradient(circle,#d9474f 0 38%,#fff 39% 47%,#c0262f 48%);border:1px dashed #fff8}
+.c10k,.flyChip.c10k{background:radial-gradient(circle,#2f6fd0 0 38%,#fff 39% 47%,#1d4f9e 48%);border:1px dashed #fff8}
+.c50k,.flyChip.c50k{background:radial-gradient(circle,#e3a52b 0 38%,#fff 39% 47%,#b67a0f 48%);border:1px dashed #fff8}
+.c100k,.flyChip.c100k{background:radial-gradient(circle,#222 0 38%,#e7c66b 39% 47%,#111 48%);border:1px dashed #e7c66b99}
+.potStacks{display:flex;gap:3px;align-items:flex-end;min-height:0;height:auto}
+.potStacks:empty{display:none}
+.chipStack{display:block;width:24px;height:calc(var(--n)*4px + 6px);border-radius:10px/4px;box-shadow:0 2px 3px #0009}
+.chipStack.c5k{background:repeating-linear-gradient(0deg,#c0262f 0 3px,#f5f5f5 3px 4px)}
+.chipStack.c10k{background:repeating-linear-gradient(0deg,#1d4f9e 0 3px,#f5f5f5 3px 4px)}
+.chipStack.c50k{background:repeating-linear-gradient(0deg,#c58a16 0 3px,#fff3cf 3px 4px)}
+.chipStack.c100k{background:repeating-linear-gradient(0deg,#151515 0 3px,#e7c66b 3px 4px)}
+.dealerFig{position:absolute;left:50%;top:-8px;transform:translateX(-50%);width:96px;z-index:3;pointer-events:none;filter:drop-shadow(0 4px 6px #0008)}
+.dealerFig svg{display:block;width:100%;height:auto}
+@media (max-width:650px){.dealerFig{width:48px;top:-4px}.chipStack{width:14px;height:calc(var(--n)*2px + 5px)}.flyChip{width:13px;height:13px;left:-6px;top:-6px}}
+@media (min-width:1100px) and (max-height:900px){.dealerFig{width:70px}}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.0 Candidate</h1><div class="sub">2026-11-17 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.1 Candidate</h1><div class="sub">2026-11-17 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -4587,6 +4605,80 @@ window.addEventListener('resize',()=>{clearTimeout(window.__v60t);window.__v60t=
 const v60Render=render;render=function(reveal=false){v60Render(reveal);v60Layout()};
 v60Layout();
 Object.assign(PokerOSDebug,{patch:'6.0-candidate-20261117-desktop-fit-buyins',OPP_BUYIN,v60OppBuyin,startSession,render,v60Layout});
+// ===== Patch 2026-11-17 v6.1: 칩 연출 · 팟 스택 · 딜러 =====
+// 게임 로직은 그대로 두고, 렌더 때 각 좌석의 이번 핸드 누적 베팅(totalBet) 증가분을 보고 칩이 팟으로 날아가는 연출만 붙인다.
+// 애니메이션은 GPU transform(Web Animations API) 0.28초, 비동기라 게임 진행을 기다리게 하지 않는다. 빠른 진행·모션 줄이기 설정이면 생략.
+const CHIP_DENOM={'10만':{fly:5000,small:5000,big:50000,smallCls:'c5k',bigCls:'c50k'},'30만':{fly:10000,small:10000,big:100000,smallCls:'c10k',bigCls:'c100k'}};
+const v61={key:'',prev:[],potShown:0,winDone:false};
+const v61Reduce=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):{matches:false};
+function v61Denom(){return CHIP_DENOM[S?.cfg?.label]||CHIP_DENOM['10만']}
+function v61Ensure(){
+ const table=document.querySelector('.table');if(!table)return null;
+ let layer=table.querySelector('.chipLayer');if(!layer){layer=document.createElement('div');layer.className='chipLayer';table.appendChild(layer)}
+ if(!$('potStacks')){const ps=document.createElement('div');ps.id='potStacks';ps.className='potStacks';$('pot').before(ps)}
+ if(!table.querySelector('.dealerFig')){const d=document.createElement('div');d.className='dealerFig';d.setAttribute('aria-hidden','true');d.innerHTML=V61_DEALER_SVG;table.appendChild(d)}
+ return layer;
+}
+function v61Center(el,base){const r=el.getBoundingClientRect(),b=base.getBoundingClientRect();return [r.left+r.width/2-b.left,r.top+r.height/2-b.top]}
+function v61Fly(fromEl,toEl,n,cls,delay=0){
+ const table=document.querySelector('.table'),layer=v61Ensure();if(!table||!layer||!fromEl||!toEl)return;
+ const [x0,y0]=v61Center(fromEl,table),[x1,y1]=v61Center(toEl,table);
+ for(let i=0;i<n;i++){
+  const c=document.createElement('i');c.className='flyChip '+cls;layer.appendChild(c);
+  const jx=(Math.random()-.5)*14,jy=(Math.random()-.5)*10;
+  const a=c.animate([{transform:`translate(${x0}px,${y0}px) scale(.9)`,opacity:1},{transform:`translate(${x1+jx}px,${y1+jy}px) scale(1)`,opacity:.95}],{duration:280,delay:delay+i*28,easing:'cubic-bezier(.2,.7,.3,1)',fill:'backwards'});
+  a.onfinish=()=>c.remove();a.oncancel=()=>c.remove();
+ }
+}
+function v61RenderPot(amount){
+ const box=$('potStacks');if(!box)return;const d=v61Denom();
+ if(!amount){box.innerHTML='';return}
+ // 작은 팟은 작은 칩만으로 쌓고(1만 칩 10개 = 한 줄), 커지면 큰 칩으로 바꿔 쌓는다. 최대 8줄.
+ const totalSmall=Math.round(amount/d.small);let big=0,small=totalSmall;
+ if(totalSmall>60){big=Math.floor(amount/d.big);small=Math.round((amount-big*d.big)/d.small)}
+ const cols=[];const push=(n,cls)=>{while(n>0&&cols.length<8){const k=Math.min(10,n);cols.push([k,cls]);n-=k}};
+ push(Math.min(big,60),d.bigCls);push(small,d.smallCls);
+ box.innerHTML=cols.map(([k,cls])=>`<span class="chipStack ${cls}" style="--n:${k}"></span>`).join('');
+}
+function v61Animate(){
+ if(!S||!S.players)return;v61Ensure();
+ const key=S.sessionId+'#'+S.hand,seats=$('seats')?.children||[],potEl=$('potStacks')||$('pot'),d=v61Denom();
+ const quiet=S.fastForward||v61Reduce.matches||document.hidden;
+ if(v61.key!==key){v61.key=key;v61.prev=S.players.map(()=>0);v61.potShown=0;v61.winDone=false}
+ S.players.forEach((p,i)=>{
+  const cur=p.totalBet||0,prev=v61.prev[i]||0;
+  if(cur>prev&&!quiet&&seats[i]){const n=Math.max(1,Math.min(6,Math.round((cur-prev)/d.fly)));v61Fly(seats[i],potEl,n,d.smallCls)}
+  v61.prev[i]=cur;
+ });
+ const handPot=S.players.reduce((a,p)=>a+(p.totalBet||0),0);
+ if(!S.handOver){v61.potShown=handPot;v61RenderPot(handPot);return}
+ // 핸드 종료: 팟을 승자에게 밀어 준다(한 번만).
+ if(!v61.winDone){
+  v61.winDone=true;const ws=(S.winnerSeats||[]).filter(i=>seats[i]);
+  if(ws.length&&!quiet&&v61.potShown){const n=Math.max(3,Math.min(8,Math.round(v61.potShown/d.big)+3));ws.forEach(w=>v61Fly(potEl,seats[w],Math.ceil(n/ws.length),d.bigCls,120))}
+  setTimeout(()=>{if(S&&S.handOver&&v61.key===S.sessionId+'#'+S.hand)v61RenderPot(0)},quiet?0:420);
+ }
+}
+const V61_DEALER_SVG=`<svg viewBox="0 0 120 112" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="딜러">
+ <defs><linearGradient id="dlHair" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b1d18"/><stop offset="1" stop-color="#160f0c"/></linearGradient>
+ <linearGradient id="dlVest" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1f26"/><stop offset="1" stop-color="#0d0f13"/></linearGradient></defs>
+ <path d="M14 112 C16 84 34 72 60 72 C86 72 104 84 106 112 Z" fill="#f4f1ea"/>
+ <path d="M24 112 C26 88 40 78 52 76 L60 96 L68 76 C80 78 94 88 96 112 Z" fill="url(#dlVest)"/>
+ <path d="M52 76 L60 96 L68 76 L64 74 L60 80 L56 74 Z" fill="#f4f1ea"/>
+ <path d="M53 79 L60 83 L67 79 L67 86 L60 83 L53 86 Z" fill="#8b1d2c"/>
+ <rect x="54" y="60" width="12" height="15" rx="5" fill="#e8c4a6"/>
+ <ellipse cx="60" cy="38" rx="25" ry="27" fill="url(#dlHair)"/>
+ <circle cx="60" cy="12" r="10" fill="url(#dlHair)"/>
+ <ellipse cx="60" cy="43" rx="17" ry="20" fill="#f0cfb2"/>
+ <path d="M43 36 C46 22 58 18 68 22 C74 25 77 30 77 38 C70 30 58 28 43 36 Z" fill="url(#dlHair)"/>
+ <path d="M50 42 q3 -2 6 0 M64 42 q3 -2 6 0" stroke="#3a2a22" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+ <path d="M55 53 q5 3 10 0" stroke="#b5655d" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+ <circle cx="49" cy="49" r="3" fill="#f2a6a0" opacity=".35"/><circle cx="71" cy="49" r="3" fill="#f2a6a0" opacity=".35"/>
+ <rect x="44" y="100" width="32" height="7" rx="2" fill="#c9a24a" opacity=".9"/><text x="60" y="105.6" text-anchor="middle" font-size="5" font-weight="700" fill="#1a1407" font-family="sans-serif">DEALER</text>
+</svg>`;
+const v61Render=render;render=function(reveal=false){v61Render(reveal);try{v61Animate()}catch(e){console.error('chips',e)}};
+v61Ensure();
+Object.assign(PokerOSDebug,{patch:'6.1-candidate-20261117-chips-dealer',CHIP_DENOM,v61Animate,v61RenderPot,render});
 })();
 </script>
 </body>

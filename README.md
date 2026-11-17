@@ -3,11 +3,18 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v6.0 Candidate** (2026-11-17 데스크톱 한 화면 · 사람별 바이인) — v5.9 기반
+- Trainer: **v6.1 Candidate** (2026-11-17 칩·팟 연출 · 딜러) — v6.0 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.1 변경점 (2026-11-17) · 칩·팟 연출 · 딜러
+- **칩 연출:** 베팅·콜·레이즈 때 좌석에서 팟으로 칩이 날아간다. 30만은 1만원 칩(파랑), 10만은 5천원 칩(빨강) 단위, 한 액션 최대 6개. 핸드가 끝나면 팟 칩이 승자에게 간다.
+- **팟 스택:** 팟 금액만큼 칩이 10개 단위 줄로 쌓인다. 작은 칩이 60개를 넘으면 큰 칩(30만 10만원 검정·10만 5만원 금색)으로 바꿔 쌓는다. 최대 8줄.
+- **딜러:** 테이블 위쪽 가운데에 여자 딜러 일러스트(직접 그린 SVG).
+- **속도:** 게임 로직과 분리된 렌더 후처리라 진행을 기다리게 하지 않는다. 0.28초 transform 애니메이션, 빠른 진행·모션 줄이기 설정·백그라운드 탭이면 생략. 측정: 30만 프리플랍 한 바퀴 진행 시간 변화 없음(약 1.3초, AI 간격 포함).
+- 테스트 72개.
 
 ## v6.0 변경점 (2026-11-17) · 데스크톱 한 화면 · 사람별 바이인
 - **데스크톱 레이아웃(가로 1100px 이상):** 헤더를 한 줄로 줄이고, 현장 바·핸드 리뷰 도크를 오른쪽 레일로 옮겼다. 테이블 높이는 화면 높이에 맞춘다(헤더·액션 패널 높이를 재서 계산). 높이 900px 이하 화면은 좌석·카드를 조금 작게. 측정: 1280×720·1366×768·1440×900·1920×1080 모두 스크롤 없이 테이블과 액션 버튼이 한 화면에 들어온다. 모바일·태블릿은 기존 배치 유지.
@@ -86,7 +93,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 69개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 72개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages
