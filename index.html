@@ -259,12 +259,17 @@ aside.side.stash{display:none!important}
  .rail .log{height:auto;flex:1;min-height:0;font-size:12px}
  .rail .liveBar{flex:0 0 auto}
 }
+/* v6.8 일어나기 */
+.sitoutBtn{border-color:#2f6b47}
+.sitoutBtn.pulse{background:#1d3b2a;box-shadow:0 0 0 0 #5fd07a88;animation:v68p 1.6s infinite}
+@keyframes v68p{0%{box-shadow:0 0 0 0 #5fd07a88}70%{box-shadow:0 0 0 10px #5fd07a00}100%{box-shadow:0 0 0 0 #5fd07a00}}
+.v68Cash{background:#0f2416;border:1px solid #2f6b47;border-radius:10px;padding:8px 10px;margin-bottom:10px;display:grid;gap:3px}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.7 Candidate</h1><div class="sub">2026-11-17 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.8 Candidate</h1><div class="sub">2026-11-17 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -276,6 +281,7 @@ aside.side.stash{display:none!important}
       <button class="btn primary" id="start">새 세션</button>
       <button class="btn autoOn" id="autoToggle" type="button">자동 진행 ON</button>
       <button class="btn rebuyBtn" id="rebuyHero" type="button" disabled>리바인</button>
+      <button class="btn sitoutBtn" id="sitOut" type="button" disabled title="지금 스택으로 일어납니다(캐시아웃). 핸드 중이면 이번 핸드가 끝나면 일어납니다.">일어나기</button>
       <button class="btn" id="endSession" type="button" disabled>세션 리포트</button>
       <button class="btn" id="next" disabled>다음 핸드</button>
     </div>
@@ -4886,6 +4892,34 @@ window.addEventListener('resize',()=>setTimeout(v67FitRail,130));window.addEvent
 const v67Render=render;render=function(reveal=false){v67Render(reveal);v67FitRail()};
 v67FitRail();
 Object.assign(PokerOSDebug,{patch:'6.7-candidate-20261117-rail-fit',v67FitRail,render});
+// ===== Patch 2026-11-17 v6.8: 일어나기(캐시아웃) =====
+// Founder 요청: 플레이하다 일정 금액을 땄을 때 그만하고 일어나는 기능.
+// '일어나기' = 지금 스택으로 캐시아웃하고 세션 종료(핸드 중이면 이번 핸드가 끝나면). 수익선(검토·종료)에 닿으면 바로 누를 수 있게 안내한다.
+function v68Reason(n){const L=n.lines;if(n.pl>=L.win)return '수익 종료선';if(n.pl>=L.review)return '수익 검토 구간';if(n.pl>0)return '수익 중 일어남';if(n.pl<=L.loss)return '손실 한도';return '계획 종료'}
+function v68SitOut(){
+ if(!S||S.sessionEnded)return;
+ const n=v53SessionNumbers();S.v68Sitout={reason:v68Reason(n),plAtClick:n.pl,hand:S.hand,at:new Date().toISOString()};
+ if(!S.handOver&&!S.players[S.hero].folded){S.endAfterHand=true;autoNext=false;updateAutoButton();$('hint').textContent=`일어나기 예약 · 이번 핸드가 끝나면 ${fmt(S.players[S.hero].stack+S.players[S.hero].totalBet)}원 근처로 캐시아웃합니다.`;persistSession();render();return}
+ endSession(true);
+}
+// 세션 종료 시 캐시아웃 요약을 창 맨 위에 붙인다.
+const v68Summary=v62Summary;
+v62Summary=function(){
+ const base=v68Summary();if(!S||!S.sessionEnded||!S.v68Sitout)return base;
+ const hero=S.players[S.hero],out=hero.stack,inv=S.heroTotalBuyin||S.startStack,pl=out-inv;
+ return `<div class="v68Cash"><b>일어남 · ${S.v68Sitout.reason}</b><div>총 투입 ${fmt(inv)}원 → 아웃 ${fmt(out)}원 · <span class="${pl>=0?'v62Pos':'v62Neg'}">${pl>=0?'+':''}${fmt(pl)}원</span> (${(pl/S.cfg.bb).toFixed(1)}BB)</div></div>`+base;
+};
+// 종료 기록에 이유를 남겨 리포트에서 본다.
+const v68End=endSession;
+endSession=function(manual=true){const was=S&&S.sessionEnded;v68End(manual);if(S&&!was&&S.sessionEnded){
+ try{const n=v53SessionNumbers(),k='poker_os_coach_v1',c=JSON.parse(localStorage.getItem(k)||'null');if(c){c.sessions=c.sessions||{};c.sessions[S.sessionId]={...(c.sessions[S.sessionId]||{}),stopReason:S.v68Sitout?.reason||'세션 종료',pl:n.pl,hands:S.hand,limit:S.cfg.label};localStorage.setItem(k,JSON.stringify(c))}}catch(e){}
+}};
+{const b=$('sitOut');if(b)b.addEventListener('click',v68SitOut)}
+// 수익선에 닿으면 '지금 일어나기' 안내(버튼 강조)
+const v68Check=v53CheckStops;
+v53CheckStops=function(){v68Check();if(!S||!S.v53)return;const n=v53SessionNumbers(),L=n.lines,b=$('sitOut');if(b)b.classList.toggle('pulse',n.pl>=L.review||n.pl<=L.loss||n.hours>=L.maxHours)};
+const v68Render=render;render=function(reveal=false){v68Render(reveal);if(S&&S.v68Sitout&&!S.endAfterHand&&!S.sessionEnded)S.v68Sitout=null;const b=$('sitOut');if(!b)return;b.disabled=!S||S.sessionEnded;b.textContent=S&&S.endAfterHand&&S.v68Sitout?'일어나기 예약됨':'일어나기'};
+Object.assign(PokerOSDebug,{patch:'6.8-candidate-20261117-sitout',v68SitOut,endSession,render});
 })();
 </script>
 </body>

@@ -298,9 +298,9 @@ function renderBuckets(sessions){
 }
 
 function renderTable(sessions){
- const tr=prefs.src==='trainer',head=tr?['날짜','테이블','모드','핸드','환산 시간','손익','시간당','세션 MDD']:['날짜','테이블','시간','손익','시간당','세션 MDD'];
- const rows=[...sessions].reverse().map(s=>{const v=conv(s.pl,s.lim),mdd=conv(sessionMdd(s),s.lim);return `<tr title="${(s.note||'').replace(/"/g,'')}" class="${tr?'clickable':''}" data-sid="${tr?s.id:''}"><td>${tr?s.date:s.date.slice(2)}</td><td>${s.lim}</td>${tr?`<td>${MODE_KO[s.mode]||s.mode||'-'}</td><td>${s.hands}</td>`:''}<td>${fmtH(s.hours)}</td><td class="${cls(v)}">${fmtV(v)}</td><td class="${cls(v)}">${s.hours>0?fmtV(v/s.hours):'-'}</td><td class="neg">${mdd?'-'+fmtV(mdd,false):'0'}</td></tr>`}).join('');
- $('sessTable').innerHTML=`<thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="8" class="empty">기록 없음</td></tr>`}</tbody>`;
+ const coachS=(loadCoach()||{}).sessions||{};const tr=prefs.src==='trainer',head=tr?['날짜','테이블','모드','핸드','환산 시간','손익','시간당','세션 MDD','종료']:['날짜','테이블','시간','손익','시간당','세션 MDD'];
+ const rows=[...sessions].reverse().map(s=>{const v=conv(s.pl,s.lim),mdd=conv(sessionMdd(s),s.lim);return `<tr title="${(s.note||'').replace(/"/g,'')}" class="${tr?'clickable':''}" data-sid="${tr?s.id:''}"><td>${tr?s.date:s.date.slice(2)}</td><td>${s.lim}</td>${tr?`<td>${MODE_KO[s.mode]||s.mode||'-'}</td><td>${s.hands}</td>`:''}<td>${fmtH(s.hours)}</td><td class="${cls(v)}">${fmtV(v)}</td><td class="${cls(v)}">${s.hours>0?fmtV(v/s.hours):'-'}</td><td class="neg">${mdd?'-'+fmtV(mdd,false):'0'}</td>${tr?`<td>${coachS[s.id]?.stopReason||''}</td>`:''}</tr>`}).join('');
+ $('sessTable').innerHTML=`<thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="9" class="empty">기록 없음</td></tr>`}</tbody>`;
  $('tableNote').textContent=sessions.length?`${sessions.length}개 세션`:'';
 }
 

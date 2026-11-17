@@ -3,11 +3,16 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v6.7 Candidate** (2026-11-17 오른쪽 레일 보이기) — v6.6.1 기반
+- Trainer: **v6.8 Candidate** (2026-11-17 일어나기·캐시아웃) — v6.7 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.8 변경점 (2026-11-17) · 일어나기(캐시아웃)
+- 상단 '일어나기' 버튼: 지금 스택으로 캐시아웃하고 세션 종료. 핸드 중이면 '일어나기 예약됨'으로 바뀌고 이번 핸드가 끝나면 일어난다(자동 진행 꺼짐). 종료 창 맨 위에 '총 투입 → 아웃 금액 · 손익(BB)'과 이유(수익 종료선·수익 검토 구간·수익 중·손실 한도·계획 종료) 표시.
+- 수익 검토선·종료선·손실 한도·최대 시간에 닿으면 버튼이 초록으로 깜빡여 바로 누르게 안내.
+- 종료 이유를 기록해 리포트 세션 목록 '종료' 칸에 표시. 자동 진행을 다시 켜거나 다음 핸드를 누르면 예약은 취소된다(v6.3 동작).
 
 ## v6.7 변경점 (2026-11-17) · 오른쪽 레일(핸드 리뷰·액션 로그)
 - 레일 높이가 화면보다 길어 아래가 잘렸고, 탭 줄이 눌려 리뷰 카드 밑에 겹쳤다. 로그는 높이 310px 고정에 탭을 바꾸면 옛 줄부터 보였다.
