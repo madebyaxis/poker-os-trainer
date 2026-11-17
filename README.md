@@ -3,11 +3,15 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v6.6 Candidate** (2026-11-17 보드·내 카드 구분) — v6.5 기반
+- Trainer: **v6.6.1 Candidate** (2026-11-17 내 좌석 카드 원복 · 팟 칩 옆으로) — v6.6 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.6.1 변경점 (2026-11-17)
+- Founder 피드백: 내 좌석 카드는 예전 크기가 더 잘 보이고 금색 테두리가 어색하다 → 내 좌석 카드 크기·테두리를 v6.5로 되돌림.
+- 겹침 방지는 다른 방식으로: 팟 칩 스택을 POT 라벨 옆으로 옮겨 세로 공간을 줄이고, 노트북(세로 900px 이하)은 가운데 영역을 40%로 올림. 액션 패널 팟 문구를 만원 단위로 줄여 한 줄 유지. 보드~내 좌석 간격: 1366×768 69px, 1440×900 160px, 1920×1080 130px, 모바일 114px.
 
 ## v6.6 변경점 (2026-11-17) · 보드·내 카드 구분
 - 보드 카드와 테이블 위 내 카드가 붙어 보여 헷갈렸다. 테이블 가운데 영역을 위로 올리고(44%, 노트북 42%), 보드 카드를 어두운 띠 안에 묶었다. 테이블 위 내 좌석 카드는 작게 줄이고 금색 테두리로 구분한다(큰 내 카드는 아래 액션 패널에 그대로). 보드 아래끝~내 좌석 위끝 간격: 1366×768 65px, 1440×900 136px, 1920×1080 114px, 모바일 109px.

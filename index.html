@@ -246,16 +246,15 @@ aside.side.stash{display:none!important}
 .center{top:44%}
 .board{padding:6px 8px;border-radius:12px;background:#0b130ecc;box-shadow:inset 0 0 0 1px #ffffff1a}
 .board:empty{padding:0;background:none;box-shadow:none}
-.seat.hero .mini{width:26px;height:36px;font-size:11px;box-shadow:0 0 0 2px var(--gold)}
-@media (min-width:1100px){.seat.hero .mini{width:30px;height:41px;font-size:12.5px}}
-@media (min-width:1100px) and (max-height:900px){.center{top:42%}.seat.hero .mini{width:26px;height:36px;font-size:11px}}
-@media (max-width:650px){.center{top:45%}.seat.hero .mini{width:20px;height:27px;font-size:9px;box-shadow:0 0 0 1.5px var(--gold)}}
+@media (min-width:1100px) and (max-height:900px){.center{top:40%}}
+.potRow{display:flex;align-items:flex-end;gap:8px;order:-2}.center .potRow #pot{order:0}.center .potRow .potStacks{order:0}
+@media (max-width:650px){.center{top:45%}}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.6 Candidate</h1><div class="sub">2026-11-17 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.6.1 Candidate</h1><div class="sub">2026-11-17 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -4861,10 +4860,11 @@ Object.assign(PokerOSDebug,{patch:'6.4-candidate-20261117-cards-modes-profiles',
 function v65PotLine(){
  const el=$('potLine');if(!el)return;if(!S||S.street==='idle'||S.handOver){el.textContent='';return}
  const p=S.players[S.hero],tc=Math.max(0,S.currentBet-(p.streetBet||0)),n=live().length,inHand=!p.folded;
- let t=`팟 ${fmt(S.pot)}원 · ${n}명`;
- if(inHand&&tc>0){const need=tc/(S.pot+tc);t+=` · 콜 ${fmt(tc)}원 → 팟오즈 ${(S.pot/tc).toFixed(1)}:1 (필요 승률 ${Math.round(need*100)}%)`}
+ let t=`팟 ${manShort(S.pot)} · ${n}명`;
+ if(inHand&&tc>0){const need=tc/(S.pot+tc);t+=` · 콜 ${manShort(tc)} → ${(S.pot/tc).toFixed(1)}:1 (필요 승률 ${Math.round(need*100)}%)`}
  el.textContent=t;
 }
+{const pot=$('pot');if(pot&&!pot.parentElement.classList.contains('potRow')){const row=document.createElement('div');row.className='potRow';pot.before(row);row.appendChild(pot);const ps=$('potStacks');if(ps)row.appendChild(ps)}}
 const v65Render=render;render=function(reveal=false){v65Render(reveal);v65PotLine()};
 Object.assign(PokerOSDebug,{patch:'6.5-candidate-20261117-pot-visible',render});
 })();
