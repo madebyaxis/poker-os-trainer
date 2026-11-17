@@ -236,12 +236,18 @@ aside.side.stash{display:none!important}
 .profileHelp{font-size:11px;color:var(--muted);max-width:300px;line-height:1.35}
 @media (min-width:1100px){.profileHelp{display:none}}
 @media (min-width:1100px) and (max-height:900px){.s3,.s8{top:45%}.s4,.s7{top:15%}.s2,.s9{bottom:8px}}
+/* v6.5 팟 보이기 */
+.center{display:flex;flex-direction:column;align-items:center}
+.center .street{order:-3}.center #pot{order:-2}.center .potStacks{order:-1}.center .board{order:0}
+.potLine{font-size:13px;font-weight:800;color:#f2df9a;margin-top:2px;font-variant-numeric:tabular-nums}
+.potLine:empty{display:none}
+@media (max-width:650px){.potLine{font-size:12px}.header .sub{display:none}.profileHelp{display:none}}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.4 Candidate</h1><div class="sub">2026-11-17 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.5 Candidate</h1><div class="sub">2026-11-17 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -280,6 +286,7 @@ aside.side.stash{display:none!important}
           <div class="heroCards" id="heroCards"></div>
           <div>
             <div class="status" id="status">새 세션을 시작하세요.</div>
+            <div class="potLine" id="potLine" aria-live="polite"></div>
             <div class="hint" id="hint"></div>
             <div class="confidenceWrap"><span>내 확신</span><select id="heroConfidence"><option value="low">낮음</option><option value="medium" selected>중간</option><option value="high">높음</option></select><span class="timerChip" id="decisionClock">결정시간 -</span></div>
           </div>
@@ -4840,6 +4847,18 @@ Object.assign(TRAINING_MODE_META.simulation,{desc:'카드는 무작위, 상대�
 Object.assign(TRAINING_MODE_META.exam,{desc:'카드는 무작위, 상대 87.5%가 레귤러·강자, 단골 없음, 즉시 코치 꺼짐. 핸드가 끝난 뒤에만 채점을 봅니다.'});
 try{syncTrainingModeUI()}catch(e){}
 Object.assign(PokerOSDebug,{patch:'6.4-candidate-20261117-cards-modes-profiles',PROFILE_META,aiPreflopAction,fieldPostflopAction});
+// ===== Patch 2026-11-17 v6.5: 팟 금액 항상 보이기 =====
+// 팟 표시가 테이블 가운데 아래쪽이라, 내 좌석(아래 가운데)·모바일 하단 고정 액션 패널에 가려졌다.
+// ① 테이블: POT을 보드 위로 올린다. ② 내 액션 패널에 '팟 · 콜 금액 · 팟오즈(필요 승률) · 남은 인원'을 항상 표시.
+function v65PotLine(){
+ const el=$('potLine');if(!el)return;if(!S||S.street==='idle'||S.handOver){el.textContent='';return}
+ const p=S.players[S.hero],tc=Math.max(0,S.currentBet-(p.streetBet||0)),n=live().length,inHand=!p.folded;
+ let t=`팟 ${fmt(S.pot)}원 · ${n}명`;
+ if(inHand&&tc>0){const need=tc/(S.pot+tc);t+=` · 콜 ${fmt(tc)}원 → 팟오즈 ${(S.pot/tc).toFixed(1)}:1 (필요 승률 ${Math.round(need*100)}%)`}
+ el.textContent=t;
+}
+const v65Render=render;render=function(reveal=false){v65Render(reveal);v65PotLine()};
+Object.assign(PokerOSDebug,{patch:'6.5-candidate-20261117-pot-visible',render});
 })();
 </script>
 </body>

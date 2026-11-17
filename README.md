@@ -3,11 +3,15 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v6.4 Candidate** (2026-11-17 카드 크게 · 훈련 모드·필드 프로필 보완) — v6.3 기반
+- Trainer: **v6.5 Candidate** (2026-11-17 팟 금액 항상 보이기) — v6.4 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.5 변경점 (2026-11-17) · 팟 금액 항상 보이기
+- **버그:** POT 표시가 테이블 가운데 아래쪽이라 카드·칩 스택이 커지면서 내 좌석(아래 가운데)과 모바일 하단 고정 액션 패널에 가려졌다.
+- **수정:** 테이블에서 POT을 보드 위(스트리트 이름 바로 아래)로 옮겼다. 내 액션 패널에 '팟 금액 · 남은 인원 · 콜 금액 → 팟오즈와 필요 승률'을 항상 표시한다. 모바일은 헤더 설명줄을 숨겨 화면을 줄였다.
 
 ## v6.4 변경점 (2026-11-17) · 카드 크게 · 훈련 모드·필드 프로필 보완
 - **카드 크기:** 좌석 카드 24×32 → 데스크톱 36×49(세로 900px 이하 32×44), 보드 50×70 → 62×86(54×76), 내 카드 패널 → 66×92(56×78). 모바일도 좌석 22×30·보드 40×56·내 카드 44×62로 키움. 좌석 겹침 방지로 세로 900px 이하 좌석 위치 조정. 1280×720~1920×1080 한 화면 유지.
