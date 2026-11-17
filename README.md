@@ -3,11 +3,16 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v6.1 Candidate** (2026-11-17 칩·팟 연출 · 딜러) — v6.0 기반
+- Trainer: **v6.2 Candidate** (2026-11-17 세션 리포트 창) — v6.1 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.2 변경점 (2026-11-17) · 세션 리포트 창 (버그 수정)
+- **버그:** '세션 리포트'를 누르면 세션 종료가 바로 예약되고 자동 진행이 꺼졌다. 디브리프는 v5.4에서 숨긴 옛 오른쪽 패널에 그려져 화면에 아무것도 안 나왔고, 종료 뒤에는 이어서 칠 방법이 없어 게임이 멈춘 것처럼 보였다.
+- **수정:** 버튼은 이제 세션을 끝내지 않고 리포트 창만 연다(핸드 수·현장 환산 시간·세션 손익·정본 일치율·최근 교정 결정·전체 리포트 링크). 창에서 '계속 플레이' 또는 '세션 종료'(종료 예약 취소 가능)를 고른다. 세션이 실제로 끝나면 같은 창에 디브리프와 '새 세션 시작' 버튼이 뜬다. 새 세션에서는 지난 세션 문구를 지운다.
+- 테스트 73개.
 
 ## v6.1 변경점 (2026-11-17) · 칩·팟 연출 · 딜러
 - **칩 연출:** 베팅·콜·레이즈 때 좌석에서 팟으로 칩이 날아간다. 30만은 1만원 칩(파랑), 10만은 5천원 칩(빨강) 단위, 한 액션 최대 6개. 핸드가 끝나면 팟 칩이 승자에게 간다.
@@ -93,7 +98,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 72개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 73개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages

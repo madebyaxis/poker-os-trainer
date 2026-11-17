@@ -199,12 +199,26 @@ aside.side.stash{display:none!important}
 .dealerFig svg{display:block;width:100%;height:auto}
 @media (max-width:650px){.dealerFig{width:48px;top:-4px}.chipStack{width:14px;height:calc(var(--n)*2px + 5px)}.flyChip{width:13px;height:13px;left:-6px;top:-6px}}
 @media (min-width:1100px) and (max-height:900px){.dealerFig{width:70px}}
+/* v6.2 세션 리포트 창 */
+.v62Modal{position:fixed;inset:0;z-index:100;background:#000a;display:grid;place-items:center;padding:14px}
+.v62Modal[hidden]{display:none}
+.v62Box{width:min(560px,100%);max-height:88vh;overflow:auto;background:#121712;border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 50px #000c}
+.v62Head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#121712}
+.v62X{background:transparent;border:0;color:var(--text);font-size:18px;cursor:pointer}
+.v62Body{padding:12px 14px;font-size:13px;line-height:1.55}
+.v62Foot{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line);position:sticky;bottom:0;background:#121712}
+.v62Kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.v62Kpis div{background:#0c100c;border:1px solid var(--line);border-radius:10px;padding:8px;display:grid;gap:2px}
+.v62Kpis span{font-size:11px;color:var(--muted)}.v62Kpis b{font-size:17px;font-variant-numeric:tabular-nums}.v62Kpis small{font-size:11px;color:var(--muted)}
+.v62Pos{color:#5fd07a}.v62Neg{color:#ff8b8b}.v62Mute{color:var(--muted)}
+.v62Sec{font-weight:800;margin:10px 0 4px}.v62List{margin:0;padding-left:18px}.v62Debrief{font-size:12.5px}
+@media (max-width:520px){.v62Kpis{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.1 Candidate</h1><div class="sub">2026-11-17 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.2 Candidate</h1><div class="sub">2026-11-17 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -4679,6 +4693,58 @@ const V61_DEALER_SVG=`<svg viewBox="0 0 120 112" xmlns="http://www.w3.org/2000/s
 const v61Render=render;render=function(reveal=false){v61Render(reveal);try{v61Animate()}catch(e){console.error('chips',e)}};
 v61Ensure();
 Object.assign(PokerOSDebug,{patch:'6.1-candidate-20261117-chips-dealer',CHIP_DENOM,v61Animate,v61RenderPot,render});
+// ===== Patch 2026-11-17 v6.2: 세션 리포트 버튼 =====
+// 버그: '세션 리포트'를 누르면 세션이 곧바로 종료 예약되고(자동 진행 꺼짐), 디브리프는 숨겨진 옛 패널에 그려져 아무것도 안 보였다.
+//       종료 뒤에는 이어서 칠 방법이 없어 '게임이 다시 시작이 안 되는' 것처럼 보였다.
+// 수정: 버튼은 세션을 끝내지 않고 현재까지의 리포트 창만 연다. 창에서 '계속 플레이' 또는 '세션 종료'를 고른다.
+//       종료되면 같은 창에 최종 디브리프와 '새 세션 시작' 버튼을 보여 준다.
+function v62Modal(){
+ let m=$('v62Modal');if(m)return m;
+ m=document.createElement('div');m.id='v62Modal';m.className='v62Modal';m.hidden=true;
+ m.innerHTML=`<div class="v62Box" role="dialog" aria-modal="true" aria-labelledby="v62Title"><div class="v62Head"><b id="v62Title">세션 리포트</b><button type="button" class="v62X" aria-label="닫기">✕</button></div><div class="v62Body" id="v62Body"></div><div class="v62Foot" id="v62Foot"></div></div>`;
+ document.body.appendChild(m);
+ m.addEventListener('click',e=>{if(e.target===m||e.target.closest('.v62X'))v62Close()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!m.hidden)v62Close()});
+ return m;
+}
+function v62Close(){const m=$('v62Modal');if(m)m.hidden=true}
+function v62Summary(){
+ const n=v53SessionNumbers(),dec=(()=>{try{const s=JSON.parse(localStorage.getItem('poker_os_coach_v1')||'null');return (s?.decisions||[]).filter(r=>r.sid===S.sessionId)}catch{return []}})();
+ const canon=dec.filter(r=>r.cls==='good'||r.cls==='correction'),wrong=canon.filter(r=>r.cls==='correction');
+ const ko={Fold:'폴드',Check:'체크',Call:'콜',Bet:'벳',Raise:'레이즈','3-bet':'3벳',Cap:'캡'},st={preflop:'프리플랍',flop:'플랍',turn:'턴',river:'리버'};
+ const rows=wrong.slice(-5).reverse().map(r=>`<li><b>${r.hole}</b> ${r.pos} · ${st[r.st]||r.st} · 내 ${ko[r.act]||r.act} → 정답 ${ko[r.rec]||r.rec}${r.rule?` <span class="v62Mute">(${r.rule.split('|')[0].trim()})</span>`:''}</li>`).join('');
+ return `<div class="v62Kpis"><div><span>핸드</span><b>${n.hands}</b></div><div><span>현장 환산</span><b>${v53Hm(n.hours)}</b></div><div><span>세션 손익</span><b class="${n.pl>=0?'v62Pos':'v62Neg'}">${v53Man(n.pl)}</b><small>${n.bb>=0?'+':''}${n.bb.toFixed(1)}BB</small></div><div><span>정본 일치</span><b>${canon.length?Math.round(100*(1-wrong.length/canon.length))+'%':'-'}</b><small>${canon.length}결정</small></div></div>
+ ${rows?`<div class="v62Sec">최근 교정할 결정</div><ul class="v62List">${rows}</ul>`:`<div class="v62Mute" style="margin:8px 0">이 세션에서 정본 기준 교정할 결정이 아직 없습니다.</div>`}
+ <a class="reportLink" href="report.html?sid=${encodeURIComponent(S.sessionId)}">전체 코칭 리포트 열기 →</a>`;
+}
+function v62Open(){
+ if(!S)return;const m=v62Modal(),body=$('v62Body'),foot=$('v62Foot');
+ if(S.sessionEnded){
+  try{renderSessionDebrief()}catch(e){}
+  $('v62Title').textContent='세션 종료 · 디브리프';
+  body.innerHTML=v62Summary()+`<div class="v62Sec">디브리프</div><div class="v62Debrief">${$('sessionDebrief')?.innerHTML||''}</div>`;
+  foot.innerHTML=`<button type="button" class="btn" id="v62CloseBtn">닫기</button><button type="button" class="btn primary" id="v62New">새 세션 시작</button>`;
+  $('v62New').onclick=()=>{v62Close();startSession()};
+ }else{
+  $('v62Title').textContent='세션 리포트 · 진행 중';
+  body.innerHTML=v62Summary()+(S.endAfterHand?`<div class="v62Mute" style="margin-top:8px">세션 종료가 예약돼 있습니다. 현재 핸드가 끝나면 종료됩니다.</div>`:'');
+  foot.innerHTML=`<button type="button" class="btn" id="v62End">${S.endAfterHand?'종료 예약 취소':'세션 종료'}</button><button type="button" class="btn primary" id="v62CloseBtn">계속 플레이</button>`;
+  $('v62End').onclick=()=>{
+   if(S.endAfterHand){S.endAfterHand=false;$('endSession').disabled=false;$('hint').textContent='세션 종료 예약을 취소했습니다.';persistSession();v62Open();return}
+   endSession(true);if(S.sessionEnded)v62Open();else v62Open();
+  };
+ }
+ $('v62CloseBtn').onclick=v62Close;m.hidden=false;
+}
+// 버튼: 기존 즉시 종료 대신 리포트 창
+const v62Btn=$('endSession');if(v62Btn){const clone=v62Btn.cloneNode(true);v62Btn.replaceWith(clone);clone.addEventListener('click',v62Open)}
+// 종료가 실제로 일어나면(예약 후 핸드 종료 포함) 디브리프 창 자동 표시
+const v62End=endSession;
+endSession=function(manual=true){const was=S&&S.sessionEnded;v62End(manual);if(S&&!was&&S.sessionEnded){setTimeout(v62Open,350)}};
+// 렌더: 세션 리포트 버튼은 진행 중에도 항상 열 수 있게, 새 세션에서 지난 세션 문구 정리
+const v62Render=render;render=function(reveal=false){v62Render(reveal);const b=$('endSession');if(b&&S)b.disabled=false};
+const v62Start=startSession;startSession=function(){const before=S?.sessionId;v62Start();if(S&&S.sessionId!==before){v62Close();if(/세션 종료/.test($('hint')?.textContent||''))$('hint').textContent=''}};
+Object.assign(PokerOSDebug,{patch:'6.2-candidate-20261117-session-report-modal',v62Open,v62Close,endSession,startSession,render});
 })();
 </script>
 </body>

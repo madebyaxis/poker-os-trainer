@@ -163,3 +163,10 @@ function runPokerOSRegressionV61(D,doc){
   ok('칩 레이어는 클릭을 막지 않음',doc.querySelector('.chipLayer')&&getComputedStyle(doc.querySelector('.chipLayer')).pointerEvents==='none',null);
   return out;
 }
+
+// v6.2 (2026-11-17) 세션 리포트 창
+function runPokerOSRegressionV62(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  ok('세션 리포트 창 함수',typeof D.v62Open==='function'&&typeof D.v62Close==='function',null);
+  return out;
+}
