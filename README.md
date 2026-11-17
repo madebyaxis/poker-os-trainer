@@ -3,11 +3,14 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v6.5 Candidate** (2026-11-17 팟 금액 항상 보이기) — v6.4 기반
+- Trainer: **v6.6 Candidate** (2026-11-17 보드·내 카드 구분) — v6.5 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.6 변경점 (2026-11-17) · 보드·내 카드 구분
+- 보드 카드와 테이블 위 내 카드가 붙어 보여 헷갈렸다. 테이블 가운데 영역을 위로 올리고(44%, 노트북 42%), 보드 카드를 어두운 띠 안에 묶었다. 테이블 위 내 좌석 카드는 작게 줄이고 금색 테두리로 구분한다(큰 내 카드는 아래 액션 패널에 그대로). 보드 아래끝~내 좌석 위끝 간격: 1366×768 65px, 1440×900 136px, 1920×1080 114px, 모바일 109px.
 
 ## v6.5 변경점 (2026-11-17) · 팟 금액 항상 보이기
 - **버그:** POT 표시가 테이블 가운데 아래쪽이라 카드·칩 스택이 커지면서 내 좌석(아래 가운데)과 모바일 하단 고정 액션 패널에 가려졌다.
