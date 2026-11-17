@@ -170,3 +170,12 @@ function runPokerOSRegressionV62(D,doc){
   ok('세션 리포트 창 함수',typeof D.v62Open==='function'&&typeof D.v62Close==='function',null);
   return out;
 }
+
+// v6.4 (2026-11-17) 카드 크게 · 모드·프로필 보완
+function runPokerOSRegressionV64(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  ok('프로필 설명 6종',Object.keys(D.PROFILE_META).length===6,Object.keys(D.PROFILE_META));
+  ok('프로필 설명 표시 요소',!!doc.getElementById('profileHelp'),null);
+  const m=doc.querySelector('.seat .mini');ok('좌석 카드 너비 ≥ 22px',!m||parseFloat(getComputedStyle(m).width)>=22,m&&getComputedStyle(m).width);
+  return out;
+}

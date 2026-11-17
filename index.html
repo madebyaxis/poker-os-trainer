@@ -213,12 +213,35 @@ aside.side.stash{display:none!important}
 .v62Pos{color:#5fd07a}.v62Neg{color:#ff8b8b}.v62Mute{color:var(--muted)}
 .v62Sec{font-weight:800;margin:10px 0 4px}.v62List{margin:0;padding-left:18px}.v62Debrief{font-size:12.5px}
 @media (max-width:520px){.v62Kpis{grid-template-columns:repeat(2,1fr)}}
+/* v6.4 카드 크게 */
+.mini{width:30px;height:41px;font-size:12.5px;border-radius:5px}
+.minicards{gap:4px}
+.card{width:56px;height:78px;font-size:19px}
+.heroCards .card{width:62px;height:86px;font-size:22px}
+@media (min-width:1100px){
+ .seat{width:140px}.seat .mini{width:36px;height:49px;font-size:15px;border-radius:6px}
+ .center .card{width:62px;height:86px;font-size:22px}.board{min-height:86px}
+ .heroPanel .heroCards .card{width:66px;height:92px;font-size:24px}
+}
+@media (min-width:1100px) and (max-height:900px){
+ .seat{width:132px}.seat .mini{width:32px;height:44px;font-size:13.5px}
+ .center .card{width:54px;height:76px;font-size:19px}.board{min-height:76px}
+ .heroPanel .heroCards .card{width:56px;height:78px;font-size:21px}
+}
+@media (max-width:650px){
+ .seat .mini{width:22px;height:30px;font-size:10px;border-radius:4px}
+ .center .card{width:40px;height:56px;font-size:15px}.board{min-height:56px}
+ .heroPanel .heroCards .card{width:44px;height:62px;font-size:16px}
+}
+.profileHelp{font-size:11px;color:var(--muted);max-width:300px;line-height:1.35}
+@media (min-width:1100px){.profileHelp{display:none}}
+@media (min-width:1100px) and (max-height:900px){.s3,.s8{top:45%}.s4,.s7{top:15%}.s2,.s9{bottom:8px}}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.3 Candidate</h1><div class="sub">2026-11-17 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.4 Candidate</h1><div class="sub">2026-11-17 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -589,7 +612,8 @@ const ACTION_HEAT_MIN_HANDS=8;
 const ACTION_HEAT_WINDOW=20;
 const ACTION_HEAT_THRESHOLD=.50;
 const ACTION_HEAT_HARD=.70;
-const ADAPTIVE_CHALLENGE_DEAL_RATE=.82;
+// 2026-11-17: .82 → .65. 82%면 세션 대부분이 골라 준 카드라 테이블 흐름이 부자연스럽고 VPIP가 50%까지 부풀었다.
+const ADAPTIVE_CHALLENGE_DEAL_RATE=.65;
 // v4.1: Adaptive mode deliberately creates more Turn/River decisions.
 // Simulation/Exam stay natural so their P/L and decision frequencies are not contaminated.
 const POSTFLOP_PRESSURE_PLAN={both:.25,turn:.25,river:.25,none:.25};
@@ -4778,6 +4802,44 @@ $('autoToggle').addEventListener('click',()=>{
 {const b=$('next');if(b)new MutationObserver(()=>{if(S&&S.handOver&&b.disabled)b.disabled=false;const t=v63NextLabel();if(b.textContent!==t)b.textContent=t}).observe(b,{attributes:true,attributeFilter:['disabled']})}
 const v63Render=render;render=function(reveal=false){v63Render(reveal);const b=$('next');if(!b||!S)return;b.disabled=!S.handOver;b.textContent=v63NextLabel()};
 Object.assign(PokerOSDebug,{patch:'6.3-candidate-20261117-next-button-unblock',v63Next,render});
+// ===== Patch 2026-11-17 v6.4: 훈련 모드·필드 프로필 전체 보완 =====
+// (1) 일반 혼합·소프트·레귤러 많음 프로필도 현장형 AI(그럴싸한 패 범위, 사연 있는 포스트플랍)를 쓴다.
+//     프로필끼리는 '상대 성향·실력 구성'만 다르고 행동 원리는 같다. 단골(이름 고정)은 강원랜드 프로필에만 앉는다.
+const v64PF=aiPreflopAction;
+aiPreflopAction=function(p,tc,sc,k){
+ if(!S||v53IsKangwonProfile(S.tableProfile))return v64PF(p,tc,sc,k);
+ const tier=pfTier(holeCode(p.hole));
+ if(tier<=5){const a=kangwon30PreflopAggression(p,tc,sc,k);if(a)return a}
+ return kangwonRangePreflop(p,tc,k);
+};
+const v64Post=fieldPostflopAction;
+fieldPostflopAction=function(p,tc,sc,k){
+ if(!S||v53IsKangwonProfile(S.tableProfile))return v64Post(p,tc,sc,k);
+ return kangwonPostflop(p,tc,sc,k);
+};
+// Adaptive 카드 편향: 약점 버킷이 정해지면 매 판 골라 준 카드였다(실측 108판 중 95판). 65%만 고르고 나머지는 무작위.
+const v64Choose=chooseAdaptiveHeroHoleCode;
+chooseAdaptiveHeroHoleCode=function(){if(!S||S.trainingMode!=='adaptive')return '';if(Math.random()>ADAPTIVE_CHALLENGE_DEAL_RATE)return '';return v64Choose()};
+// (2) 프로필 이름·설명
+const PROFILE_META={
+ 'Kangwon Live':{label:'강원랜드 10만 현장',desc:'루즈 패시브 36%·레귤러 24%·콜링 14%·LAG 12% 등. 넓은 림프, 레이즈에 여럿 콜. 단골 2~3명.'},
+ 'Kangwon 30':{label:'강원랜드 30만 현장',desc:'루즈 패시브·콜링 42%, 레귤러 2~4명, 매니악 소수와 캡 잦은 단골 1명. 림프 잦고 캡은 공격형이 가끔.'},
+ 'Kangwon Aggro':{label:'강원랜드 공격·루즈(훈련)',desc:'매니악·LAG·트리키 50%, 콜링 18%. 레이즈·캡 잦음. 표시 없는 방화범 1~2명.'},
+ Normal:{label:'일반 혼합',desc:'성향을 고르게 섞은 기본 테이블. 콜링·루즈 패시브 각 18%, 레귤러 18%, TAG 14%, LAG 10%. 단골 없음.'},
+ Soft:{label:'소프트(피쉬 많음)',desc:'콜링스테이션 28%, 루즈 패시브 26%. 밸류 벳 연습용. 단골 없음.'},
+ 'Reg Heavy':{label:'레귤러 많음',desc:'레귤러·TAG 위주, 실력 강함. 마지널 팟 회피 연습용. 단골 없음.'}
+};
+{const sel=$('tableProfile');if(sel){[...sel.options].forEach(o=>{const m=PROFILE_META[o.value];if(m)o.textContent=m.label});
+ const order=['Kangwon Live','Kangwon 30','Kangwon Aggro','Normal','Soft','Reg Heavy'];order.forEach(v=>{const o=[...sel.options].find(x=>x.value===v);if(o)sel.appendChild(o)});
+ const lab=sel.closest('.field')?.querySelector('label');if(lab)lab.textContent='필드 프로필(상대 구성)';
+ const help=document.createElement('div');help.id='profileHelp';help.className='profileHelp';sel.after(help);
+ const sync=()=>{const m=PROFILE_META[sel.value];help.textContent=m?m.desc:'';sel.title=m?m.desc:''};sel.addEventListener('change',sync);$('limit').addEventListener('change',()=>setTimeout(sync,0));sync();}}
+// (3) 훈련 모드 설명 보강
+Object.assign(TRAINING_MODE_META.adaptive,{desc:'약 3판 중 2판은 내 약점(레이즈 직면 투기 패·경계 소형 페어·턴 고민 패 등)으로 카드를 골라 줍니다. 손익·VPIP는 실전 실력 지표가 아닙니다.'});
+Object.assign(TRAINING_MODE_META.simulation,{desc:'카드는 무작위, 상대는 필드 프로필대로. 실전 대비와 손익·VPIP 같은 실력 통계는 이 모드로 봅니다.'});
+Object.assign(TRAINING_MODE_META.exam,{desc:'카드는 무작위, 상대 87.5%가 레귤러·강자, 단골 없음, 즉시 코치 꺼짐. 핸드가 끝난 뒤에만 채점을 봅니다.'});
+try{syncTrainingModeUI()}catch(e){}
+Object.assign(PokerOSDebug,{patch:'6.4-candidate-20261117-cards-modes-profiles',PROFILE_META,aiPreflopAction,fieldPostflopAction});
 })();
 </script>
 </body>

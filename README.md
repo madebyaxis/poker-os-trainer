@@ -3,11 +3,18 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v6.3 Candidate** (2026-11-17 다음 핸드 막힘 수정) — v6.2 기반
+- Trainer: **v6.4 Candidate** (2026-11-17 카드 크게 · 훈련 모드·필드 프로필 보완) — v6.3 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.4 변경점 (2026-11-17) · 카드 크게 · 훈련 모드·필드 프로필 보완
+- **카드 크기:** 좌석 카드 24×32 → 데스크톱 36×49(세로 900px 이하 32×44), 보드 50×70 → 62×86(54×76), 내 카드 패널 → 66×92(56×78). 모바일도 좌석 22×30·보드 40×56·내 카드 44×62로 키움. 좌석 겹침 방지로 세로 900px 이하 좌석 위치 조정. 1280×720~1920×1080 한 화면 유지.
+- **필드 프로필:** 일반 혼합·소프트·레귤러 많음도 현장형 AI(그럴싸한 패 범위·사연 있는 포스트플랍)를 쓴다. 프로필끼리는 상대 구성만 다르다. 단골은 강원랜드 프로필에만. 이름을 한국어로 바꾸고 각 프로필 구성 설명을 표시(데스크톱은 마우스를 올리면). 라벨 '잠정 Field profile' → '필드 프로필(상대 구성)'.
+- **Adaptive:** 약점 버킷이 정해지면 매 판 카드를 골라 주던 것(실측 108판 중 95판)을 65%로 낮춤. 리포트의 VPIP·PFR 판정은 Adaptive 핸드를 빼고 계산.
+- **모드 설명 보강:** Adaptive=약점 카드 약 3판 중 2판, 통계 지표 아님 / 실전 시뮬=무작위·통계 기준 / 시험=상대 87.5% 레귤러·강자, 단골 없음, 즉시 코치 꺼짐.
+- 테스트 76개.
 
 ## v6.3 변경점 (2026-11-17) · '다음 핸드' 막힘 수정
 - **버그:** 자동 진행이 저절로 꺼지는 상황(세션 종료·종료 예약, 스택 0 리바인 대기, 훈련 체크포인트)에서는 '다음 핸드' 버튼이 비활성이라, 자동 진행을 다시 켜고 눌러도 아무 일이 없었다.
@@ -102,7 +109,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 73개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 76개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages
