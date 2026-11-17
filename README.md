@@ -3,11 +3,17 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v5.9 Candidate** (2026-11-16 실전 기록 분석 반영) — v5.8 기반
+- Trainer: **v6.0 Candidate** (2026-11-17 데스크톱 한 화면 · 사람별 바이인) — v5.9 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.0 변경점 (2026-11-17) · 데스크톱 한 화면 · 사람별 바이인
+- **데스크톱 레이아웃(가로 1100px 이상):** 헤더를 한 줄로 줄이고, 현장 바·핸드 리뷰 도크를 오른쪽 레일로 옮겼다. 테이블 높이는 화면 높이에 맞춘다(헤더·액션 패널 높이를 재서 계산). 높이 900px 이하 화면은 좌석·카드를 조금 작게. 측정: 1280×720·1366×768·1440×900·1920×1080 모두 스크롤 없이 테이블과 액션 버튼이 한 화면에 들어온다. 모바일·태블릿은 기존 배치 유지.
+- **상대 바이인:** 사람마다 다르게. 30만 50~300만(Founder 2026-11-17), 10만 20~100만(잠정). 중간 금액이 가장 많은 삼각 분포, 교체·리바인도 같은 방식.
+- **내 바이인:** 상단 '내 바이인(만원)'에서 새 세션 시작 때 정한다(10만 20~150, 30만 50~500, 기본 50/300). 리바인도 같은 금액. 테이블별로 마지막 값을 기억한다.
+- 테스트 69개.
 
 ## v5.9 변경점 (2026-11-16) · 실전 기록(235핸드) 분석 반영
 - **30만 BB 채점 오류:** 30만 정본에 림퍼 2~3명·4명+ 규칙이 없어 BB AA 레이즈가 'Free Check'로 교정 처리됐다. 10만 v1.1 범위를 준용한 P30-PF06/PF07b를 추가했다(AA·KK 등 레이즈, 88·AJo는 체크 유지).
@@ -80,7 +86,7 @@
 - 반영: Adaptive의 `Raised` 노출 상향(.25→.32), 레이즈 상대 투기 핸드·림프 팟 오프수트 집중 출제, `facing_raise` 드릴 하한 1.8→6.0, 밸류 지속·얇은 밸류·넛 아닌 플러시 콜 드릴 3개 추가.
 
 ## 테스트
-- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 65개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
+- 브라우저: `tests/run.html` (Pages: https://madebyaxis.github.io/poker-os-trainer/tests/run.html) — 69개 회귀 검사. `file://`로 열면 iframe 보안 정책 때문에 실행되지 않으니 Pages나 로컬 서버로 연다.
 - 앱 내부 점검: `PokerOSDebug.runV3SelfTests()`, `PokerOSDebug.accountingAudit()`.
 
 ## GitHub Pages

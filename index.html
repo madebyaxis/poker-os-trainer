@@ -156,15 +156,41 @@ aside.side.stash{display:none!important}
 @media (max-width:650px){.seat .regTag{font-size:8px;padding:0 2px;margin-left:2px}}
 .regTag.arson{background:#ff7a45}
 .regTag{font-size:9px;font-weight:900;color:#11161f;background:#d9b75b;border-radius:5px;padding:0 4px;margin-left:3px;vertical-align:1px}
+/* v6.0 데스크톱 한 화면 + 바이인 */
+#heroBuyin{min-height:42px;width:96px;border-radius:10px;border:1px solid var(--line);background:#171b18;color:var(--text);padding:9px 10px;font:inherit}
+.rail{display:none}
+@media (min-width:1100px){
+ .app{max-width:1600px;margin:0 auto;padding:10px 14px}
+ .header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:6px 14px;margin-bottom:8px}
+ .header h1{font-size:18px;margin:0}.header .sub{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}
+ .tools{gap:6px;align-items:flex-end}.tools .field label{font-size:10px}
+ .tools select,.tools .btn,#heroBuyin{min-height:34px;padding:5px 9px;font-size:13px}
+ #trainingModeHelp{display:none}
+ .layout.solo{grid-template-columns:minmax(0,1fr) 360px;max-width:none;gap:12px;align-items:start}
+ .rail{display:flex;flex-direction:column;gap:10px;position:sticky;top:8px;max-height:calc(100vh - 16px);min-height:0}
+ .rail .liveBar{margin:0}
+ .rail .playDock{margin-top:0;flex:1;display:flex;flex-direction:column;min-height:0}
+ .rail .dockPane{max-height:none;flex:1;min-height:0}
+ .rail .dockTabs button{padding:6px 8px;font-size:12.5px}.rail .dockTabs .dockReport{padding:6px 6px;font-size:12.5px}
+ .game{padding:10px}
+ .table{min-height:0;height:clamp(420px,calc(100vh - var(--v60Chrome,250px)),660px)}
+ .heroPanel{margin-top:8px}
+}
+@media (min-width:1100px) and (max-height:900px){
+ .seat{width:116px;min-height:0;padding:5px 7px;gap:2px}.seat .mini{width:21px;height:28px;font-size:8px}
+ .card{width:44px;height:62px;font-size:15px}.board{min-height:62px}
+ .s5,.s6{top:2px}.s1{bottom:4px}.s2,.s9{bottom:14px}
+}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v5.9 Candidate</h1><div class="sub">2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.0 Candidate</h1><div class="sub">2026-11-17 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
+      <div class="field"><label>내 바이인(만원)</label><input id="heroBuyin" type="number" inputmode="numeric" min="20" max="500" step="5" value="50" title="새 세션을 시작할 때 적용됩니다. 리바인도 같은 금액입니다."></div>
       <div class="field"><label>리뷰</label><select id="reviewMode"><option value="after">핸드 종료 후</option><option value="live">즉시 코치</option></select></div>
       <div class="field"><label>훈련 모드</label><select id="trainingMode" aria-describedby="trainingModeHelp"><option value="adaptive">Adaptive · 약점 집중</option><option value="simulation">실전 시뮬 · 필드 재현</option><option value="exam">시험 모드 · 강한 상대</option></select><div id="trainingModeHelp" class="modeNote" style="max-width:240px;margin-top:4px">Adaptive · 개인 약점을 더 자주 만나도록 샘플링합니다.</div></div>
       <div class="field"><label>세션 목표</label><select id="sessionTarget"><option value="50">50핸드</option><option value="100" selected>100핸드</option><option value="200">200핸드</option></select></div>
@@ -1090,7 +1116,7 @@ function replaceSeat(seat){
   const exclude=S.players.filter((_,i)=>i!==seat).map(p=>p.name);
   const otherStrong=S.players.some((p,i)=>i!==seat&&i!==S.hero&&p.skill==='Strong');
   const forced=(S.trainingMode==='exam'&&!otherStrong)?'Strong':null;
-  const np=makeOpponent(seat,exclude,forced);np.stack=S.cfg.buyin;S.chipsAdded+=np.stack;S.players[seat]=np;
+  const np=makeOpponent(seat,exclude,forced);np.stack=v60OppBuyin();S.chipsAdded+=np.stack;S.players[seat]=np;
   log(`S${seat+1} ${old.name} 퇴장 · 대기자 ${np.name} 착석`,'sys');
 }
 function applyPendingSeatChanges(){
@@ -1098,7 +1124,7 @@ function applyPendingSeatChanges(){
     if(i===S.hero)continue;
     const p=S.players[i];
     if(p.pendingAction==='rebuy'){
-      const amt=S.cfg.buyin;p.stack+=amt;p.rebuys=(p.rebuys||0)+1;p.pendingAction=null;S.chipsAdded+=amt;
+      const amt=v60OppBuyin();p.stack+=amt;p.rebuys=(p.rebuys||0)+1;p.pendingAction=null;S.chipsAdded+=amt;
       log(`S${i+1} ${p.name} 리바인 +${fmt(amt)}원 · ${p.rebuys}회차`,'sys');
     }else if(p.pendingAction==='replace'){
       replaceSeat(i);
@@ -4518,6 +4544,49 @@ comboPublicWeight=function(cards,opponent){
  return Math.max(1e-8,w);
 };
 Object.assign(PokerOSDebug,{patch:'5.9-candidate-20261116-history-analysis-fixes',v59EffCat,comboPublicWeight});
+// ===== Patch 2026-11-17 v6.0: 데스크톱 한 화면 + 바이인 =====
+// (1) 상대 바이인을 사람마다 다르게: 30만 50~300만(Founder 2026-11-17). 10만은 20~100만(잠정, 현장 확인 필요).
+//     현장 분포 가정: 중간 금액이 가장 많고 양 끝이 적다(10만 단위 반올림).
+const OPP_BUYIN={'10만':{min:200000,max:1000000,mode:500000,unit:50000},'30만':{min:500000,max:3000000,mode:1500000,unit:100000}};
+function v60OppBuyin(label=S?.cfg?.label){
+ const c=OPP_BUYIN[label]||OPP_BUYIN['10만'];
+ // 삼각 분포(최소·최빈·최대)
+ const u=Math.random(),f=(c.mode-c.min)/(c.max-c.min);
+ const x=u<f?c.min+Math.sqrt(u*(c.max-c.min)*(c.mode-c.min)):c.max-Math.sqrt((1-u)*(c.max-c.min)*(c.max-c.mode));
+ return Math.max(c.min,Math.min(c.max,Math.round(x/c.unit)*c.unit));
+}
+// (2) 내 바이인: 새 세션 시작 때 입력값 적용, 리바인도 같은 금액.
+const HERO_BUYIN_DEFAULT={'10만':50,'30만':300},HERO_BUYIN_RANGE={'10만':[20,150],'30만':[50,500]};
+const HERO_BUYIN_KEY='poker_os_hero_buyin_v1';
+function v60HeroBuyinPrefs(){try{return JSON.parse(localStorage.getItem(HERO_BUYIN_KEY)||'{}')||{}}catch{return {}}}
+function v60SyncBuyinField(){const el=$('heroBuyin');if(!el)return;const lab=CFG[$('limit').value].label,[mn,mx]=HERO_BUYIN_RANGE[lab];el.min=mn;el.max=mx;el.value=v60HeroBuyinPrefs()[lab]||HERO_BUYIN_DEFAULT[lab]}
+$('limit').addEventListener('change',v60SyncBuyinField);v60SyncBuyinField();
+$('heroBuyin')?.addEventListener('change',e=>{const lab=CFG[$('limit').value].label,[mn,mx]=HERO_BUYIN_RANGE[lab];let v=Math.round(Number(e.target.value)||HERO_BUYIN_DEFAULT[lab]);v=Math.max(mn,Math.min(mx,v));e.target.value=v;const p=v60HeroBuyinPrefs();p[lab]=v;try{localStorage.setItem(HERO_BUYIN_KEY,JSON.stringify(p))}catch{}});
+const v60StartSession=startSession;
+startSession=function(){
+ const cfg=CFG[$('limit').value],lab=cfg.label,[mn,mx]=HERO_BUYIN_RANGE[lab];
+ const man=Math.max(mn,Math.min(mx,Math.round(Number($('heroBuyin')?.value)||HERO_BUYIN_DEFAULT[lab])));
+ cfg.buyin=man*10000; // 내 바이인·리바인 금액
+ const before=S?.sessionId;v60StartSession();
+ if(!S||S.sessionId===before)return;
+ for(const p of S.players){if(p.seat===S.hero)continue;const nb=v60OppBuyin(lab),d=nb-cfg.buyin;p.stack+=d;S.initialChips=(S.initialChips||0)+d}
+ log(`내 바이인 ${fmt(cfg.buyin)}원 · 상대 바이인 ${lab==='30만'?'50~300만':'20~100만(잠정)'} 범위로 사람마다 다름`,'sys');
+ render();persistSession();
+};
+// (3) 데스크톱(가로 1100px 이상): 오른쪽 레일에 현장 바·도크를 두고 테이블 높이를 화면에 맞춘다.
+function v60Layout(){
+ const layout=document.querySelector('.layout'),game=document.querySelector('section.game'),dock=$('playDock'),bar=$('liveBar'),table=document.querySelector('.table');if(!layout||!game||!dock||!bar||!table)return;
+ let rail=document.querySelector('.rail');if(!rail){rail=document.createElement('aside');rail.className='rail';layout.appendChild(rail)}
+ const wide=window.matchMedia('(min-width:1100px)').matches;
+ if(wide){if(bar.parentElement!==rail)rail.appendChild(bar);if(dock.parentElement!==rail)rail.appendChild(dock)}
+ else{if(bar.parentElement!==game)game.insertBefore(bar,table);if(dock.parentElement!==game)game.appendChild(dock)}
+ // 테이블 위아래 고정 요소 높이를 재서 테이블이 화면 안에 들어오게 한다.
+ if(wide){const head=document.querySelector('.header')?.getBoundingClientRect().height||90,hero=document.querySelector('.heroPanel')?.getBoundingClientRect().height||96,banner=document.querySelector('.winnerBanner.show')?.getBoundingClientRect().height||0;document.documentElement.style.setProperty('--v60Chrome',Math.round(head+hero+banner+64)+'px')}
+}
+window.addEventListener('resize',()=>{clearTimeout(window.__v60t);window.__v60t=setTimeout(v60Layout,120)});
+const v60Render=render;render=function(reveal=false){v60Render(reveal);v60Layout()};
+v60Layout();
+Object.assign(PokerOSDebug,{patch:'6.0-candidate-20261117-desktop-fit-buyins',OPP_BUYIN,v60OppBuyin,startSession,render,v60Layout});
 })();
 </script>
 </body>

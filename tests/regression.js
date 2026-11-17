@@ -142,3 +142,15 @@ function runPokerOSRegressionV59(D){
   ok('K3는 진짜 투페어(2)',D.v59EffCat([c('K','♦'),c('3','♦')],board)===2,null);
   return out;
 }
+
+// v6.0 (2026-11-17) 데스크톱 한 화면 · 사람별 바이인
+function runPokerOSRegressionV60(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const xs=Array.from({length:400},()=>D.v60OppBuyin('30만'));
+  ok('30만 상대 바이인 50~300만',xs.every(x=>x>=500000&&x<=3000000),[Math.min(...xs),Math.max(...xs)]);
+  ok('30만 상대 바이인이 사람마다 다름',new Set(xs).size>=10,new Set(xs).size);
+  const ys=Array.from({length:400},()=>D.v60OppBuyin('10만'));
+  ok('10만 상대 바이인 20~100만(잠정)',ys.every(x=>x>=200000&&x<=1000000),[Math.min(...ys),Math.max(...ys)]);
+  ok('내 바이인 입력칸',!!doc.getElementById('heroBuyin'),null);
+  return out;
+}
