@@ -179,3 +179,19 @@ function runPokerOSRegressionV64(D,doc){
   const m=doc.querySelector('.seat .mini');ok('좌석 카드 너비 ≥ 22px',!m||parseFloat(getComputedStyle(m).width)>=22,m&&getComputedStyle(m).width);
   return out;
 }
+
+// v6.9 (2026-11-17) 싼 가격 폴드 확인 · 모델 점검 · 쇼다운 공개 패
+function runPokerOSRegressionV69(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const row=(act)=>({act});
+  const cf=D.v69ModelCheck({street:'river',estimatedEquity:.38,toCall:30000,pot:350000,playersActive:2},row('Fold'));
+  ok('싼 가격 폴드 판정(필요 8%·추정 38%)',cf&&cf.k==='cheapfold',cf);
+  const nf=D.v69ModelCheck({street:'river',estimatedEquity:.12,toCall:30000,pot:350000,playersActive:2},row('Fold'));
+  ok('승률 낮으면 폴드 허용',nf===null,nf);
+  const vc=D.v69ModelCheck({street:'river',estimatedEquity:.84,toCall:0,pot:300000,playersActive:2},row('Check'));
+  ok('리버 밸류 체크 판정',vc&&vc.k==='valuecheck',vc);
+  const mw=D.v69ModelCheck({street:'flop',estimatedEquity:.19,toCall:0,pot:200000,playersActive:4},row('Bet'));
+  ok('멀티웨이 약한 벳 판정',mw&&mw.k==='mwbet',mw);
+  ok('가격 확인 UI',!!doc.getElementById('potGuard')&&!!doc.getElementById('potGuardOn'),null);
+  return out;
+}

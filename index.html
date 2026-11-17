@@ -264,12 +264,19 @@ aside.side.stash{display:none!important}
 .sitoutBtn.pulse{background:#1d3b2a;box-shadow:0 0 0 0 #5fd07a88;animation:v68p 1.6s infinite}
 @keyframes v68p{0%{box-shadow:0 0 0 0 #5fd07a88}70%{box-shadow:0 0 0 10px #5fd07a00}100%{box-shadow:0 0 0 0 #5fd07a00}}
 .v68Cash{background:#0f2416;border:1px solid #2f6b47;border-radius:10px;padding:8px 10px;margin-bottom:10px;display:grid;gap:3px}
+/* v6.9 가격 확인 */
+.potGuard{margin:6px 0 2px;padding:8px 10px;border:1px solid #d9a441;border-radius:10px;background:rgba(217,164,65,.12);font-size:13px;line-height:1.45}
+.potGuard .pgText span{opacity:.85;font-size:12px}
+.potGuard .pgBtns{display:flex;gap:8px;margin-top:6px}
+.potGuard .pgBtns .btn{flex:1;min-height:34px;padding:4px 8px}
+.potGuard .pgCall{background:#2e7d4f;color:#fff;border-color:#2e7d4f}
+.pgToggle{display:inline-flex;align-items:center;gap:4px;font-size:12px;opacity:.85;margin-left:6px;white-space:nowrap}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.8 Candidate</h1><div class="sub">2026-11-17 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -4920,6 +4927,116 @@ const v68Check=v53CheckStops;
 v53CheckStops=function(){v68Check();if(!S||!S.v53)return;const n=v53SessionNumbers(),L=n.lines,b=$('sitOut');if(b)b.classList.toggle('pulse',n.pl>=L.review||n.pl<=L.loss||n.hours>=L.maxHours)};
 const v68Render=render;render=function(reveal=false){v68Render(reveal);if(S&&S.v68Sitout&&!S.endAfterHand&&!S.sessionEnded)S.v68Sitout=null;const b=$('sitOut');if(!b)return;b.disabled=!S||S.sessionEnded;b.textContent=S&&S.endAfterHand&&S.v68Sitout?'일어나기 예약됨':'일어나기'};
 Object.assign(PokerOSDebug,{patch:'6.8-candidate-20261117-sitout',v68SitOut,endSession,render});
+// ===== Patch 2026-11-17 v6.9: 최근 기록(2026-11-17, 314핸드) 분석 반영 =====
+// 1) 가격 가드: 30만은 턴·리버 벳이 3만이라 팟 대비 아주 싸다. 필요 승률 15% 이하에서 이기고 있을 가능성이 충분한 패를 접으면 한 번 확인한다.
+// 2) 코칭 데이터에 추정 승률·필요 승률을 남겨 리포트에서 '싼 가격 폴드 / 밸류 체크 / 멀티웨이 약한 벳'을 따로 본다(모델 기준·비채점).
+// 3) 쇼다운에 공개된 상대 패(현장에서도 보이는 정보)를 기록해 리포트에서 '라인별로 실제 무엇을 들고 있었나'를 본다.
+// 4) 30만 TAG가 아이소 레이즈를 너무 안 했다(PFR 5%). TAG만 레이즈 범위를 한 칸 넓힌다.
+const POT_GUARD_KEY='poker_os_potguard_v1';
+const V69_MADE=['하이카드','원페어','투페어','트립스','스트레이트','플러시','풀하우스','포카드','스트레이트 플러시'];
+function v69GuardOn(){try{return localStorage.getItem(POT_GUARD_KEY)!=='off'}catch{return true}}
+function v69GuardInfo(){
+ if(!S||S.handOver||S.street==='preflop'||S.actor!==S.hero)return null;
+ const p=S.players[S.hero],tc=Math.max(0,S.currentBet-p.streetBet);if(!(tc>0))return null;
+ const req=potOddsPct(tc,S.pot);if(req>.15)return null;
+ let eq=null;try{const r=recommendation();if(Number.isFinite(r?.estimatedEquity))eq=r.estimatedEquity}catch(e){}
+ const hc=handClass(p),dr=postflopDrawProfile(p),made=hc&&hc!=='high_card',bigDraw=S.street!=='river'&&(dr.flushDraw||dr.straightDraw);
+ const ok=eq!=null?eq-req>=.08:(made||bigDraw);if(!ok)return null;
+ return {tc,req,eq,odds:S.pot/tc,hc,made,bigDraw};
+}
+function v69EnsureGuardUI(){
+ if($('potGuard'))return;
+ const g=document.createElement('div');g.id='potGuard';g.className='potGuard';g.hidden=true;g.setAttribute('role','alertdialog');
+ g.innerHTML='<div class="pgText" id="potGuardText"></div><div class="pgBtns"><button class="btn pgCall" id="potGuardCall">콜</button><button class="btn pgFold" id="potGuardFold">그래도 폴드</button></div>';
+ const hint=$('hint');(hint?.parentNode||document.body).insertBefore(g,hint?hint.nextSibling:null);
+ $('potGuardCall').addEventListener('click',()=>v69Resolve('call'));
+ $('potGuardFold').addEventListener('click',()=>v69Resolve('fold'));
+ const cw=document.querySelector('.confidenceWrap');
+ if(cw&&!$('potGuardOn')){const l=document.createElement('label');l.className='pgToggle';l.title='필요 승률 15% 이하에서 이길 가능성이 있는 패를 폴드하면 한 번 확인합니다';l.innerHTML='<input type="checkbox" id="potGuardOn"> 가격 확인';cw.appendChild(l);
+  const c=$('potGuardOn');c.checked=v69GuardOn();c.addEventListener('change',()=>{try{localStorage.setItem(POT_GUARD_KEY,c.checked?'on':'off')}catch{};if(!c.checked)v69Hide()})}
+}
+function v69Hide(){const g=$('potGuard');if(g)g.hidden=true;if(S)S.v69Guard=null}
+function v69Resolve(a){
+ const info=S?.v69Guard;v69Hide();if(!info||!S||S.handOver||S.actor!==S.hero)return;
+ const n=S.decisions.length;v69PrevAct(S.hero,a,true);
+ const d=S.decisions[n];if(d)d.potGuard={shown:true,choice:a,req:+info.req.toFixed(3),eq:info.eq==null?null:+info.eq.toFixed(3)};
+ S.v69Stats=S.v69Stats||{shown:0,call:0,fold:0};S.v69Stats[a==='call'?'call':'fold']++;
+}
+const v69PrevAct=act;
+act=function(seat,a,hero){
+ if(hero&&a==='fold'&&S&&!S.v69Bypass&&v69GuardOn()){
+  const info=v69GuardInfo();
+  if(info){
+   v69EnsureGuardUI();S.v69Guard=info;S.v69Stats=S.v69Stats||{shown:0,call:0,fold:0};S.v69Stats.shown++;
+   const pct=x=>Math.round(x*100)+'%';
+   $('potGuardText').innerHTML=`<b>싼 가격 확인</b> · 팟 ${info.odds.toFixed(1)} : 1 → 콜에 필요한 승률 <b>${pct(info.req)}</b>`+(info.eq!=null?` · 공개 정보 기준 추정 <b>${pct(info.eq)}</b>`:'')+`<br><span>${info.made?'메이드 패가 있으면':'큰 드로우가 있으면'} 이 가격은 대부분 콜입니다. 상대 라인이 정말 넛만 남기는지 한 번 더 보세요.</span>`;
+   $('potGuard').hidden=false;return;
+  }
+ }
+ if(hero&&$('potGuard')&&!$('potGuard').hidden)v69Hide();
+ return v69PrevAct(seat,a,hero);
+};
+PokerOSDebug.act=act;
+const v69NewHand=newHand;newHand=function(){v69Hide();return v69NewHand.apply(this,arguments)};
+// --- 쇼다운 공개 패 기록 ---
+function v69PfLine(seat){
+ const pf=(S.publicActionHistory||[]).filter(a=>a.street==='preflop');let raised=false;const out=[];
+ for(const a of pf){if(a.seat===seat){const s=a.semantic;out.push(s==='Call'?(raised?'콜':(a.toCall>0?'림프':'체크')):s==='Check'?'체크':s==='Raise'?'레이즈':s==='Fold'?'폴드':'캡')}if(['Raise','3-bet','Cap'].includes(a.semantic))raised=true}
+ return out.join('→')||'블라인드';
+}
+const v69Showdown=showdown;
+showdown=function(){
+ try{const ps=live();S.v69Reveals=ps.filter(p=>p.seat!==S.hero).map(p=>{const e=ev7([...p.hole,...S.board]);const code=holeCode(p.hole);return {name:p.name,pos:pos(p.seat),hole:p.hole.map(c=>c.r+c.s).join(' '),code,tier:pfTier(code),line:v69PfLine(p.seat),made:V69_MADE[e[0]]||'',seat:p.seat}})}catch(e){S.v69Reveals=null}
+ return v69Showdown.apply(this,arguments);
+};
+const v69Save=saveCurrentHand;
+saveCurrentHand=function(){
+ const before=!S||S.historySaved;v69Save.apply(this,arguments);if(before||!S||!S.historySaved)return;
+ try{const rv=(S.v69Reveals||[]).map(x=>({...x,won:(S.winnerSeats||[]).includes(x.seat)}));S.v69Reveals=null;
+  const hist=loadHistory(),last=hist[hist.length-1];if(!last||last.sessionId!==S.sessionId)return;
+  if(rv.length&&S.showdownReached){last.showdownReveals=rv;saveHistory(hist)}
+  const c=JSON.parse(localStorage.getItem(COACH_KEY)||'null');if(!c)return;
+  const hr=c.hands[c.hands.length-1];if(hr&&hr.t===last.savedAt&&rv.length&&S.showdownReached)hr.rv=rv.map(({seat,...x})=>x);
+  const pgs=(last.decisions||[]).filter(d=>d.potGuard);if(pgs.length)for(const r of c.decisions)if(r.t===last.savedAt){const d=pgs.find(x=>x.street===r.st);if(d)r.pg=d.potGuard.choice}
+  localStorage.setItem(COACH_KEY,JSON.stringify(c));
+ }catch(e){console.error('v69 save',e)}
+};
+// --- 코칭 행에 승률 지표 ---
+function v69ModelCheck(d,row){
+ const eq=Number(d.estimatedEquity),tc=Number(d.toCall)||0,pot=Number(d.pot)||0,req=tc>0?tc/(pot+tc):0,sem=row.act,pa=Number(d.playersActive)||0;
+ if(!Number.isFinite(eq)||d.street==='preflop')return null;
+ if(tc>0&&sem==='Fold'&&req<=.15&&eq-req>=.10)return {k:'cheapfold',eq,req,ev:eq*(pot+tc)-tc};
+ if(tc>0&&sem==='Call'&&req>=.2&&eq<req-.10)return {k:'loosecall',eq,req,ev:eq*(pot+tc)-tc};
+ if(tc===0&&sem==='Check'&&eq>=.65&&['turn','river'].includes(d.street))return {k:'valuecheck',eq,req:0,ev:null};
+ if(tc===0&&['Bet','Raise'].includes(sem)&&pa>=3&&eq<.25)return {k:'mwbet',eq,req:0,ev:null};
+ return null;
+}
+const v69Rows=coachRowsForHand;
+coachRowsForHand=function(h){
+ const rows=v69Rows(h),ds=h.decisions||[];
+ rows.forEach((row,i)=>{const d=ds[i];if(!d||d.street==='preflop')return;
+  if(Number.isFinite(Number(d.estimatedEquity)))row.eq=Math.round(Number(d.estimatedEquity)*100)/100;
+  if(Number(d.toCall)>0)row.req=Math.round(potOddsPct(d.toCall,d.pot)*1000)/1000;
+  if(d.potGuard)row.pg=d.potGuard.choice;
+  const mc=v69ModelCheck(d,row);if(mc){row.mc=mc.k;if(mc.ev!=null)row.mev=Math.round(mc.ev);Object.assign(row,{board:d.board||'',fboard:h.board||'',pot:Number(d.pot)||0})}
+ });
+ return rows;
+};
+const v69HandRow=coachHandRow;
+coachHandRow=function(h){const r=v69HandRow(h);if(Array.isArray(h.showdownReveals)&&h.showdownReveals.length){r.rv=h.showdownReveals.map(({seat,...x})=>x);r.board=h.board||''}return r};
+const v69Build=buildCoachSnapshot;
+buildCoachSnapshot=function(){let old=null;try{old=JSON.parse(localStorage.getItem(COACH_KEY)||'null')}catch{}const s=v69Build();if(s)s.v69=1;
+ if(s){if(old?.sessions)s.sessions={...old.sessions,...(s.sessions||{})};try{localStorage.setItem(COACH_KEY,JSON.stringify(s))}catch{}}return s};
+// --- 30만 TAG 아이소 레이즈 보정 ---
+const v69RangePF=kangwonRangePreflop;
+kangwonRangePreflop=function(p,tc,k){
+ if(!S||S.cfg.label!=='30만'||p.type!=='Tight-Aggressive'||p.capper)return v69RangePF(p,tc,k);
+ const save=KANGWON_PF_STYLE['Tight-Aggressive'];KANGWON_PF_STYLE['Tight-Aggressive']={...save,rais:[4,4,4]};
+ try{return v69RangePF(p,tc,k)}finally{KANGWON_PF_STYLE['Tight-Aggressive']=save}
+};
+try{v69EnsureGuardUI()}catch(e){}
+try{const c=JSON.parse(localStorage.getItem(COACH_KEY)||'null');if(!c||c.v69!==1)buildCoachSnapshot()}catch(e){}
+Object.assign(PokerOSDebug,{patch:'6.9-candidate-20261117-pot-guard',v69GuardInfo,v69ModelCheck,coachRowsForHand,coachHandRow,buildCoachSnapshot,kangwonRangePreflop,showdown,saveCurrentHand,newHand});
 })();
 </script>
 </body>

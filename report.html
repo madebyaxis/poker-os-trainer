@@ -102,10 +102,12 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:#1d2a20}
   <div id="coachEmpty" class="card empty" hidden></div>
   <div class="card"><h2>한눈에 판정</h2><div class="desc" id="verdictDesc"></div><div id="verdict" class="verdict"></div></div>
   <div class="card"><h2>지금 집중할 것</h2><div class="desc">현재 정본(Strategy v1.1)으로 다시 채점해 틀린 결정을 유형별로 묶었습니다. 많이·최근에·비싸게 틀린 순서입니다.</div><div id="focus"></div></div>
+  <div class="card"><h2>가격·밸류 점검 <span class="note">모델 기준 · 채점 제외</span></h2><div class="desc">정본이 없는 포스트플랍 구간을 공개 정보 기준 추정 승률로 다시 봅니다. 30만은 턴·리버 벳이 3만이라 팟 대비 매우 쌉니다. 필요 승률 15% 이하에서 추정 승률이 10%p 이상 높은데 접은 결정이 대표적인 누수입니다.</div><div id="mcheck"></div></div>
   <div class="card"><h2>잘하고 있는 것</h2><div class="desc">정본 채점 표본 8개 이상, 일치율 높은 상황입니다. 그대로 유지하면 됩니다.</div><div id="strengths"></div></div>
   <div class="card"><h2>교정할 핸드</h2><div class="desc">정본과 다르게 친 결정입니다. "모델 참고"는 정본이 없는 구간에서 엔진 권고와 달랐던 결정이라 채점에는 넣지 않습니다.</div>
-   <div class="chips" id="fixChips"><button data-v="canon" class="on">정본 교정</button><button data-v="hi">고확신 오류</button><button data-v="pre">프리플랍</button><button data-v="post">포스트플랍</button><button data-v="model">모델 참고</button></div>
+   <div class="chips" id="fixChips"><button data-v="canon" class="on">정본 교정</button><button data-v="hi">고확신 오류</button><button data-v="pre">프리플랍</button><button data-v="post">포스트플랍</button><button data-v="model">모델 참고</button><button data-v="cheap">싼 가격 폴드</button><button data-v="mc">밸류·벳 점검</button></div>
    <div id="fixList"></div><div class="row"><button id="fixMore" hidden>더 보기</button><span class="note" id="fixNote"></span></div></div>
+  <div class="card"><h2>상대 쇼다운 공개 패</h2><div class="desc">쇼다운에서 실제로 보여준 패입니다(현장에서도 보이는 정보). 같은 프리플랍 라인이 어떤 패였는지 쌓아 두면 상대 범위를 읽는 감이 생깁니다. 등급 1=QQ+/AK · 2=TT+/AQ/AJs/KQs · 3=77+/AT+/KQo 등 · 4=작은 페어·수딧 커넥터 · 5=루즈 플레이어 패 · 6=정크.</div><div id="sdSummary"></div><div id="sdList"></div><div class="row"><button id="sdMore" hidden>더 보기</button></div></div>
   <div class="card"><h2>스트리트별 정확도</h2><div class="tblwrap"><table id="streetTable"></table></div></div>
   <div class="card"><h2>약점 버킷 · 복습 일정</h2><div class="desc">Adaptive가 출제 비중을 정할 때 쓰는 약점 기록입니다. 오답률이 높고 복습 시점이 지난 버킷이 먼저 나옵니다.</div><div class="tblwrap"><table id="bucketTable"></table></div></div>
   <div class="card" id="debriefCard" hidden><h2>세션 디브리프</h2><div id="debrief" class="debrief"></div></div>
@@ -405,16 +407,17 @@ function renderCoach(){
  const top=[...groups.values()].map(g=>({...g,score:g.score+g.leak*.5})).sort((a,b)=>b.score-a.score).slice(0,3);
  const modelTop=(()=>{const m=new Map();for(const r of model){const [k,l]=patternOf({...r,rec:r.orec});m.set(l,(m.get(l)||0)+1)}return [...m.entries()].sort((a,b)=>b[1]-a[1])[0]})();
  $('focus').innerHTML=(top.length?top.map((g,i)=>{const tip=Object.entries(g.tips).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';const l=g.last;return `<div class="focus"><div class="ft">${i+1}. ${g.label} · ${g.n}회</div><div class="fm">${g.why}${g.leak?` · 누수 위험 약 ${g.leak.toFixed(1)}BB`:''}</div>${tip?`<div class="fx">👉 ${tip}</div>`:''}${l?`<div class="fm" style="margin-top:6px">최근 예: ${l.pos} ${cardsHtml(l.hole)} · ${situationOf(l)} · 내 ${ACT_KO[l.act]||l.act} → 정답 ${ACT_KO[l.rec]||l.rec}</div>`:''}</div>`}).join(''):`<div class="focus strength"><div class="ft">정본 기준으로 교정할 반복 오류가 없습니다.</div><div class="fm">${canon.length<20?'표본이 아직 적습니다. 핸드를 더 쌓으면 정확해집니다.':'지금 기준을 그대로 유지하세요.'}</div></div>`)+(modelTop?`<p class="note">모델 참고(비채점) 불일치 ${model.length}건 · 가장 많은 유형: ${modelTop[0]} ${modelTop[1]}건</p>`:'');
+ renderModelChecks(dec);renderReveals(hands);
  // 잘하는 것
  const sit=new Map();for(const r of canon){const k=situationOf(r),g=sit.get(k)||{k,n:0,ok:0};g.n++;if(r.cls==='good')g.ok++;sit.set(k,g)}
  const good=[...sit.values()].filter(g=>g.n>=8&&g.ok/g.n>=.85).sort((a,b)=>(b.ok/b.n)*Math.log(b.n)-(a.ok/a.n)*Math.log(a.n)).slice(0,4);
  $('strengths').innerHTML=good.length?good.map(g=>`<div class="focus strength"><div class="ft">${g.k} · ${Math.round(100*g.ok/g.n)}%</div><div class="fm">${g.ok}/${g.n} 정본 일치</div></div>`).join(''):'<p class="note">아직 표본 8개 이상·일치율 85% 이상인 상황이 없습니다.</p>';
  // 교정할 핸드
- let list=fixFilter==='model'?model:wrong;
+ const mcRows=dec.filter(r=>r.mc);let list=fixFilter==='model'?model:fixFilter==='cheap'?mcRows.filter(r=>r.mc==='cheapfold'):fixFilter==='mc'?mcRows.filter(r=>r.mc!=='cheapfold'):wrong;
  if(fixFilter==='hi')list=wrong.filter(r=>r.conf==='high');else if(fixFilter==='pre')list=wrong.filter(r=>r.st==='preflop');else if(fixFilter==='post')list=wrong.filter(r=>r.st!=='preflop');
  list=[...list].sort((a,b)=>String(b.t).localeCompare(String(a.t)));
  document.querySelectorAll('#fixChips button').forEach(b=>b.classList.toggle('on',b.dataset.v===fixFilter));
- $('fixList').innerHTML=list.slice(0,fixShow).map(r=>{const m=fixFilter==='model',rec=m?r.orec:r.rec;
+ $('fixList').innerHTML=list.slice(0,fixShow).map(r=>{if(r.mc&&(fixFilter==='cheap'||fixFilter==='mc'))return mcHandHtml(r);const m=fixFilter==='model',rec=m?r.orec:r.rec;
   const sitTxt=r.st==='preflop'?`${FACING_KO[r.fc]||r.fc}${r.lp?` · 림퍼 ${r.lp}명`:''}${r.pr?` · 레이저 ${r.pr}`:''}${r.tc?` · 추가 ${r.tc.toLocaleString()}원`:''}`:`보드 ${cardsHtml(r.board)} · ${r.pa??'-'}명 · ${r.tc?`추가 ${r.tc.toLocaleString()}원`:'먼저 액션'}${r.hc?` · ${r.hc}`:''}`;
   return `<div class="hand"><div class="hh"><span class="cards">${cardsHtml(r.hole)}</span><span class="meta">${String(r.t).slice(5,16).replace('T',' ')} · ${r.lim} · ${r.pos} · ${STREET_KO[r.st]}</span><span class="meta ${cls(r.pl)}" style="margin-left:auto">핸드 ${fmtWon(r.pl)}</span></div>
   <div class="meta">${sitTxt}</div>
@@ -430,6 +433,46 @@ function renderCoach(){
  // 디브리프
  const db=sidFilter&&snap.sessions?.[sidFilter];if(db?.html){$('debriefCard').hidden=false;$('debrief').innerHTML=db.html}
 }
+
+const MC_META={
+ cheapfold:{label:'싼 가격에 이길 수 있는 패 폴드',rec:'Call',why:'필요 승률 15% 이하인데 추정 승률이 10%p 이상 높았습니다. 리밋은 팟이 크고 벳이 작아, 원페어·드로우로도 대부분 콜이 맞습니다.',tip:'팟 ÷ 콜 금액을 먼저 계산하세요. 7:1 이상이면 "이 라인에 내가 이기는 패가 1/8이라도 있나?"만 묻습니다.'},
+ loosecall:{label:'비싼 가격에 약한 콜',rec:'Fold',why:'필요 승률 20% 이상인데 추정 승률이 10%p 이상 낮았습니다.',tip:'벳이 커지는 스트리트(턴)에서 상대 라인이 강해지면 정리합니다.'},
+ valuecheck:{label:'턴·리버 밸류 체크',rec:'Bet',why:'추정 승률 65% 이상에서 먼저 체크했습니다. 페어 보드 오버페어처럼 "무서워 보이지만 이기는" 패가 많습니다.',tip:'콜해 줄 더 약한 패(한 페어·드로우 미스)가 있으면 벳합니다.'},
+ mwbet:{label:'멀티웨이 약한 벳',rec:'Check',why:'3명 이상인데 추정 승률 25% 미만으로 벳했습니다. 멀티웨이는 블러프가 거의 통하지 않습니다.',tip:'3명 이상이면 블러프는 거의 빼고, 밸류와 강한 드로우로만 벳합니다.'}
+};
+function mcHandHtml(r){const M=MC_META[r.mc]||{},p=x=>Math.round(x*100)+'%';
+ const price=r.req?`팟 ${(r.pot/r.tc).toFixed(1)}:1 · 필요 ${p(r.req)} · 추정 ${p(r.eq)}`:`추정 ${p(r.eq)}`;
+ return `<div class="hand"><div class="hh"><span class="cards">${cardsHtml(r.hole)}</span><span class="meta">${String(r.t).slice(5,16).replace('T',' ')} · ${r.lim} · ${r.pos} · ${STREET_KO[r.st]}</span><span class="meta ${cls(r.pl)}" style="margin-left:auto">핸드 ${fmtWon(r.pl)}</span></div>
+ <div class="meta">보드 ${cardsHtml(r.board)} · ${r.pa??'-'}명 · ${r.tc?`추가 ${r.tc.toLocaleString()}원`:'먼저 액션'}${r.hc?` · ${r.hc}`:''}</div>
+ <div class="ar">내 선택 <b class="neg">${ACT_KO[r.act]||r.act}</b> → 모델 <b class="pos">${ACT_KO[M.rec]||M.rec}</b> <span class="badge b-warn">${price}</span>${r.pg?` <span class="badge b-na">가격 확인 후 ${ACT_KO[r.pg==='call'?'Call':'Fold']}</span>`:''}</div>
+ <div class="why"><b>${M.label}</b> · ${M.why}${r.mev!=null&&r.mc==='cheapfold'?` 이 스트리트만 봐도 콜 기대값 약 ${(r.mev/(r.bb||20000)).toFixed(1)}BB.`:''}</div>${r.fboard&&r.fboard!==r.board?`<div class="meta">최종 보드 ${cardsHtml(r.fboard)}</div>`:''}</div>`}
+function renderModelChecks(dec){
+ const post=dec.filter(r=>r.st!=='preflop'),cheapOpp=post.filter(r=>r.tc>0&&r.req!=null&&r.req<=.15&&r.eq!=null),cheapF=post.filter(r=>r.mc==='cheapfold');
+ const items=[
+  {k:'cheapfold',n:cheapF.length,den:cheapOpp.length,denTxt:'필요 승률 15% 이하 벳 직면',bad:x=>x>.12,warn:x=>x>.05,leak:cheapF.reduce((a,r)=>a+Math.max(0,(r.mev||0)/(r.bb||20000)),0)},
+  {k:'valuecheck',n:post.filter(r=>r.mc==='valuecheck').length,den:post.filter(r=>['turn','river'].includes(r.st)&&!r.tc&&r.eq!=null&&r.eq>=.65).length,denTxt:'턴·리버 먼저 액션, 추정 65%+',bad:x=>x>.35,warn:x=>x>.2},
+  {k:'mwbet',n:post.filter(r=>r.mc==='mwbet').length,den:post.filter(r=>!r.tc&&(r.pa||0)>=3&&['Bet','Raise'].includes(r.act)).length,denTxt:'3명+ 팟에서 먼저 벳',bad:x=>x>.3,warn:x=>x>.15},
+  {k:'loosecall',n:post.filter(r=>r.mc==='loosecall').length,den:post.filter(r=>r.tc>0&&r.req!=null&&r.req>=.2&&r.act==='Call').length,denTxt:'필요 승률 20%+ 에서 콜',bad:x=>x>.4,warn:x=>x>.2}
+ ];
+ const pg=post.filter(r=>r.pg),pgC=pg.filter(r=>r.pg==='call').length;
+ $('mcheck').innerHTML=items.map(it=>{const M=MC_META[it.k],rate=it.den?it.n/it.den:0,b=it.den<6?'na':it.bad(rate)?'bad':it.warn(rate)?'warn':'good';
+  return vrow(b,M.label,`${it.denTxt} ${it.den}회 중 ${it.n}회${it.leak?` · 놓친 기대값 약 ${it.leak.toFixed(1)}BB`:''}${it.n?` · 👉 ${M.tip}`:''}`,it.den?Math.round(rate*100)+'%':'-')}).join('')
+  +(pg.length?`<p class="note">가격 확인 창 ${pg.length}회 → 콜로 바꿈 ${pgC}회 · 그래도 폴드 ${pg.length-pgC}회</p>`:'')
+  +(cheapF.length?`<p class="note">아래 "교정할 핸드"에서 <b>싼 가격 폴드</b>·<b>밸류·벳 점검</b>을 누르면 해당 핸드를 봅니다.</p>`:'');
+}
+let sdShow=12;
+function lineKey(l){const f=String(l||'').split('→');if(f.includes('캡'))return '캡 포함';if(f[0]==='레이즈')return '먼저 레이즈';if(f.includes('레이즈'))return '림프 후 레이즈';if(f[0]==='림프'&&f.includes('콜'))return '림프→레이즈에 콜';if(f[0]==='림프')return '림프';if(f[0]==='콜')return '레이즈에 콜드콜';return '블라인드·체크'}
+function renderReveals(hands){
+ const R=[];for(const h of hands)for(const x of (h.rv||[]))R.push({...x,t:h.t,lim:h.lim,board:h.board,tp:h.tp});
+ if(!R.length){$('sdSummary').innerHTML='<p class="note">아직 기록이 없습니다. v6.9부터 쇼다운에 공개된 상대 패를 저장합니다.</p>';$('sdList').innerHTML='';$('sdMore').hidden=true;return}
+ const g=new Map();for(const x of R){const k=lineKey(x.line),a=g.get(k)||{k,n:0,t:[0,0,0,0,0,0,0],ex:[]};a.n++;a.t[x.tier||6]++;if(a.ex.length<4)a.ex.push(x.code);g.set(k,a)}
+ const rows=[...g.values()].sort((a,b)=>b.n-a.n);
+ $('sdSummary').innerHTML='<div class="tblwrap"><table><thead><tr><th>프리플랍 라인</th><th>공개</th><th>등급1~2</th><th>등급3</th><th>등급4</th><th>등급5</th><th>정크</th><th>예</th></tr></thead><tbody>'+rows.map(a=>`<tr><td>${a.k}</td><td>${a.n}</td><td>${pct(a.t[1]+a.t[2],a.n)}</td><td>${pct(a.t[3],a.n)}</td><td>${pct(a.t[4],a.n)}</td><td>${pct(a.t[5],a.n)}</td><td>${pct(a.t[6],a.n)}</td><td>${a.ex.join(' ')}</td></tr>`).join('')+'</tbody></table></div>';
+ const L=[...R].sort((a,b)=>String(b.t).localeCompare(String(a.t)));
+ $('sdList').innerHTML=L.slice(0,sdShow).map(x=>`<div class="hand"><div class="hh"><span class="cards">${cardsHtml(x.hole)}</span><span class="meta">${x.name||''} · ${x.pos||''} · ${x.line}</span><span class="meta ${x.won?'pos':''}" style="margin-left:auto">${x.made}${x.won?' · 승':''}</span></div><div class="meta">${String(x.t).slice(5,16).replace('T',' ')} · ${x.lim} · 보드 ${cardsHtml(x.board)}</div></div>`).join('');
+ $('sdMore').hidden=L.length<=sdShow;
+}
+document.getElementById('sdMore').addEventListener('click',()=>{sdShow+=12;renderCoach()});
 document.getElementById('fixChips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;fixFilter=b.dataset.v;fixShow=10;renderCoach()});
 document.getElementById('fixMore').addEventListener('click',()=>{fixShow+=10;renderCoach()});
 document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;prefs.tab=b.dataset.v;savePrefs();render()});
