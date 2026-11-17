@@ -249,12 +249,22 @@ aside.side.stash{display:none!important}
 @media (min-width:1100px) and (max-height:900px){.center{top:40%}}
 .potRow{display:flex;align-items:flex-end;gap:8px;order:-2}.center .potRow #pot{order:0}.center .potRow .potStacks{order:0}
 @media (max-width:650px){.center{top:45%}}
+/* v6.7 오른쪽 레일 */
+@media (min-width:1100px){
+ .rail .dockTabs{flex:0 0 auto}
+ .rail .playDock{overflow:hidden}
+ .rail .dockPane{overflow:auto;padding:8px}
+ .rail .dockPane[data-p="log"]{display:flex;flex-direction:column}
+ .rail .dockPane[data-p="log"][hidden]{display:none}
+ .rail .log{height:auto;flex:1;min-height:0;font-size:12px}
+ .rail .liveBar{flex:0 0 auto}
+}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.6.1 Candidate</h1><div class="sub">2026-11-17 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.7 Candidate</h1><div class="sub">2026-11-17 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -4867,6 +4877,15 @@ function v65PotLine(){
 {const pot=$('pot');if(pot&&!pot.parentElement.classList.contains('potRow')){const row=document.createElement('div');row.className='potRow';pot.before(row);row.appendChild(pot);const ps=$('potStacks');if(ps)row.appendChild(ps)}}
 const v65Render=render;render=function(reveal=false){v65Render(reveal);v65PotLine()};
 Object.assign(PokerOSDebug,{patch:'6.5-candidate-20261117-pot-visible',render});
+// ===== Patch 2026-11-17 v6.7: 오른쪽 레일(핸드 리뷰·액션 로그) 보이기 =====
+// 레일 높이가 화면보다 길어 아래가 잘렸고, 탭 줄이 눌려 리뷰 카드 밑으로 겹쳤다. 로그는 높이 310px 고정에 옛 줄부터 보였다.
+function v67FitRail(){const r=document.querySelector('.rail');if(!r)return;if(!window.matchMedia('(min-width:1100px)').matches){r.style.maxHeight='';r.style.height='';return}const top=Math.max(8,r.getBoundingClientRect().top);const h=Math.max(320,window.innerHeight-top-10);r.style.maxHeight=h+'px';r.style.height=h+'px'}
+const v67Show=v54ShowTab;v54ShowTab=function(t){v67Show(t);if(t==='log'){const l=$('log');if(l)l.scrollTop=l.scrollHeight}};
+// 탭 버튼은 v5.4에서 v54ShowTab 바인딩으로 연결돼 있어 교체가 그대로 적용된다.
+window.addEventListener('resize',()=>setTimeout(v67FitRail,130));window.addEventListener('scroll',()=>v67FitRail(),{passive:true});
+const v67Render=render;render=function(reveal=false){v67Render(reveal);v67FitRail()};
+v67FitRail();
+Object.assign(PokerOSDebug,{patch:'6.7-candidate-20261117-rail-fit',v67FitRail,render});
 })();
 </script>
 </body>

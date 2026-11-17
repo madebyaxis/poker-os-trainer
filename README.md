@@ -3,11 +3,15 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v6.6.1 Candidate** (2026-11-17 내 좌석 카드 원복 · 팟 칩 옆으로) — v6.6 기반
+- Trainer: **v6.7 Candidate** (2026-11-17 오른쪽 레일 보이기) — v6.6.1 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.7 변경점 (2026-11-17) · 오른쪽 레일(핸드 리뷰·액션 로그)
+- 레일 높이가 화면보다 길어 아래가 잘렸고, 탭 줄이 눌려 리뷰 카드 밑에 겹쳤다. 로그는 높이 310px 고정에 탭을 바꾸면 옛 줄부터 보였다.
+- 레일 높이를 화면 남은 높이에 맞추고(스크롤·리사이즈 시 재계산), 탭 줄은 줄어들지 않게, 리뷰·로그는 레일 안에서 따로 스크롤. 로그는 레일 높이를 다 쓰고 탭을 열면 최신 줄로 이동.
 
 ## v6.6.1 변경점 (2026-11-17)
 - Founder 피드백: 내 좌석 카드는 예전 크기가 더 잘 보이고 금색 테두리가 어색하다 → 내 좌석 카드 크기·테두리를 v6.5로 되돌림.
