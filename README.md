@@ -3,11 +3,15 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-16 기준)
-- Trainer: **v6.2 Candidate** (2026-11-17 세션 리포트 창) — v6.1 기반
+- Trainer: **v6.3 Candidate** (2026-11-17 다음 핸드 막힘 수정) — v6.2 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.3 변경점 (2026-11-17) · '다음 핸드' 막힘 수정
+- **버그:** 자동 진행이 저절로 꺼지는 상황(세션 종료·종료 예약, 스택 0 리바인 대기, 훈련 체크포인트)에서는 '다음 핸드' 버튼이 비활성이라, 자동 진행을 다시 켜고 눌러도 아무 일이 없었다.
+- **수정:** 핸드가 끝난 상태면 버튼은 항상 눌리고, 이름과 동작이 막힌 이유에 맞게 바뀐다: '새 세션'(세션 리포트 창) / '리바인 후 다음 핸드'(리바인 후 바로 진행) / '훈련 체크 먼저'(훈련 탭을 열고 안내). 자동 진행을 다시 켜면 종료 예약은 취소되고, 리바인 대기면 리바인 후 진행한다.
 
 ## v6.2 변경점 (2026-11-17) · 세션 리포트 창 (버그 수정)
 - **버그:** '세션 리포트'를 누르면 세션 종료가 바로 예약되고 자동 진행이 꺼졌다. 디브리프는 v5.4에서 숨긴 옛 오른쪽 패널에 그려져 화면에 아무것도 안 나왔고, 종료 뒤에는 이어서 칠 방법이 없어 게임이 멈춘 것처럼 보였다.

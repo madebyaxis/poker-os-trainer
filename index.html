@@ -218,7 +218,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.2 Candidate</h1><div class="sub">2026-11-17 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.3 Candidate</h1><div class="sub">2026-11-17 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -4745,6 +4745,39 @@ endSession=function(manual=true){const was=S&&S.sessionEnded;v62End(manual);if(S
 const v62Render=render;render=function(reveal=false){v62Render(reveal);const b=$('endSession');if(b&&S)b.disabled=false};
 const v62Start=startSession;startSession=function(){const before=S?.sessionId;v62Start();if(S&&S.sessionId!==before){v62Close();if(/세션 종료/.test($('hint')?.textContent||''))$('hint').textContent=''}};
 Object.assign(PokerOSDebug,{patch:'6.2-candidate-20261117-session-report-modal',v62Open,v62Close,endSession,startSession,render});
+// ===== Patch 2026-11-17 v6.3: '다음 핸드'가 안 눌리는 상황 정리 =====
+// 자동 진행이 저절로 꺼지는 경우(세션 종료/종료 예약, 스택 0 리바인 대기, 훈련 체크포인트)에는 '다음 핸드' 버튼이 비활성이라
+// 자동 진행을 다시 켜고 눌러도 아무 일이 없었다. 이제 버튼은 항상 눌리고, 막힌 이유에 맞는 동작을 바로 한다.
+function v63NextLabel(){
+ if(!S||!S.handOver)return '다음 핸드';
+ if(S.sessionEnded)return '새 세션';
+ if(S.trainingGateActive)return '훈련 체크 먼저';
+ if(S.heroNeedsRebuy)return '리바인 후 다음 핸드';
+ return '다음 핸드';
+}
+function v63Next(){
+ if(autoTimer){clearTimeout(autoTimer);autoTimer=null}
+ if(!S){startSession();return}
+ if(!S.handOver){$('hint').textContent='현재 핸드가 진행 중입니다. 끝나면 다음 핸드로 넘어갑니다.';return}
+ if(S.sessionEnded){v62Open();return}
+ if(S.trainingGateActive){v54ShowTab('train');$('hint').textContent='훈련 체크(Decision Drill·상대 읽기)를 끝내면 다음 핸드가 진행됩니다. 오른쪽(모바일은 아래) "훈련 체크" 탭을 확인하세요.';return}
+ if(S.heroNeedsRebuy){heroRebuy();if(S.heroNeedsRebuy)return}
+ newHand();
+}
+{const b=$('next');if(b){const c=b.cloneNode(true);b.replaceWith(c);c.addEventListener('click',v63Next)}}
+// 자동 진행을 켰을 때: 종료 예약은 취소(계속 치겠다는 뜻), 리바인 대기면 리바인 후 진행, 종료된 세션이면 리포트 창.
+$('autoToggle').addEventListener('click',()=>{
+ if(!S)return;
+ if(S.heroNeedsRebuy&&S.handOver){heroRebuy();autoNext=true;updateAutoButton();scheduleNextHand();$('hint').textContent='리바인 후 자동 진행을 다시 켰습니다.';return}
+ if(!autoNext)return;
+ if(S.sessionEnded){v62Open();return}
+ if(S.endAfterHand){S.endAfterHand=false;$('hint').textContent='자동 진행을 켜서 세션 종료 예약을 취소했습니다.';persistSession()}
+ if(S.handOver)scheduleNextHand();
+});
+// 다른 코드가 버튼을 비활성으로 바꿔도(체크포인트·리바인 대기·세션 종료) 핸드가 끝난 상태면 다시 눌리게 둔다.
+{const b=$('next');if(b)new MutationObserver(()=>{if(S&&S.handOver&&b.disabled)b.disabled=false;const t=v63NextLabel();if(b.textContent!==t)b.textContent=t}).observe(b,{attributes:true,attributeFilter:['disabled']})}
+const v63Render=render;render=function(reveal=false){v63Render(reveal);const b=$('next');if(!b||!S)return;b.disabled=!S.handOver;b.textContent=v63NextLabel()};
+Object.assign(PokerOSDebug,{patch:'6.3-candidate-20261117-next-button-unblock',v63Next,render});
 })();
 </script>
 </body>
