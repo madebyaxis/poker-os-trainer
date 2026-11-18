@@ -148,6 +148,25 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:#1d2a20}
   <div class="row"><button id="exportCsv">세션 CSV 내보내기</button><span class="note" id="tableNote"></span></div>
  </div>
 
+ <div class="card" id="obsCard">
+  <h2>현장 관찰 vs 트레이너</h2>
+  <div class="desc">회장님이 현장에서 본 테이블 모습을 적어 두면 트레이너 상대 모델과 나란히 비교합니다. 값은 이 브라우저에만 저장됩니다.</div>
+  <div class="tblwrap"><table id="obsCmp"></table></div>
+  <div id="obsList"></div>
+  <details style="margin-top:8px"><summary>현장 관찰 추가</summary>
+   <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+    <label class="ctl">날짜<input id="obDate" type="date" style="width:140px"></label>
+    <label class="ctl">플랍 보는 평균 인원<input id="obFlop" type="number" min="1" max="9" step="0.5" style="width:80px"></label>
+    <label class="ctl">림프 있는 팟 %<input id="obLimp" type="number" min="0" max="100" step="5" style="width:80px"></label>
+    <label class="ctl">레이즈 있는 팟 %<input id="obRaise" type="number" min="0" max="100" step="5" style="width:80px"></label>
+    <label class="ctl">3벳·캡 횟수/시간<input id="obCap" type="number" min="0" max="60" step="1" style="width:80px"></label>
+    <label class="ctl">캡 주도 인물<select id="obCapP"><option value="">모름</option><option value="있음">특정 인물이 자주</option><option value="없음">고르게</option></select></label>
+    <label class="ctl" style="flex:1 1 200px">메모<input id="obNote" type="text" style="width:100%"></label>
+    <button class="primary" id="obAdd">추가</button>
+   </div>
+  </details>
+ </div>
+
  <div class="card" id="oppCard">
   <h2>상대별 핸드 리뷰</h2>
   <div class="desc" id="oppDesc"></div>
@@ -336,7 +355,7 @@ function render(){
  $('modeCtl').style.display=$('tpCtl').style.display=$('hphCtl').style.display=prefs.src==='trainer'?'':'none';
  const sessions=currentSessions(),pts=cumulative(sessions);
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===prefs.tab));document.querySelectorAll('section[data-tab]').forEach(x=>x.hidden=x.dataset.tab!==prefs.tab);
- renderCoach();renderKpis(sessions,pts);renderCurve(sessions,pts);renderBuckets(sessions);renderInsights(sessions);renderTable(sessions);renderDetail();renderOpp();
+ renderCoach();renderKpis(sessions,pts);renderCurve(sessions,pts);renderBuckets(sessions);renderInsights(sessions);renderTable(sessions);renderDetail();renderObs();renderOpp();
  const n=loadReal().length;$('realStatus').textContent=n?`실전 세션 ${n}개 저장됨`:'저장된 실전 기록 없음';
  if(prefs.src==='real'&&!n)$('curve').innerHTML='<div class="empty">아직 실전 기록이 없습니다. 아래 "실전 기록 불러오기"에서 파일을 불러오세요.</div>';
 }
@@ -615,6 +634,44 @@ function renderOpp(){
 const P0=(a,b)=>b?Math.round(100*a/b)+'%':'-';
 $('oppChips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;oppMode=b.dataset.v;oppSel='';renderOpp()});
 $('oppTable').addEventListener('click',e=>{const tr=e.target.closest('tr[data-k]');if(!tr)return;oppSel=oppSel===tr.dataset.k?'':tr.dataset.k;renderOpp()});
+
+// ----- 현장 관찰 -----
+const OBS_KEY='poker_os_field_obs_v1';
+function loadObs(){let a=null;try{a=JSON.parse(localStorage.getItem(OBS_KEY)||'null')}catch{}
+ if(!Array.isArray(a)){a=[{id:'B-20261118',date:'2026-11-18',flop:4.5,flopRange:'4~5명',limp:'꽤 많음',raise:'프리플랍 레이즈 꽤 많음',cap:'평균 수준 · 특정 공격적 인물이 자주',capP:'있음',note:'회장님 구두 관찰(수치 아님)'}];try{localStorage.setItem(OBS_KEY,JSON.stringify(a))}catch{}}return a}
+function saveObs(a){try{localStorage.setItem(OBS_KEY,JSON.stringify(a))}catch{}}
+function fieldTrainer(){
+ let H=histAll().filter(h=>h.limit==='30만');const lim='30만';if(!H.length){H=histAll();}
+ const n=H.length;if(!n)return null;const fl=[];let limpH=0,limpers=0,rzH=0,rz=0,b3=0;const by=new Map();
+ for(const h of H){const pa=h.publicActionHistory||[],pf=pa.filter(a=>a.street==='preflop');fl.push(new Set(pa.filter(a=>a.street==='flop').map(a=>a.seat)).size);
+  let ri=pf.findIndex(a=>['Raise','3-bet','Cap'].includes(a.semantic));if(ri<0)ri=pf.length;const lm=pf.slice(0,ri).filter(a=>a.semantic==='Call'&&a.toCall>0).length;limpers+=lm;if(lm)limpH++;
+  const r=pf.filter(a=>['Raise','3-bet','Cap'].includes(a.semantic)).length;rz+=r;if(r)rzH++;
+  const om=new Map((Array.isArray(h.opponents)?h.opponents:[]).map(o=>[o.seat,o]));
+  const big=pf.filter(a=>['3-bet','Cap'].includes(a.semantic));if(big.length)b3++;for(const a of big){const o=om.get(a.seat);if(o){const k=o.name+'|'+o.style;by.set(k,(by.get(k)||0)+1)}}}
+ const bigTot=[...by.values()].reduce((x,y)=>x+y,0),top=[...by.entries()].sort((a,b)=>b[1]-a[1])[0];
+ const caps=H.reduce((x,h)=>x+(h.publicActionHistory||[]).filter(a=>a.street==='preflop'&&a.semantic==='Cap').length,0);
+ return {n,lim,flop:fl.reduce((x,y)=>x+y,0)/n,flop4:fl.filter(x=>x>=4).length/n,limpPct:limpH/n,limpers:limpers/n,rzPct:rzH/n,rz:rz/n,b3Pct:b3/n,caps,top:top?{name:top[0].split('|')[0],style:top[0].split('|')[1],share:top[1]/bigTot,cnt:top[1]}:null,bigTot};
+}
+function renderObs(){
+ const card=$('obsCard');if(prefs.src!=='trainer'){card.hidden=true;return}card.hidden=false;
+ const obs=loadObs(),T=fieldTrainer(),avg=k=>{const v=obs.map(o=>Number(o[k])).filter(Number.isFinite);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null};
+ const fo=avg('flop'),lp=avg('limpPctN'),rp=avg('raisePctN');
+ const P=x=>Math.round(x*100)+'%';
+ if(!T){$('obsCmp').innerHTML='<tbody><tr><td class="empty">트레이너 핸드 기록이 없습니다.</td></tr></tbody>'}
+ else{
+  const flopTxt=fo!=null?(Math.abs(fo-T.flop)<=.5?'<span class="pos">비슷</span>':T.flop<fo?`<span class="neg">트레이너가 ${(fo-T.flop).toFixed(1)}명 적음</span>`:`<span class="neg">트레이너가 ${(T.flop-fo).toFixed(1)}명 많음</span>`):'-';
+  const rows=[
+   ['플랍 보는 인원',obs.map(o=>o.flopRange||(o.flop!=null?o.flop+'명':'')).filter(Boolean).join(' · ')||'-',`평균 ${T.flop.toFixed(1)}명 · 4명+ 팟 ${P(T.flop4)}`,flopTxt],
+   ['림프',obs.map(o=>o.limp||(o.limpPct!=null&&o.limpPct!==''?o.limpPct+'%':'')).filter(Boolean).join(' · ')||'-',`림프 있는 팟 ${P(T.limpPct)} · 평균 ${T.limpers.toFixed(1)}명`,'<span class="pos">정성 일치</span>'],
+   ['프리플랍 레이즈',obs.map(o=>o.raise||(o.raisePct!=null&&o.raisePct!==''?o.raisePct+'%':'')).filter(Boolean).join(' · ')||'-',`레이즈 있는 팟 ${P(T.rzPct)} · 팟당 ${T.rz.toFixed(2)}회`,'<span class="pos">정성 일치</span>'],
+   ['3벳·캡',obs.map(o=>o.cap||(o.capN!=null&&o.capN!==''?o.capN+'회/시간':'')).filter(Boolean).join(' · ')||'-',`3벳 이상 팟 ${P(T.b3Pct)} · 캡 ${T.caps}회${T.top?` · 최다 ${T.top.name}(${({Maniac:'매니악','Loose-Aggressive':'LAG'}[T.top.style]||T.top.style)}) ${P(T.top.share)}`:''}`,T.top&&T.top.share>=.15?'<span class="pos">특정 인물 편중 일치</span>':'<span class="neg">편중이 약함</span>']];
+  $('obsCmp').innerHTML=`<thead><tr><th>항목</th><th>현장(회장님)</th><th>트레이너 최근 ${T.n}핸드(${T.lim})</th><th>판정</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</tbody>`;
+ }
+ $('obsList').innerHTML=obs.length?`<div class="note" style="margin-top:6px">기록 ${obs.length}건: `+obs.map(o=>`${o.date}${o.note?' · '+o.note:''} <a href="#" data-del="${o.id}">제거</a>`).join(' / ')+'</div>':'';
+ $('obsList').querySelectorAll('[data-del]').forEach(a=>a.onclick=e=>{e.preventDefault();const id=a.dataset.del;saveObs(loadObs().filter(o=>o.id!==id));renderObs()});
+}
+$('obAdd').addEventListener('click',()=>{const v=id=>$(id).value,num=id=>v(id)===''?null:Number(v(id));const o={id:'O-'+Date.now(),date:v('obDate')||new Date().toISOString().slice(0,10),flop:num('obFlop'),limpPct:num('obLimp'),raisePct:num('obRaise'),capN:num('obCap'),capP:v('obCapP'),note:v('obNote')};
+ if(o.flop==null&&o.limpPct==null&&o.raisePct==null&&o.capN==null&&!o.note)return;const a=loadObs();a.push(o);saveObs(a);for(const id of ['obFlop','obLimp','obRaise','obCap','obNote'])$(id).value='';renderObs()});
 
 // ----- controls -----
 for(const [id,key] of [['srcSeg','src'],['limSeg','lim'],['unitSeg','unit']])$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;prefs[key]=b.dataset.v;savePrefs();render()});
