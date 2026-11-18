@@ -404,8 +404,9 @@ function renderCoach(){
  const trend=rr!=null&&pr!=null&&prev.length>=30?(rr-pr>=.02?' · 최근 상승 ↑':rr-pr<=-.02?' · 최근 하락 ↓':' · 최근 유지'):'';
  rows.push(vrow(canon.length<20?'na':rate>=.9?'good':rate>=.8?'warn':'bad','정본 일치율',`목표 90% 이상 · 최근 ${recent.length}결정 ${rr==null?'-':Math.round(rr*100)+'%'}${trend}`,rate==null?'-':Math.round(rate*100)+'%'));
  const pf=hands.filter(h=>h.pf&&h.m!=='adaptive'),vp=pf.filter(h=>['Call','Raise','Cap','3-bet','Bet'].includes(h.pf)).length/(pf.length||1),pfr=pf.filter(h=>['Raise','Cap','3-bet'].includes(h.pf)).length/(pf.length||1);
- rows.push(vrow(pf.length<30?'na':vp>=.18&&vp<=.24?'good':vp>=.14&&vp<=.28?'warn':'bad','참여율(VPIP)',`목표 18~24% · Adaptive 제외 ${pf.length}핸드 · ${vp>.24?'너무 많이 들어갑니다':vp<.18?'너무 적게 들어갑니다':'범위 안'}`,pf.length?Math.round(vp*100)+'%':'-'));
- rows.push(vrow(pf.length<30?'na':pfr>=.09&&pfr<=.12?'good':pfr>=.06&&pfr<=.15?'warn':'bad','레이즈 비율(PFR)',`목표 9~12% · VPIP 대비 ${vp?Math.round(pfr/vp*100):0}%가 레이즈`,pf.length?Math.round(pfr*100)+'%':'-'));
+ const pc=canon.filter(r=>r.st==='preflop'),sp=pc.filter(r=>r.rec!=='Fold'),sfd=pc.filter(r=>r.rec==='Fold'),imp=sp.filter(r=>r.act!=='Fold').length,loo=sfd.filter(r=>r.act!=='Fold').length;
+ rows.push(vrow(sp.length<10?'na':imp/sp.length>=.9?'good':imp/sp.length>=.75?'warn':'bad','정본 참여 이행',`정본이 참여인 프리플랍 ${sp.length}개 중 ${imp}개 참여 · VPIP ${pf.length?Math.round(vp*100)+'%':'-'}·PFR ${pf.length?Math.round(pfr*100)+'%':'-'}는 정본의 결과라 목표가 아닙니다`,sp.length?Math.round(imp/sp.length*100)+'%':'-'));
+ rows.push(vrow(sfd.length<15?'na':loo/sfd.length<=.1?'good':loo/sfd.length<=.2?'warn':'bad','정본 밖 참여',`정본이 폴드인 프리플랍 ${sfd.length}개 중 ${loo}개에 참여`,sfd.length?Math.round(loo/sfd.length*100)+'%':'-'));
  const fr=canon.filter(r=>r.st==='preflop'&&['Raised','Capped'].includes(r.fc)),frBad=fr.filter(r=>r.cls==='correction'&&r.act==='Call'&&r.rec==='Fold').length;
  rows.push(vrow(fr.length<8?'na':frBad/fr.length<=.05?'good':frBad/fr.length<=.15?'warn':'bad','레이즈 맞고 투기 패 콜',`레이즈 직면 ${fr.length}회 중 폴드가 정답인데 콜`,`${frBad}회`));
  const vb=canon.filter(r=>r.st!=='preflop'&&isAgg(r.rec)),vbBad=vb.filter(r=>r.cls==='correction'&&r.act==='Check').length;
