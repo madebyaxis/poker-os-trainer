@@ -195,3 +195,11 @@ function runPokerOSRegressionV69(D,doc){
   ok('가격 확인 UI',!!doc.getElementById('potGuard')&&!!doc.getElementById('potGuardOn'),null);
   return out;
 }
+
+// v6.9.1 (2026-11-18) 모드·프로필 변경 → 새 세션
+function runPokerOSRegressionV691(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  ok('변경 대기 안내 요소',!!doc.getElementById('pendingBar'),null);
+  ok('변경 대기 함수',typeof D.v691Pending==='function'&&Array.isArray(D.v691Pending()),null);
+  return out;
+}

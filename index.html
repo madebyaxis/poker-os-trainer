@@ -271,12 +271,15 @@ aside.side.stash{display:none!important}
 .potGuard .pgBtns .btn{flex:1;min-height:34px;padding:4px 8px}
 .potGuard .pgCall{background:#2e7d4f;color:#fff;border-color:#2e7d4f}
 .pgToggle{display:inline-flex;align-items:center;gap:4px;font-size:12px;opacity:.85;margin-left:6px;white-space:nowrap}
+.pendingBar{position:fixed;right:12px;top:6px;max-width:520px;z-index:60;max-width:92vw;margin:0;padding:5px 12px;box-shadow:0 4px 16px rgba(0,0,0,.45);background:#3a2f12;border:1px solid #d9a441;border-radius:8px;background:rgba(217,164,65,.14);font-size:12.5px;line-height:1.4}
+.btn.primary.pending{animation:v691pulse 1.4s ease-in-out infinite;box-shadow:0 0 0 2px rgba(217,164,65,.55)}
+@keyframes v691pulse{50%{box-shadow:0 0 0 5px rgba(217,164,65,.25)}}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.1 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -5037,6 +5040,45 @@ kangwonRangePreflop=function(p,tc,k){
 try{v69EnsureGuardUI()}catch(e){}
 try{const c=JSON.parse(localStorage.getItem(COACH_KEY)||'null');if(!c||c.v69!==1)buildCoachSnapshot()}catch(e){}
 Object.assign(PokerOSDebug,{patch:'6.9-candidate-20261117-pot-guard',v69GuardInfo,v69ModelCheck,coachRowsForHand,coachHandRow,buildCoachSnapshot,kangwonRangePreflop,showdown,saveCurrentHand,newHand});
+
+// ===== Patch 2026-11-18 v6.9.1: 훈련 모드·필드 프로필·테이블 변경 → 새 세션 시작이 매끄럽게 =====
+// 원인: ① 프로필·테이블을 세션 중에 바꿔도 아무 표시 없이 선택값만 바뀌어 화면과 세션이 어긋났다.
+//       ② 모드 변경은 confirm 창에 의존했고, 취소하거나 창이 막히면 선택값만 바뀐 채 남았다.
+//       ③ 훈련 체크포인트가 켜져 있으면 새 세션이 조용히 막혀서 설정을 아예 못 바꿨다.
+function v691Pending(){
+ if(!S||S.sessionEnded)return [];const d=[];
+ if($('trainingMode').value!==S.trainingMode)d.push('훈련 모드');
+ if($('tableProfile').value!==S.tableProfile)d.push('필드 프로필');
+ if(CFG[$('limit').value].label!==S.cfg.label)d.push('테이블');
+ if(+$('heroSeat').value!==S.hero)d.push('내 좌석');
+ return d;
+}
+function v691Sync(){
+ const bar=$('pendingBar'),btn=$('start'),d=v691Pending();
+ if(bar){bar.hidden=!d.length;bar.textContent=d.length?`${d.join('·')} 변경됨 → '새 세션'을 누르면 적용됩니다. 지금 진행 중인 세션은 그대로 유지됩니다.`:''}
+ if(btn){btn.classList.toggle('pending',!!d.length);btn.textContent=d.length?'변경 적용':'새 세션'}
+}
+{const bar=document.createElement('div');bar.id='pendingBar';bar.className='pendingBar';bar.hidden=true;bar.setAttribute('role','status');const h=document.querySelector('.header');h?.parentNode.insertBefore(bar,h.nextSibling);}
+// 모드 변경: confirm 없이 '대기' 표시만 하고 새 세션에서 적용(선택값과 세션이 어긋나도 명확히 보인다)
+$('trainingMode').addEventListener('change',e=>{e.stopImmediatePropagation();try{syncTrainingModeUI();renderCurriculum()}catch(err){}v691Sync()},true);
+['tableProfile','limit','heroSeat'].forEach(id=>$(id).addEventListener('change',()=>setTimeout(v691Sync,0)));
+const v691SyncUI=syncTrainingModeUI;
+syncTrainingModeUI=function(){v691SyncUI();const sel=$('trainingMode');if(sel){const act=!!(S&&!S.sessionEnded);sel.title=act?'바꾼 뒤 \'새 세션\'을 누르면 적용됩니다.':(TRAINING_MODE_META[sel.value]?.desc||'')}};
+// 훈련 체크포인트 중에도 새 세션을 시작할 수 있게(한 번 더 눌러 건너뛰기)
+const v691Start=startSession;
+startSession=function(){
+ if(S&&S.trainingGateActive&&!S.sessionEnded){
+  const now=Date.now();
+  if(!(S.v691Force&&now<S.v691Force)){S.v691Force=now+6000;$('hint').textContent='훈련 체크포인트가 아직 끝나지 않았습니다. 건너뛰고 새 세션을 시작하려면 6초 안에 \'새 세션\'을 한 번 더 누르세요.';return}
+  S.trainingGateActive=false;
+ }
+ const before=S?.sessionId;v691Start();
+ if(S&&S.sessionId!==before){const m=TRAINING_MODE_META[S.trainingMode]?.label||S.trainingMode,pf=PROFILE_META[S.tableProfile]?.label||S.tableProfile;$('hint').textContent=`새 세션 시작 · ${S.cfg.label} · ${m} · ${pf}`;try{syncTrainingModeUI()}catch(e){}}
+ v691Sync();
+};
+const v691Render=render;render=function(){const r=v691Render.apply(this,arguments);v691Sync();return r};
+v691Sync();
+Object.assign(PokerOSDebug,{patch:'6.9.1-candidate-20261118-session-switch',v691Pending,v691Sync,startSession,render});
 })();
 </script>
 </body>
