@@ -279,7 +279,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.4 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.5 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -687,6 +687,14 @@ let drillAnswered=false;
 let autoNext=true;
 let autoTimer=null;
 let restoringSession=false;
+// 내 차례 전 구간 가속(v6.9.5): 이번 핸드에서 아직 내가 액션하지 않았고 프리플랍 레이즈가 없으면 앞 순서 상대 진행을 빠르게(대부분 폴드). 내가 접은 뒤는 기존 속도.
+function v694Delay(normal,heroFolded,preHero){
+  try{
+    if(S.players[S.hero]?.folded)return heroFolded;
+    if(S.street==='preflop'&&!(S.publicActionHistory||[]).some(a=>a.seat===S.hero)&&!(S.publicActionHistory||[]).some(a=>['Raise','3-bet','Cap'].includes(a.semantic)))return preHero;
+  }catch(e){}
+  return normal;
+}
 const RESULT_HOLD_MS=1100,RESULT_HOLD_SHOWDOWN_MS=1500,RESULT_HOLD_QUICK_MS=500; // 결과 화면 대기(v6.9.4): 폴드로 끝난 핸드 1.1초, 쇼다운 1.5초, 내가 빠진 핸드 0.5초
 const PERF_SCHEMA_VERSION='poker-os-perf-v1-20261001';
 function perfNow(){return globalThis.performance&&typeof performance.now==='function'?performance.now():Date.now()}
@@ -1293,7 +1301,7 @@ function advance(){
  let guard=0;while(S.players[S.actor].folded||S.players[S.actor].allin){S.actor=nextSeat(S.actor);if(S.actor==null){if(complete())nextStreet();return}if(++guard>12){console.warn('advance guard exceeded');return}}
  render();
  if(S.actor===S.hero){enableHero();return}
- disableHero();setTimeout(()=>aiAct(S.actor),S.fastForward?8:(S.players[S.hero]?.folded?70:170));
+ disableHero();setTimeout(()=>aiAct(S.actor),S.fastForward?8:v694Delay(170,70,45));
 }
 
 function pfScore(h){
@@ -2494,7 +2502,7 @@ function act(seat,a,hero){
  if(hero&&a==='fold'){render();$('status').textContent='폴드 완료 · 상대 액션 진행 중…'}
  else if(!S.fastForward)render();
  persistSession();
- setTimeout(advance,S.fastForward?5:(S.players[S.hero]?.folded?40:80))
+ setTimeout(advance,S.fastForward?5:v694Delay(80,40,22))
 }
 function nextStreet(){
  if(S.street==='river'){showdown();return}
