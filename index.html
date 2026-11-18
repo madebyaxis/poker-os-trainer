@@ -5228,9 +5228,24 @@ const V611_HABIT_TYPE={Maniac:.50,'Loose-Aggressive':.20,'Tricky-Aggressive':.17
 function v611Habit(p){if(!p)return 0;if(Number.isFinite(p.capHabit))return p.capHabit;if(V611_HABIT_NAME[p.name]!=null)return V611_HABIT_NAME[p.name];let h=V611_HABIT_TYPE[p.type];if(h==null)h=.05;if(p.capper)h=Math.max(h,.8);return h}
 const V611_CAP_W=[.85,.45,.18,.06,.02,0],V611_CAP_W_WIDE=[1,.85,.6,.3,.06,0];
 // 레이즈에 맞서 캡을 칠 확률: 보통 사람은 할 만한 패(상위 등급)로 가끔, 캡 단골(습관 .75+)은 거의 아무 패로.
-function v611CapProb(p,tier){
+// 캡 단골의 실제 레인지(Founder 관찰): 페어는 99~TT까지, AQs·KQs까지, Axs·Kxs는 가끔 객기.
+function v611CapperW(code){
+ if(!code||code.length<2)return null;const a=code[0],b=code[1],suited=code[2]==='s',pair=a===b;
+ const ra=RV[a],rb=RV[b];if(ra==null||rb==null)return null;
+ if(pair)return ra>=12?1:ra===11?.9:ra===10?.8:ra===9?.6:ra===8?.2:.08;
+ if(ra===14&&rb===13)return 1;
+ if(ra===14&&rb===12)return suited?.8:.45;
+ if(ra===14&&rb===11)return suited?.4:.15;
+ if(ra===14)return suited?.12:0;
+ if(ra===13&&rb===12)return suited?.5:.25;
+ if(ra===13)return suited?(rb>=10?.18:.1):0;
+ if(suited&&ra===12&&rb===11)return .15;
+ if(suited&&ra===11&&rb===10)return .12;
+ return 0;
+}
+function v611CapProb(p,tier,code){
  const h=v611Habit(p),i=Math.max(0,Math.min(5,(tier||6)-1));
- if(h>=.75)return Math.min(1,V611_CAP_W_WIDE[i]*(.55+.5*h)*v611Cfg.capScale);
+ if(h>=.75){const w=v611CapperW(code);if(w!=null)return Math.min(1,w*(.55+.5*h)*v611Cfg.capScale);return Math.min(1,V611_CAP_W_WIDE[i]*(.55+.5*h)*v611Cfg.capScale)}
  return Math.min(.95,V611_CAP_W[i]*(.38+h)*(['Calling Station','Loose-Passive','Tight-Passive','Nit'].includes(p.type)?.6:1)*v611Cfg.capScale);
 }
 function v611Gauss(){return (Math.random()+Math.random()+Math.random()-1.5)*1.15}
@@ -5260,7 +5275,7 @@ kangwonRangePreflop=function(p,tc,k){
   if(!S||p.seat===S.hero||p.arsonist||!v611IsField())return r;
   const facing=preflopFacing(),tier=pfTier(holeCode(p.hole)),canRaise=S.currentBet<cap()&&p.stack>tc,ps=pos(p.seat);
   if(facing==='Raised'&&canRaise&&(r!=='fold'||v611Habit(p)>=.75)){
-   if(Math.random()<v611CapProb(p,tier)){p.auditIntent={tag:'cap',reason:`${p.name}:T${tier}:h${v611Habit(p).toFixed(2)}`};return 'raise'}
+   if(Math.random()<v611CapProb(p,tier,holeCode(p.hole))){p.auditIntent={tag:'cap',reason:`${p.name}:T${tier}:h${v611Habit(p).toFixed(2)}`};return 'raise'}
    if(r==='raise')return 'call';
   }
   const st=v611State(),m=v611Mood(st),part=v611Cfg.partBase+v611Cfg.partAmp*m;
@@ -5320,7 +5335,7 @@ v53RenderLiveBar=function(){
  v611PrevBar();
  try{const el=$('liveBar');if(!S||!el||!S.v611)return;const f=S.v611.flops.slice(-10);if(f.length>=8)el.insertAdjacentHTML('beforeend',`<span class="lbItem">최근 ${f.length}핸드 플랍 평균 <b>${(f.reduce((a,b)=>a+b,0)/f.length).toFixed(1)}명</b></span>`)}catch(e){}
 };
-Object.assign(PokerOSDebug,{patch:'6.11-candidate-20261118-cap-habit-mood-raise',v611Cfg,v611Habit,v611CapProb,v611State,v611Mood,v611RaiseProb,kangwonRangePreflop,fieldPostflopAction,newHand});
+Object.assign(PokerOSDebug,{patch:'6.11-candidate-20261118-cap-habit-mood-raise',v611CapperW,v611Cfg,v611Habit,v611CapProb,v611State,v611Mood,v611RaiseProb,kangwonRangePreflop,fieldPostflopAction,newHand});
 })();
 </script>
 </body>

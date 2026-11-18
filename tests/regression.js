@@ -248,6 +248,9 @@ function runPokerOSRegressionV611(D,doc){
   ok('캡: 같은 패면 지정 인물이 더 자주',cp(capper,3)>cp(reg,3)*2,[cp(capper,3),cp(reg,3)]);
   ok('캡: 일반인은 상위 패일수록 자주',cp(reg,1)>cp(reg,2)&&cp(reg,2)>cp(reg,3)&&cp(reg,3)>cp(reg,4),[1,2,3,4].map(t=>cp(reg,t)));
   ok('캡: 캡 단골도 정크(등급6)로는 안 함, 등급5는 드묾',cp(capper,6)===0&&cp(capper,5)<.1&&cp(capper,2)>.5,[cp(capper,6),cp(capper,5),cp(capper,2)]);
+  const w=D.v611CapperW;
+  ok('캡 단골 레인지: 99·TT 페어와 AQs·KQs 포함',w('TT')>=.8&&w('99')>=.5&&w('AQs')>=.7&&w('KQs')>=.4,[w('TT'),w('99'),w('AQs'),w('KQs')]);
+  ok('캡 단골 레인지: Axs·Kxs는 가끔(객기), 정크는 안 함',w('A5s')>0&&w('A5s')<.2&&w('K9s')>0&&w('K9s')<.2&&w('72o')===0&&w('A5o')===0,[w('A5s'),w('K9s'),w('72o'),w('A5o')]);
   ok('캡: 일반인은 정크로 캡 안 함',cp(reg,6)===0,cp(reg,6));
   ok('캡: 콜링스테이션은 일반 레귤러보다 덜',cp(stn,1)<cp(reg,1)*1.05,[cp(stn,1),cp(reg,1)]);
   const st={sid:'x',walk:0,phase:0,period:150,amp:.7,base:.1,m:0,mHand:-1,flops:[]};
