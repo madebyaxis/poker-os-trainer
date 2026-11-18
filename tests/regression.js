@@ -203,3 +203,11 @@ function runPokerOSRegressionV691(D,doc){
   ok('변경 대기 함수',typeof D.v691Pending==='function'&&Array.isArray(D.v691Pending()),null);
   return out;
 }
+
+// v6.9.2 (2026-11-18) 필드 프로필 옵션 값
+function runPokerOSRegressionV692(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const vals=[...doc.getElementById('tableProfile').options].map(o=>o.value);
+  ok('모든 프로필 옵션 값이 FIELD_PROFILES 키',vals.length===6&&['Normal','Soft','Reg Heavy','Kangwon Live','Kangwon 30','Kangwon Aggro'].every(k=>vals.includes(k)),vals);
+  return out;
+}

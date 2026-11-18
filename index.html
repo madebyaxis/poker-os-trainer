@@ -279,7 +279,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.1 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.2 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -287,7 +287,7 @@ aside.side.stash{display:none!important}
       <div class="field"><label>리뷰</label><select id="reviewMode"><option value="after">핸드 종료 후</option><option value="live">즉시 코치</option></select></div>
       <div class="field"><label>훈련 모드</label><select id="trainingMode" aria-describedby="trainingModeHelp"><option value="adaptive">Adaptive · 약점 집중</option><option value="simulation">실전 시뮬 · 필드 재현</option><option value="exam">시험 모드 · 강한 상대</option></select><div id="trainingModeHelp" class="modeNote" style="max-width:240px;margin-top:4px">Adaptive · 개인 약점을 더 자주 만나도록 샘플링합니다.</div></div>
       <div class="field"><label>세션 목표</label><select id="sessionTarget"><option value="50">50핸드</option><option value="100" selected>100핸드</option><option value="200">200핸드</option></select></div>
-      <div class="field"><label>잠정 Field profile</label><select id="tableProfile"><option>Normal</option><option>Soft</option><option value="Kangwon Live">강원랜드 10만 현장</option><option value="Kangwon 30">강원랜드 30만 현장</option><option value="Kangwon Aggro">강원랜드 공격·루즈 테이블(훈련)</option><option>Reg Heavy</option></select></div>
+      <div class="field"><label>잠정 Field profile</label><select id="tableProfile"><option value="Normal">Normal</option><option value="Soft">Soft</option><option value="Kangwon Live">강원랜드 10만 현장</option><option value="Kangwon 30">강원랜드 30만 현장</option><option value="Kangwon Aggro">강원랜드 공격·루즈 테이블(훈련)</option><option value="Reg Heavy">Reg Heavy</option></select></div>
       <button class="btn primary" id="start">새 세션</button>
       <button class="btn autoOn" id="autoToggle" type="button">자동 진행 ON</button>
       <button class="btn rebuyBtn" id="rebuyHero" type="button" disabled>리바인</button>
@@ -5079,6 +5079,14 @@ startSession=function(){
 const v691Render=render;render=function(){const r=v691Render.apply(this,arguments);v691Sync();return r};
 v691Sync();
 Object.assign(PokerOSDebug,{patch:'6.9.1-candidate-20261118-session-switch',v691Pending,v691Sync,startSession,render});
+
+// ===== Patch 2026-11-18 v6.9.2: 일반 혼합·소프트·레귤러 많음 프로필로 새 세션이 시작되지 않던 버그 =====
+// 원인: v6.4에서 옵션 글자를 한글로 바꿨는데 value가 없는 옵션은 글자가 값이 되어 'FIELD_PROFILES[일반 혼합]'이 undefined → startSession 예외.
+const V692_PROFILE_FIX={'일반 혼합':'Normal','소프트(피쉬 많음)':'Soft','레귤러 많음':'Reg Heavy'};
+{const sel=$('tableProfile');if(sel){[...sel.options].forEach(o=>{const k=V692_PROFILE_FIX[o.value]||V692_PROFILE_FIX[o.textContent];if(k)o.value=k});if(V692_PROFILE_FIX[sel.value])sel.value=V692_PROFILE_FIX[sel.value];if(!FIELD_PROFILES[sel.value])sel.value='Normal'}}
+if(S&&V692_PROFILE_FIX[S.tableProfile]){S.tableProfile=V692_PROFILE_FIX[S.tableProfile]}
+try{v691Sync()}catch(e){}
+Object.assign(PokerOSDebug,{patch:'6.9.2-candidate-20261118-profile-values'});
 })();
 </script>
 </body>
