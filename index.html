@@ -5226,7 +5226,7 @@ const v611Cfg={capScale:1.2,partBase:.2,partAmp:.6,raiseScale:1};
 const V611_HABIT_NAME={'엄태호':.92,'방창호':.92,'편재석':.85,'용태민':.62,'홍석진':.42,'왕지석':.34};
 const V611_HABIT_TYPE={Maniac:.50,'Loose-Aggressive':.20,'Tricky-Aggressive':.17,'Tight-Aggressive':.10,Regular:.07,Nit:.01,'Tight-Passive':.02,'Loose-Passive':.03,'Calling Station':.03};
 function v611Habit(p){if(!p)return 0;if(Number.isFinite(p.capHabit))return p.capHabit;if(V611_HABIT_NAME[p.name]!=null)return V611_HABIT_NAME[p.name];let h=V611_HABIT_TYPE[p.type];if(h==null)h=.05;if(p.capper)h=Math.max(h,.8);return h}
-const V611_CAP_W=[.85,.45,.18,.06,.02,0],V611_CAP_W_WIDE=[1,.85,.6,.4,.22,.08];
+const V611_CAP_W=[.85,.45,.18,.06,.02,0],V611_CAP_W_WIDE=[1,.85,.6,.3,.06,0];
 // 레이즈에 맞서 캡을 칠 확률: 보통 사람은 할 만한 패(상위 등급)로 가끔, 캡 단골(습관 .75+)은 거의 아무 패로.
 function v611CapProb(p,tier){
  const h=v611Habit(p),i=Math.max(0,Math.min(5,(tier||6)-1));
