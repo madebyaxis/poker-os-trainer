@@ -279,7 +279,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.3 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.4 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -687,7 +687,7 @@ let drillAnswered=false;
 let autoNext=true;
 let autoTimer=null;
 let restoringSession=false;
-const RESULT_HOLD_MS=1800,RESULT_HOLD_QUICK_MS=800; // 결과 화면 대기: 내가 참여한 핸드 1.8초, 내가 빠진 핸드 0.8초(v6.9.3)
+const RESULT_HOLD_MS=1100,RESULT_HOLD_SHOWDOWN_MS=1500,RESULT_HOLD_QUICK_MS=500; // 결과 화면 대기(v6.9.4): 폴드로 끝난 핸드 1.1초, 쇼다운 1.5초, 내가 빠진 핸드 0.5초
 const PERF_SCHEMA_VERSION='poker-os-perf-v1-20261001';
 function perfNow(){return globalThis.performance&&typeof performance.now==='function'?performance.now():Date.now()}
 function perfRound(x){return Number.isFinite(x)?Math.round(x*10)/10:null}
@@ -2576,7 +2576,7 @@ function scheduleNextHand(){
   }
   if(!autoNext){$('next').disabled=false;persistSession();return}
   $('next').disabled=false;
-  const holdMs=shouldPauseForResult()?RESULT_HOLD_MS:RESULT_HOLD_QUICK_MS;
+  const holdMs=!shouldPauseForResult()?RESULT_HOLD_QUICK_MS:(S.showdownReached?RESULT_HOLD_SHOWDOWN_MS:RESULT_HOLD_MS);
   $('hint').textContent=($('hint').textContent?$('hint').textContent+' · ':'')+(holdMs/1000).toFixed(1).replace(/\.0$/,'')+'초 후 다음 핸드 자동 시작';
   const scheduledHand=S.hand;
   autoTimer=setTimeout(()=>{
