@@ -229,3 +229,13 @@ function runPokerOSRegressionV697(D,doc){
   ok('권장이 없으면 null',f({street:'flop',toCall:0,pot:100000,actualSemantic:'Check'})===null,null);
   return out;
 }
+
+function runPokerOSRegressionV610(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const t=D.v610Tightness;
+  ok('이미지: VPIP 9% → 최대 강도',t(.09,40)===1,t(.09,40));
+  ok('이미지: VPIP 13% → 중간 강도',Math.abs(t(.13,40)-.5)<1e-9,t(.13,40));
+  ok('이미지: VPIP 20% → 영향 없음',t(.2,40)===0,t(.2,40));
+  ok('이미지: 표본 25핸드 미만 → 영향 없음',t(.05,10)===0,t(.05,10));
+  return out;
+}

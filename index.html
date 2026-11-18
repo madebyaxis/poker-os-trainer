@@ -281,7 +281,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.7 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.10 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -5183,6 +5183,42 @@ const V692_PROFILE_FIX={'일반 혼합':'Normal','소프트(피쉬 많음)':'Sof
 if(S&&V692_PROFILE_FIX[S.tableProfile]){S.tableProfile=V692_PROFILE_FIX[S.tableProfile]}
 try{v691Sync()}catch(e){}
 Object.assign(PokerOSDebug,{patch:'6.9.2-candidate-20261118-profile-values',modelReviewRec,modelWhy,modelTip,mrSameAct});
+// ===== v6.10: 내 이미지(낮은 참여율)에 대한 상대 반응 =====
+// Founder(2026-11-18): VPIP가 낮으면 상대가 나를 위크하게 보고 블라인드를 스틸할 수 있다 → 트레이너에도 반영.
+//  · 내 최근 40핸드 VPIP가 17% 아래로 내려가면(표본 25핸드 이상) 이미지 강도 t가 0~1로 오른다(9%에서 1).
+//  · 타이트 이미지: CO·BTN·SB의 상대가 내가 블라인드일 때 폴드해야 할 정도의 경계 패(5등급 이하)로 스틸 레이즈한다.
+//  · 반대로 내가 레이즈하면 타이트한 이미지를 존중해 약한 콜을 일부 접는다(콜링스테이션·매니악 제외).
+function v610Tightness(vpip,n){return (!Number.isFinite(vpip)||n<25)?0:Math.max(0,Math.min(1,(0.17-vpip)/0.08))}
+function v610Image(){
+ try{
+  if(!S)return {n:0,vpip:null,t:0};
+  if(S.v610ImgHand===S.hand&&S.v610ImgSid===S.sessionId&&S.v610Img)return S.v610Img;
+  const hist=loadHistory().filter(h=>h.sessionId===S.sessionId).slice(-40);let n=0,v=0;
+  for(const h of hist){const d=firstPreflopDecision(h);if(!d)continue;n++;if(['Call','Raise','3-bet','Cap','Bet'].includes(d.actualSemantic))v++}
+  const vpip=n?v/n:null,r={n,vpip,t:v610Tightness(vpip,n)};
+  S.v610Img=r;S.v610ImgHand=S.hand;S.v610ImgSid=S.sessionId;return r;
+ }catch(e){return {n:0,vpip:null,t:0}}
+}
+function v610HeroRaised(){const a=(S.publicActionHistory||[]).filter(x=>x.street==='preflop'&&['Raise','3-bet','Cap'].includes(x.semantic));const l=a[a.length-1];return !!l&&l.seat===S.hero}
+const v610PrevRange=kangwonRangePreflop;
+kangwonRangePreflop=function(p,tc,k){
+ const r=v610PrevRange(p,tc,k);
+ try{
+  if(!S||p.seat===S.hero)return r;
+  const im=PokerOSDebug.v610Force!=null?{t:PokerOSDebug.v610Force}:v610Image();if(!(im.t>0))return r;
+  const ps=pos(p.seat),facing=preflopFacing(),tier=pfTier(holeCode(p.hole)),canRaise=S.currentBet<cap()&&p.stack>tc;
+  if(facing==='Unopened'&&r==='fold'&&canRaise&&['CO','BTN','SB'].includes(ps)&&['SB','BB'].includes(pos(S.hero))&&tier<=5&&p.type!=='Nit'&&Math.random()<.35*im.t*(.5+(p.agg||0))){
+   p.auditIntent={tag:'image-steal',reason:`hero tight image t=${im.t.toFixed(2)}`};return 'raise';
+  }
+  if(facing==='Raised'&&r==='call'&&tier>=3&&v610HeroRaised()&&!['Calling Station','Maniac'].includes(p.type)&&Math.random()<.4*im.t){
+   p.auditIntent={tag:'image-respect',reason:`hero tight image t=${im.t.toFixed(2)}`};return 'fold';
+  }
+ }catch(e){}
+ return r;
+};
+const v610PrevBar=v53RenderLiveBar;
+v53RenderLiveBar=function(){v610PrevBar();try{const el=$('liveBar');if(!S||!el)return;const im=v610Image();if(im.n>=25)el.insertAdjacentHTML('beforeend',`<span class="lbItem">이미지 VPIP <b>${Math.round(im.vpip*100)}%</b>${im.t>0?' · 타이트하게 보임(상대 스틸 증가)':''}</span>`)}catch(e){}};
+Object.assign(PokerOSDebug,{patch:'6.10-candidate-20261118-hero-image',v610Tightness,v610Image,kangwonRangePreflop});
 })();
 </script>
 </body>
