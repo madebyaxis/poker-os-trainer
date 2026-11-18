@@ -274,12 +274,14 @@ aside.side.stash{display:none!important}
 .pendingBar{position:fixed;right:12px;top:6px;max-width:520px;z-index:60;max-width:92vw;margin:0;padding:5px 12px;box-shadow:0 4px 16px rgba(0,0,0,.45);background:#3a2f12;border:1px solid #d9a441;border-radius:8px;background:rgba(217,164,65,.14);font-size:12.5px;line-height:1.4}
 .btn.primary.pending{animation:v691pulse 1.4s ease-in-out infinite;box-shadow:0 0 0 2px rgba(217,164,65,.55)}
 @keyframes v691pulse{50%{box-shadow:0 0 0 5px rgba(217,164,65,.25)}}
+.reviewDecision.soft.good{border-color:#2d4a35;background:#111b14}.reviewDecision.soft.fix{border-color:#5a4a2a;background:#221d12}
+.choiceBox small.mrConf{display:block;font-size:10px;font-weight:400;opacity:.7;margin-top:2px}.choiceBox small.mrMix{display:block;font-size:11px;font-weight:500;opacity:.85;margin-top:2px}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.6 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.9.7 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -3235,11 +3237,93 @@ function decisionSituation(d){
     if(d.playersActive)s+=` · ${d.playersActive}명 남음`;
     if(Number.isFinite(d.toCall))s+=` · 추가 콜 ${fmt(d.toCall)}원`;
     if(Number.isFinite(d.potOdds)&&d.toCall>0)s+=` · 필요 Pot Odds ${Math.round(d.potOdds*100)}%`;
-    if(d.handClass)s+=` · ${d.handClass}`;
+    if(d.handClass)s+=` · ${MR_HC[d.handClass]||d.handClass}`;
   }
   return s;
 }
 
+
+// ===== 모델 참고 권장(채점 제외) — v6.9.7 =====
+// 채점은 보류하지만 모델이 이미 계산한 답(EV·혼합·승률·프리플랍 매트릭스)을 숨기지 않고 보여준다.
+const MR_SEM={Fold:'Fold',Check:'Check',Call:'Call',Bet:'Bet',Raise:'Raise','Re-raise':'Raise','3-bet':'Raise',Cap:'Raise'};
+const MR_HC={high_card:'하이카드',one_pair:'원페어',two_pair:'투페어',trips:'트립스',three_of_a_kind:'트립스',straight:'스트레이트',flush:'플러시',full_house:'풀하우스',quads:'포카드',four_of_a_kind:'포카드',straight_flush:'스트레이트 플러시'};
+function mrNorm(a){return MR_SEM[a]||a}
+function mrSameAct(mr,a){const x=mrNorm(a),eqv=v=>(v==='Raise'||v==='Bet')?'B':v;return (mr.near||[mr.action]).some(n=>eqv(mrNorm(n))===eqv(x))}
+function modelReviewRec(d){
+  if(!d)return null;
+  const eq=Number.isFinite(d.estimatedEquity)?d.estimatedEquity:null;
+  const need=d.toCall>0?(Number.isFinite(d.requiredEquity)&&d.requiredEquity>0?d.requiredEquity:(Number.isFinite(d.potOdds)?d.potOdds:null)):0;
+  let action=null,basis='',conf='low',mixTxt='';
+  const ev=d.actionEV&&typeof d.actionEV==='object'?d.actionEV:null;
+  const mix=d.mix&&Array.isArray(d.mix.actions)&&Array.isArray(d.mix.probabilities)?d.mix:null;
+  if(mix){
+    const pairs=mix.actions.map((a,i)=>({a:mrNorm(a),raw:a,p:mix.probabilities[i]||0})).sort((x,y)=>y.p-x.p);
+    if(pairs[0]&&pairs[0].p>=.01){action=pairs[0].a;conf=pairs[0].p>=.75?'mid':'low';
+      const top=pairs.filter(x=>x.p>=.1).map(x=>`${ACTION_KO[x.raw]||x.raw} ${Math.round(x.p*100)}%`);
+      if(top.length>1||pairs[0].p<.75)mixTxt=top.join(' / ');
+      basis=pairs[0].p>=.75?'솔버 근사':'혼합 전략'}
+  }
+  let near=[];
+  if(!action&&ev){
+    const KM={foldEV:'Fold',checkEV:'Check',callEV:'Call',betEV:'Bet',raiseEV:'Raise'};
+    const opts=Object.keys(KM).filter(k=>Number.isFinite(ev[k])&&!(k==='foldEV'&&!(d.toCall>0))&&!(k==='checkEV'&&d.toCall>0)&&!(k==='callEV'&&!(d.toCall>0)&&false)).map(k=>({a:KM[k],v:ev[k]}))
+      .filter(o=>d.toCall>0?['Fold','Call','Raise'].includes(o.a):['Check','Bet','Raise'].includes(o.a)&&!(o.a==='Raise'&&Number.isFinite(ev.betEV)))
+      .sort((x,y)=>y.v-x.v);
+    if(opts.length>=2){const tol=Math.max((Number(d.pot)||0)*.04,Math.abs(opts[0].v)*.08,300);
+      near=opts.filter(o=>opts[0].v-o.v<=tol).map(o=>o.a);action=opts[0].a;const gap=opts[0].v-opts[1].v;
+      const clear=gap>tol*1.5;basis=clear?'EV 비교':'EV 근소 차이';conf=clear?'mid':'low';
+      if(near.length>1)mixTxt=near.map(a=>ACTION_KO[a]||a).join(' ≈ ')+' 비슷'}
+  }
+  if(!action&&['Fold','Check','Call','Bet','Raise','3-bet','Cap','Re-raise'].includes(d.rec)){action=mrNorm(d.rec);basis=d.street==='preflop'?'프리플랍 모델':'모델 판단';conf=d.confidence==='High'?'high':(d.confidence==='Low'?'low':'mid')}
+  if(!action&&d.suggestedAction){action=mrNorm(d.suggestedAction);basis='규칙 후보';conf='mid'}
+  if(!action&&d.street==='preflop'){
+    const m=String(d.why||'').match(/→\s*(Fold|Call|Raise|Cap|3-bet|Check|Limp)/i)||String(d.why||'').match(/보수적으로\s*(Fold|Call)/)||String(d.why||'').match(/\b(Call|Fold) 우선/);
+    if(m){action=mrNorm(m[1][0].toUpperCase()+m[1].slice(1).toLowerCase());if(/Limp/i.test(m[1]))action='Call';basis='프리플랍 매트릭스';conf='mid'}
+    else if(/marginal offsuit|multiway|pocket|overlimp|림프|limper/i.test(String(d.why||''))){const w=String(d.why||'');action=/marginal offsuit|줄입니다/.test(w)?'Fold':(/후보|허용|사용|제한적|Call 우선/.test(w)?'Call':null);if(action){basis='림프 팟 모델';conf='low'}}
+  }
+  if(!action&&eq!=null){
+    if(need>0){action=eq>=need+.03?'Call':(eq<need-.03?'Fold':'Call');basis='승률 vs 필요 승률';conf=Math.abs(eq-need)>=.08?'mid':'low'}
+    else{action=eq>=.55?'Bet':'Check';basis='승률 기준';conf=eq>=.65||eq<.35?'mid':'low'}
+  }
+  if(!action&&d.alternateAction){action=mrNorm(d.alternateAction);basis='대안 후보';conf='low'}
+  if(!action)return null;
+  // 가격이 압도적으로 싸면 폴드 권장을 콜로 정정(필요 승률 12% 이하 + 추정 승률이 더 높음)
+  if(action==='Fold'&&d.toCall>0&&eq!=null&&need&&need<=.15&&eq-need>=.08){action='Call';basis='싼 가격 보정';conf='mid'}
+  const label=(ACTION_KO[action]||action)+(mixTxt?`<small class="mrMix">${mixTxt}</small>`:'');
+  if(!near.length)near=[action];return {action,label,basis:basis+(conf==='low'?' · 신뢰 낮음':''),conf,eq,need,mix:mixTxt,near};
+}
+function modelWhy(d,mr){
+  const parts=[],pct=x=>Math.round(x*100)+'%';
+  const hc=MR_HC[d.handClass];
+  if(d.street==='preflop'){
+    const raw=String(d.why||'').replace(/^MODEL · /,'').replace(/ Canonical이 아닌 계산·매트릭스 판단이라 KPI에는 채점하지 않습니다\.?/,'').trim();
+    parts.push(raw||'프리플랍 매트릭스 기준 판단입니다.');
+    parts.push('정본 규칙이 없는 상황이라 점수에는 넣지 않고 참고만 합니다.');
+    return parts.join(' ');
+  }
+  if(hc)parts.push(`내 패는 ${hc}${d.draw?.comboDraw?'+콤보 드로우':d.draw?.flushDraw?'+플러시 드로우':d.draw?.straightDraw?'+스트레이트 드로우':''}입니다.`);
+  if(Number.isFinite(d.estimatedEquity)){
+    if(d.toCall>0){const need=Number.isFinite(d.requiredEquity)&&d.requiredEquity>0?d.requiredEquity:d.potOdds;
+      if(Number.isFinite(need))parts.push(`추정 승률 ${pct(d.estimatedEquity)} vs 콜에 필요한 승률 ${pct(need)} (팟 ${d.toCall>0?(d.pot/d.toCall).toFixed(1):'-'}:1) → ${d.estimatedEquity>=need?'가격이 맞습니다':'가격이 안 맞습니다'}.`);}
+    else parts.push(`추정 승률 ${pct(d.estimatedEquity)}${d.playersActive>=3?` · ${d.playersActive}명 멀티웨이`:''}.`);
+  }
+  const ev=d.actionEV;if(ev&&typeof ev==='object'){const e=Object.entries(ev).filter(([,v])=>Number.isFinite(v));if(e.length){const KO={foldEV:'폴드',checkEV:'체크',callEV:'콜',betEV:'벳',raiseEV:'레이즈'};const show=e.filter(([k])=>KO[k]&&!(k==='foldEV'&&!(d.toCall>0))&&!(k==='checkEV'&&d.toCall>0));if(show.length)parts.push('행동별 EV 추정 · '+show.map(([k,v])=>`${KO[k]} ${v>=0?'+':''}${Math.round(v).toLocaleString()}원`).join(' / ')+'.')}}
+  if(d.boardRisk?.flushComplete)parts.push('플러시가 완성된 보드입니다.');else if(d.boardRisk?.paired)parts.push('페어 보드라 풀하우스·트립스를 경계해야 합니다.');
+  if(mr&&mr.mix)parts.push(`모델 결론: ${ACTION_KO[mr.action]||mr.action} 쪽이 우세하지만 ${mr.mix}한 자리입니다.`);
+  parts.push('정본이 없는 구간이라 점수에는 넣지 않습니다.');
+  return parts.join(' ');
+}
+function modelTip(d,mr){
+  if(!mr||!mr.action)return '상황이 애매하면 팟 ÷ 콜 금액을 먼저 계산하세요.';
+  const a=d.actualSemantic,m=mr.action;
+  if(mrSameAct(mr,a))return mr.conf==='low'?'모델도 확신은 낮은 자리입니다. 같은 선택이면 충분합니다.':'모델과 같은 방향입니다. 같은 이유로 반복해 보세요.';
+  if(a==='Fold'&&m==='Call')return '이 가격이면 이길 가능성이 충분합니다. 접기 전에 팟 ÷ 콜 금액을 먼저 계산하기.';
+  if(a==='Call'&&m==='Fold')return '필요 승률보다 낮습니다. 드로우·아웃이 없으면 접기.';
+  if(a==='Check'&&(m==='Bet'||m==='Raise'))return '콜해 줄 약한 패가 있으면 벳으로 받아내기.';
+  if((a==='Bet'||a==='Raise')&&m==='Check')return '콜해 줄 약한 패가 없으면 체크로 팟을 지키기.';
+  if(a==='Call'&&(m==='Raise'||m==='Bet'))return '강한 패는 따라가기보다 올려서 받기.';
+  return '모델 선택과 차이가 있습니다. 상대 라인에서 어떤 패가 남는지 먼저 보기.';
+}
 function renderReview(){
  if(mode()==='exam'&&!S.sessionEnded){
    $('review').innerHTML='<div class="reviewItem"><b>시험 모드</b><p>개별 정답은 세션 종료까지 숨깁니다. 결과가 아니라 선택 품질을 기록 중입니다.</p></div>';
@@ -3254,19 +3338,22 @@ function renderReview(){
    const graded=d.gradeable!==false;
    const tier=d.tier||(d.source==='Poker Decision Rule DB'?'canonical':graded?'derived':'hold');
    const cls=graded?(same?'good':'fix'):'hold';
-   const prefix=tier==='canonical'?'Rule DB 정본':tier==='derived'?'Poker OS Engine v3':'채점 보류';
-   const headline=graded?(same?`✓ ${prefix} — 잘했습니다`:`△ ${prefix} — 교정 필요`):'○ 채점 보류';
+   const prefix=tier==='canonical'?'Rule DB 정본':tier==='derived'?'Poker OS Engine v3':'모델 참고';
+   const mr=graded?null:modelReviewRec(d);
+   const modelSame=mr&&mr.action&&mrSameAct(mr,d.actualSemantic);
+   const headline=graded?(same?`✓ ${prefix} — 잘했습니다`:`△ ${prefix} — 교정 필요`):(mr&&mr.action?(modelSame?'○ 모델 참고 — 선택이 모델과 같습니다(채점 제외)':'○ 모델 참고 — 모델은 다르게 봅니다(채점 제외)'):'○ 채점 보류');
    const actual=ACTION_KO[d.actualSemantic]||d.actualSemantic;
    const rec=ACTION_KO[d.rec]||d.rec;
-   return `<div class="reviewDecision ${cls}">
+   const recBox=graded?rec:(mr&&mr.action?`${mr.label}<small class="mrConf">${mr.basis}</small>`:'판단 근거 부족 · 가격만 확인');
+   return `<div class="reviewDecision ${graded?cls:(mr&&mr.action?(modelSame?'good soft':'fix soft'):'hold')}">
      <div class="headline">${headline}</div>
      <div class="situation"><b>상황</b> · ${decisionSituation(d)}</div>
      <div class="choiceLine">
        <div class="choiceBox"><span>내가 한 선택</span><b>${actual}</b></div>
-       <div class="choiceBox"><span>Poker OS 권장</span><b>${graded?rec:'상황 재계산'}</b></div>
+       <div class="choiceBox"><span>${graded?'Poker OS 권장':'모델 권장(참고)'}</span><b>${recBox}</b></div>
      </div>
-     <div class="plainWhy"><b>왜?</b> ${d.why}</div>
-     <div class="plainNext"><b>다음엔:</b> ${memoryTip(d)}</div>
+     <div class="plainWhy"><b>왜?</b> ${graded?d.why:modelWhy(d,mr)}</div>
+     <div class="plainNext"><b>다음엔:</b> ${graded?memoryTip(d):modelTip(d,mr)}</div>
      ${d.street==='preflop'&&d.pos==='SB'&&d.actual==='call'
         ?'<div class="plainWhy blindNote">SB에서는 이미 낸 블라인드를 다시 내는 게 아닙니다. 화면의 “추가 금액”만 더 냅니다.</div>':''}
      <div class="plainWhy"><b>메타:</b> 내 확신 ${d.userConfidence||'-'} · 결정 ${Number.isFinite(d.decisionMs)?(d.decisionMs/1000).toFixed(1)+'초':'-'}</div>
@@ -5095,7 +5182,7 @@ const V692_PROFILE_FIX={'일반 혼합':'Normal','소프트(피쉬 많음)':'Sof
 {const sel=$('tableProfile');if(sel){[...sel.options].forEach(o=>{const k=V692_PROFILE_FIX[o.value]||V692_PROFILE_FIX[o.textContent];if(k)o.value=k});if(V692_PROFILE_FIX[sel.value])sel.value=V692_PROFILE_FIX[sel.value];if(!FIELD_PROFILES[sel.value])sel.value='Normal'}}
 if(S&&V692_PROFILE_FIX[S.tableProfile]){S.tableProfile=V692_PROFILE_FIX[S.tableProfile]}
 try{v691Sync()}catch(e){}
-Object.assign(PokerOSDebug,{patch:'6.9.2-candidate-20261118-profile-values'});
+Object.assign(PokerOSDebug,{patch:'6.9.2-candidate-20261118-profile-values',modelReviewRec,modelWhy,modelTip,mrSameAct});
 })();
 </script>
 </body>

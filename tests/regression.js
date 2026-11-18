@@ -211,3 +211,21 @@ function runPokerOSRegressionV692(D,doc){
   ok('모든 프로필 옵션 값이 FIELD_PROFILES 키',vals.length===6&&['Normal','Soft','Reg Heavy','Kangwon Live','Kangwon 30','Kangwon Aggro'].every(k=>vals.includes(k)),vals);
   return out;
 }
+
+// v6.9.7 (2026-11-18) 핸드리뷰 모델 참고 권장
+function runPokerOSRegressionV697(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const f=D.modelReviewRec;
+  const a=f({street:'turn',toCall:10000,pot:82000,actionEV:{foldEV:0,callEV:39300,raiseEV:45891},actualSemantic:'Call',estimatedEquity:.9});
+  ok('EV 비교 → 레이즈 권장',a&&a.action==='Raise',a);
+  const b=f({street:'river',toCall:0,pot:200000,actionEV:{checkEV:14000,betEV:30000},actualSemantic:'Check'});
+  ok('체크 상황 벳 권장',b&&b.action==='Bet'&&!D.mrSameAct(b,'Check'),b);
+  const c=f({street:'flop',toCall:30000,pot:230000,estimatedEquity:.4,requiredEquity:.115,actualSemantic:'Fold'});
+  ok('승률 vs 필요 승률 보정 → 콜',c&&c.action==='Call',c);
+  const d=f({street:'preflop',why:'MODEL · KTo / Hero BB / MP raise → Fold (matrix continue 범위 밖).',actualSemantic:'Call'});
+  ok('프리플랍 모델 폴드',d&&d.action==='Fold',d);
+  const e=f({street:'preflop',facing:'Limpers',why:'MODEL · marginal offsuit entry를 줄입니다.',actualSemantic:'Fold'});
+  ok('림프 팟 모델 폴드',e&&e.action==='Fold',e);
+  ok('권장이 없으면 null',f({street:'flop',toCall:0,pot:100000,actualSemantic:'Check'})===null,null);
+  return out;
+}
