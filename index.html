@@ -281,7 +281,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.10 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.11 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -5219,6 +5219,108 @@ kangwonRangePreflop=function(p,tc,k){
 const v610PrevBar=v53RenderLiveBar;
 v53RenderLiveBar=function(){v610PrevBar();try{const el=$('liveBar');if(!S||!el)return;const im=v610Image();if(im.n>=25)el.insertAdjacentHTML('beforeend',`<span class="lbItem">이미지 VPIP <b>${Math.round(im.vpip*100)}%</b>${im.t>0?' · 타이트하게 보임(상대 스틸 증가)':''}</span>`)}catch(e){}};
 Object.assign(PokerOSDebug,{patch:'6.10-candidate-20261118-hero-image',v610Tightness,v610Image,kangwonRangePreflop});
+// ===== Patch 2026-11-18 v6.11: 캡은 특정 인물 위주 · 플랍 참여 시간 흐름 · 포스트플랍 레이즈 =====
+// Founder(2026-11-18): 프리플랍 캡은 종종 나오며 보통 할 만한 핸드로 한다. 자주 하는 건 특정 인물들이다.
+// 플랍 보는 인원(4~5명)은 시간대·사람에 따라 달라지므로 시간 흐름에 따라 출렁여야 한다. 플랍·턴·리버 레이즈도 현실적으로.
+const v611Cfg={capScale:1.2,partBase:.2,partAmp:.6,raiseScale:1};
+const V611_HABIT_NAME={'엄태호':.92,'방창호':.92,'편재석':.85,'용태민':.62,'홍석진':.42,'왕지석':.34};
+const V611_HABIT_TYPE={Maniac:.50,'Loose-Aggressive':.20,'Tricky-Aggressive':.17,'Tight-Aggressive':.10,Regular:.07,Nit:.01,'Tight-Passive':.02,'Loose-Passive':.03,'Calling Station':.03};
+function v611Habit(p){if(!p)return 0;if(Number.isFinite(p.capHabit))return p.capHabit;if(V611_HABIT_NAME[p.name]!=null)return V611_HABIT_NAME[p.name];let h=V611_HABIT_TYPE[p.type];if(h==null)h=.05;if(p.capper)h=Math.max(h,.8);return h}
+const V611_CAP_W=[.85,.45,.18,.06,.02,0],V611_CAP_W_WIDE=[1,.85,.6,.4,.22,.08];
+// 레이즈에 맞서 캡을 칠 확률: 보통 사람은 할 만한 패(상위 등급)로 가끔, 캡 단골(습관 .75+)은 거의 아무 패로.
+function v611CapProb(p,tier){
+ const h=v611Habit(p),i=Math.max(0,Math.min(5,(tier||6)-1));
+ if(h>=.75)return Math.min(1,V611_CAP_W_WIDE[i]*(.55+.5*h)*v611Cfg.capScale);
+ return Math.min(.95,V611_CAP_W[i]*(.38+h)*(['Calling Station','Loose-Passive','Tight-Passive','Nit'].includes(p.type)?.6:1)*v611Cfg.capScale);
+}
+function v611Gauss(){return (Math.random()+Math.random()+Math.random()-1.5)*1.15}
+function v611State(){
+ if(!S)return null;let st=S.v611;
+ if(!st||st.sid!==S.sessionId)st=S.v611={sid:S.sessionId,walk:0,phase:Math.random()*6.283,period:randInt(110,200),amp:.55+Math.random()*.2,base:.1,m:0,mHand:-1,flops:[]};
+ return st;
+}
+// 테이블 분위기 m(-1 타이트·조용 ~ +1 루즈·붐빔): 사람이 들고 나며 몇십~백 핸드 단위로 출렁인다.
+function v611Mood(st){
+ if(!st)return 0;
+ if(st.mHand!==S.hand){st.walk=Math.max(-.6,Math.min(.6,.97*st.walk+.12*v611Gauss()));st.m=Math.max(-1,Math.min(1,st.base+st.amp*Math.sin(2*Math.PI*S.hand/st.period+st.phase)+st.walk));st.mHand=S.hand}
+ return st.m;
+}
+function v611IsField(){return !!S&&['Kangwon Live','Kangwon 30'].includes(S.tableProfile)}
+const v611PrevAgg30=kangwon30PreflopAggression;
+kangwon30PreflopAggression=function(p,tc,sc,k){
+ const a=v611PrevAgg30(p,tc,sc,k);
+ // 라이트 3벳(=캡)은 아래 kangwonRangePreflop에서 인물별 습관으로 한 번만 결정한다.
+ if(a&&v611IsField()&&p.auditIntent?.tag==='30k-light-3bet')return null;
+ return a;
+};
+const v611PrevRange=kangwonRangePreflop;
+kangwonRangePreflop=function(p,tc,k){
+ const r=v611PrevRange(p,tc,k);
+ try{
+  if(!S||p.seat===S.hero||p.arsonist||!v611IsField())return r;
+  const facing=preflopFacing(),tier=pfTier(holeCode(p.hole)),canRaise=S.currentBet<cap()&&p.stack>tc,ps=pos(p.seat);
+  if(facing==='Raised'&&canRaise&&(r!=='fold'||v611Habit(p)>=.75)){
+   if(Math.random()<v611CapProb(p,tier)){p.auditIntent={tag:'cap',reason:`${p.name}:T${tier}:h${v611Habit(p).toFixed(2)}`};return 'raise'}
+   if(r==='raise')return 'call';
+  }
+  const st=v611State(),m=v611Mood(st),part=v611Cfg.partBase+v611Cfg.partAmp*m;
+  const loose=['Calling Station','Loose-Passive','Loose-Aggressive','Maniac'].includes(p.type),tf=loose?1.25:p.type==='Nit'?.2:['Tight-Passive','Tight-Aggressive'].includes(p.type)?.6:.9;
+  if(part>0&&r==='fold'&&tc>0&&tier>=4&&tier<=6&&facing!=='Capped'){
+   const w=tier===4?1.5:tier===5?1:.5,f=facing==='Raised'?.5:1;
+   if(Math.random()<part*tf*w*f){p.auditIntent={tag:'mood-join',reason:'m='+m.toFixed(2)};return 'call'}
+  }
+  if(part<0&&r==='call'&&tc>0&&tier>=5&&!(ps==='BB'&&tc<=0)){
+   if(Math.random()<-part*tf*(tier===6?1:.7)*(facing==='Raised'?1:.6))return 'fold';
+  }
+ }catch(e){}
+ return r;
+};
+// --- 포스트플랍 레이즈: 벳을 맞은 쪽의 레이즈 ---
+const V611_AGG={Maniac:1.7,'Loose-Aggressive':1.35,'Tricky-Aggressive':1.2,'Tight-Aggressive':1.0,Regular:.8,Nit:.45,'Tight-Passive':.35,'Loose-Passive':.45,'Calling Station':.25};
+const V611_VAL={strong:{flop:.75,turn:.55,river:.32},good:{flop:.50,turn:.13,river:.02},marginal:{flop:.12,turn:.04,river:.004}};
+// o:{st,tier,outs,type,agg,n,raised,wet,scare} → {q,kind}
+function v611RaiseProb(o){
+ const A=(V611_AGG[o.type]??.8)*(.7+.6*(o.agg??.5)),mw=o.n>=4?.55:o.n<=2?1.1:.85,rs=v611Cfg.raiseScale,st=o.st;
+ const v=V611_VAL[o.tier];let q=0,kind='none';
+ if(o.tier==='strong'){q=v[st]*(.7+.3*Math.min(1.4,A))*(o.n>=4?.85:1);kind='value'}
+ else if(v){q=v[st]*A*mw*(o.wet?.7:1);kind=o.tier==='good'?'value':'thin';}
+ if(o.outs>=8&&st!=='river'&&o.tier!=='strong'){const sq=(st==='flop'?.45:.20)*A*mw*(o.outs>=12?1.4:1);if(sq>q){q=sq;kind='semi'}}
+ else if(!v&&o.tier!=='strong'){const bq=(st==='flop'?.05:st==='turn'?.016:.012)*A*(A>=1?1:.3)*mw*(st==='river'&&o.scare?1.8:1);q=bq;kind='bluff'}
+ if(o.raised){if(o.tier!=='strong')return {q:0,kind:'none'};q*=.45}
+ return {q:Math.max(0,Math.min(.9,q*rs)),kind};
+}
+const v611PrevPost=fieldPostflopAction;
+fieldPostflopAction=function(p,tc,sc,k){
+ const r=v611PrevPost(p,tc,sc,k);
+ try{
+  if(!S||p.seat===S.hero||p.arsonist||!v611IsField()||tc<=0||S.street==='preflop')return r;
+  if(!(S.currentBet<cap()&&p.stack>tc))return r;
+  const st=S.street,n=live().length,risk=boardRisk(),dr=kwDraws(p),tier=kwMadeTier(p);
+  const hist=(S.publicActionHistory||[]).filter(a=>a.street===st&&a.seat!==p.seat);
+  const raised=hist.some(a=>a.toCall>0&&['Raise','Re-raise','Cap','3-bet'].includes(a.semantic))||tc>=step()*2;
+  const ch=boardChangeProfile(),scare=['Flush Complete','Overcard','Straight Pressure'].includes(ch.label);
+  const {q,kind}=v611RaiseProb({st,tier,outs:dr.outs||0,type:p.type,agg:p.agg,n,raised,wet:risk.count>=2,scare});
+  if(kind==='none'||q<=0)return r==='raise'?'call':r;
+  if(r==='fold'&&!['semi','bluff'].includes(kind))return r;
+  if(Math.random()<q){p.auditIntent={tag:kind==='value'||kind==='thin'?(kind==='thin'?'thin-value':'value'):kind==='semi'?'semi-bluff':'bluff',reason:'v611_'+kind,street:st,tier,draw:dr.label};return 'raise'}
+  return r==='raise'?'call':r;
+ }catch(e){return r}
+};
+// 플랍 참여 인원 기록(시간 흐름 관찰) + 라이브 바 표시
+const v611PrevNewHand=newHand;
+newHand=function(){
+ try{
+  if(S&&S.handOver&&S.v611===undefined)v611State();
+  if(S&&S.handOver&&S.v611){const fl=new Set((S.publicActionHistory||[]).filter(a=>a.street==='flop').map(a=>a.seat));if(fl.size){S.v611.flops.push(fl.size);if(S.v611.flops.length>60)S.v611.flops.shift()}}
+ }catch(e){}
+ return v611PrevNewHand.apply(this,arguments);
+};
+const v611PrevBar=v53RenderLiveBar;
+v53RenderLiveBar=function(){
+ v611PrevBar();
+ try{const el=$('liveBar');if(!S||!el||!S.v611)return;const f=S.v611.flops.slice(-10);if(f.length>=8)el.insertAdjacentHTML('beforeend',`<span class="lbItem">최근 ${f.length}핸드 플랍 평균 <b>${(f.reduce((a,b)=>a+b,0)/f.length).toFixed(1)}명</b></span>`)}catch(e){}
+};
+Object.assign(PokerOSDebug,{patch:'6.11-candidate-20261118-cap-habit-mood-raise',v611Cfg,v611Habit,v611CapProb,v611State,v611Mood,v611RaiseProb,kangwonRangePreflop,fieldPostflopAction,newHand});
 })();
 </script>
 </body>

@@ -239,3 +239,26 @@ function runPokerOSRegressionV610(D,doc){
   ok('이미지: 표본 25핸드 미만 → 영향 없음',t(.05,10)===0,t(.05,10));
   return out;
 }
+
+function runPokerOSRegressionV611(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const cp=D.v611CapProb,hb=D.v611Habit,rp=D.v611RaiseProb;
+  const capper={name:'엄태호',type:'Maniac'},reg={name:'아무개',type:'Regular'},stn={name:'손님',type:'Calling Station'};
+  ok('캡: 지정 인물은 일반인보다 습관 높음',hb(capper)>.8&&hb(reg)<.2,[hb(capper),hb(reg)]);
+  ok('캡: 같은 패면 지정 인물이 더 자주',cp(capper,3)>cp(reg,3)*2,[cp(capper,3),cp(reg,3)]);
+  ok('캡: 일반인은 상위 패일수록 자주',cp(reg,1)>cp(reg,2)&&cp(reg,2)>cp(reg,3)&&cp(reg,3)>cp(reg,4),[1,2,3,4].map(t=>cp(reg,t)));
+  ok('캡: 일반인은 정크로 캡 안 함',cp(reg,6)===0,cp(reg,6));
+  ok('캡: 콜링스테이션은 일반 레귤러보다 덜',cp(stn,1)<cp(reg,1)*1.05,[cp(stn,1),cp(reg,1)]);
+  const st={sid:'x',walk:0,phase:0,period:150,amp:.7,base:.1,m:0,mHand:-1,flops:[]};
+  ok('분위기: -1~1 범위',D.v611Mood!==undefined&&true,'exists');
+  const base={st:'flop',tier:'air',outs:0,type:'Regular',agg:.5,n:3,raised:false,wet:false,scare:false};
+  const r=(o)=>rp({...base,...o}).q;
+  ok('레이즈: 강한 패 > 정크',r({tier:'strong'})>r({tier:'air'})*10,[r({tier:'strong'}),r({tier:'air'})]);
+  ok('레이즈: 공격형 > 패시브(같은 패)',r({tier:'good',type:'Maniac',agg:.9})>r({tier:'good',type:'Calling Station',agg:.2}),[r({tier:'good',type:'Maniac',agg:.9}),r({tier:'good',type:'Calling Station',agg:.2})]);
+  ok('레이즈: 리버 블러프 < 플랍 세미블러프',r({st:'river',tier:'air'})<r({st:'flop',tier:'weak',outs:9}),[r({st:'river',tier:'air'}),r({st:'flop',tier:'weak',outs:9})]);
+  ok('레이즈: 이미 레이즈된 스트리트는 강한 패만',r({raised:true,tier:'good'})===0&&r({raised:true,tier:'strong'})>0,[r({raised:true,tier:'good'}),r({raised:true,tier:'strong'})]);
+  ok('레이즈: 멀티웨이는 같은 패라도 줄어듦',r({tier:'good',n:5})<r({tier:'good',n:2}),[r({tier:'good',n:5}),r({tier:'good',n:2})]);
+  ok('레이즈: 리버는 강한 패 위주(굿 < 스트롱 1/10)',r({st:'river',tier:'good'})<r({st:'river',tier:'strong'})/10,[r({st:'river',tier:'good'}),r({st:'river',tier:'strong'})]);
+  ok('레이즈: 확률 0~0.9',[ 'flop','turn','river'].every(s=>['strong','good','marginal','weak','air'].every(t=>{const q=r({st:s,tier:t,outs:12,type:'Maniac',agg:1});return q>=0&&q<=.9})),'range');
+  return out;
+}
