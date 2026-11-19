@@ -216,11 +216,18 @@ function archiveDecode(packed){
  for(let i=0;i<input.length;i++){const code=input.charCodeAt(i);if(code===256){reset();continue}const entry=dict[code]!==undefined?dict[code]:code===next&&w?w+w[0]:null;if(entry===null)throw Error('Invalid archive');out.push(entry);if(w&&next<65535)dict[next++]=w+entry[0];w=entry}
  return decodeURIComponent(escape(out.join('')));
 }
+let _ledgerGap=0;
 function loadTrainerRows(){
- try{const l=JSON.parse(localStorage.getItem(LEDGER_KEY)||'null');if(Array.isArray(l)&&l.length)return l}catch{}
- let hist=[];
- try{const v=localStorage.getItem(V5_ARCHIVE_KEY);if(v!==null)hist=JSON.parse(archiveDecode(v));else hist=JSON.parse(localStorage.getItem(LEGACY_KEY)||'[]')}catch(e){console.error(e)}
- return (Array.isArray(hist)?hist:[]).map(h=>({t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',pl:Number(h.handPL)||0,bb:Number(h.bb)||BB[h.limit]||5000,m:h.trainingMode||'',rk:Number(h.rake)||0}));
+ let led=null;
+ try{const l=JSON.parse(localStorage.getItem(LEDGER_KEY)||'null');if(Array.isArray(l)&&l.length)led=l}catch{}
+ const hist=(()=>{try{return histAll()}catch{return []}})();
+ const rowOf=h=>({t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',pl:Number(h.handPL)||0,bb:Number(h.bb)||BB[h.limit]||5000,m:h.trainingMode||'',pr:h.tableProfile||'',rk:Number(h.rake)||0});
+ if(!led){_ledgerGap=0;return hist.map(rowOf)}
+ // 손익 장부에 빠진 핸드(저장 실패 등)는 핸드 기록·누적 아카이브로 보충한다. 키: 저장 시각+세션.
+ const seen=new Set(led.map(r=>r.t+'|'+r.sid)),add=[];
+ for(const h of hist){const k=h.savedAt+'|'+(h.sessionId||'');if(!seen.has(k)){seen.add(k);add.push(rowOf(h))}}
+ _ledgerGap=add.length;
+ return add.length?led.concat(add).sort((a,b)=>String(a.t).localeCompare(String(b.t))):led;
 }
 function loadReal(){try{const x=JSON.parse(localStorage.getItem(REAL_KEY)||'[]');return Array.isArray(x)?x:[]}catch{return []}}
 function saveReal(arr){localStorage.setItem(REAL_KEY,JSON.stringify(arr))}
@@ -298,6 +305,7 @@ function renderCurve(sessions,pts){
  $('curveLegend').innerHTML=`<span><i style="background:var(--series-1)"></i>누적 손익</span><span><i style="background:var(--text-muted);height:1px"></i>0선</span><span><i style="background:var(--critical);height:2px;opacity:.7"></i>최대 낙폭 구간</span>`;
  const H=pts[pts.length-1].h;
  $('curveDesc').textContent=prefs.src==='trainer'?`x축은 현장 환산 누적 시간(핸드 ÷ ${prefs.hph}/h), y축은 누적 손익. 세션 경계마다 곡선이 이어집니다.`:'x축은 실전 누적 플레이 시간, y축은 재투입을 뺀 누적 손익. 세션 안의 중간 기록이 있으면 그대로 그립니다.';
+ if(prefs.src==='trainer'&&_ledgerGap)$('curveDesc').textContent+=` · 손익 장부에 없던 ${_ledgerGap}핸드를 핸드 기록으로 보충했습니다.`;
  if(pts.length<2||H<=0){el.innerHTML='<div class="empty">표시할 기록이 없습니다.</div>';return}
  const W=Math.max(320,el.clientWidth||900),Hh=Math.round(Math.min(360,Math.max(220,W*.42))),m={l:58,r:14,t:12,b:30},iw=W-m.l-m.r,ih=Hh-m.t-m.b;
  // 다운샘플(화면 폭의 2배 정도만)
