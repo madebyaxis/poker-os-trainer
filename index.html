@@ -1215,7 +1215,7 @@ function startSession(){
  syncTrainingModeUI();
  log(`${cfg.label} 세션 시작 · 가상 스택 ${fmt(cfg.buyin)} · ${TRAINING_MODE_META[S.trainingMode]?.label||S.trainingMode} · 목표 ${S.sessionTarget}핸드`,'sys');$('next').disabled=false;$('endSession').disabled=false;readSeatOptions();renderCurriculum();renderEdgeMetrics();persistSession();newHand();
 }
-function resetP(p){p.hole=[S.deck.pop(),S.deck.pop()];p.folded=false;p.allin=false;p.allinThisHand=false;p.streetBet=0;p.totalBet=0;p.last='';p.obsPreflopSeenThisHand=false;p.obsEnteredThisHand=false;p.obsRaisedThisHand=false;ensureObs(p);delete p.eval}
+function resetP(p){p.handStartStack=p.stack;p.hole=[S.deck.pop(),S.deck.pop()];p.folded=false;p.allin=false;p.allinThisHand=false;p.streetBet=0;p.totalBet=0;p.last='';p.obsPreflopSeenThisHand=false;p.obsEnteredThisHand=false;p.obsRaisedThisHand=false;ensureObs(p);delete p.eval}
 function blind(seat,amt,label){const p=S.players[seat],pay=Math.min(amt,p.stack);p.stack-=pay;p.streetBet=pay;p.totalBet=pay;S.pot+=pay;p.last=label;if(p.stack===0)markAllIn(p,`${label} ALL-IN`)}
 function replaceSeat(seat){
   const old=S.players[seat];
@@ -2943,6 +2943,7 @@ function saveCurrentHand(){
     aiPostflopActions:deepClone(S.aiHandActionStats||emptyAIHandActionStats()),
     preflopFieldStats:deepClone(S.preflopFieldStats||{}),
     skillMix:tableSkillMix(),styleMix:tableStyleMix(),opponents:styleSkillSnapshot(),
+    oppPL:S.players.filter(p=>p.seat!==S.hero&&Number.isFinite(p.handStartStack)).map(p=>({seat:p.seat,name:p.name,style:p.type,skill:p.skill||'Average',pl:p.stack-p.handStartStack})),
     heroWon:wins.includes(S.hero),
     winner:S.winnerText||'',
     performanceTelemetry,
