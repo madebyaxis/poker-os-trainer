@@ -736,6 +736,12 @@ $('hph').addEventListener('change',e=>{prefs.hph=Math.max(10,Math.min(60,Number(
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,150)});
 window.PokerReport={render,currentSessions,cumulative,buckets,parseCSV,archiveDecode};
 render();
+// 누적 아카이브(IndexedDB)가 있으면 최근 500핸드 한도를 넘는 핸드까지 합쳐 다시 그린다.
+(async()=>{try{const db=await new Promise((res,rej)=>{const r=indexedDB.open('poker_os_archive_v1',1);r.onupgradeneeded=()=>{r.transaction.abort();rej(new Error('none'))};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+ if(!db.objectStoreNames.contains('hands'))return;
+ const all=await new Promise((res,rej)=>{const out=[],q=db.transaction('hands').objectStore('hands').openCursor();q.onsuccess=()=>{const c=q.result;if(c){out.push(c.value.h);c.continue()}else res(out)};q.onerror=()=>rej(q.error)});
+ const cur=histAll(),key=h=>(h.sessionId||'')+'|'+(h.handNo!=null?h.handNo:h.savedAt);const m=new Map(all.map(h=>[key(h),h]));cur.forEach(h=>m.set(key(h),h));
+ if(m.size>cur.length){_hist=[...m.values()].sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))||((a.handNo||0)-(b.handNo||0)));render()}}catch(e){}})();
 })();
 </script>
 </body>

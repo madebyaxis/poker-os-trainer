@@ -281,7 +281,7 @@ aside.side.stash{display:none!important}
 <body>
 <div class="app">
   <div class="header">
-    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.11 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
+    <div><h1>강원랜드 리미트 홀덤 실전 트레이너 v6.12 Candidate</h1><div class="sub">2026-11-17 싼 가격 폴드 확인 · 쇼다운 공개 패 기록 · 보드·내 카드 구분 · 팟 금액 표시 · 카드 크게 · 모드·프로필 보완 · 세션 리포트 창 · 칩·팟 연출 · 딜러 · 데스크톱 한 화면 · 사람별 바이인 · 2026-11-16 속도 개선 · 공격·루즈 테이블 훈련 · 사연 있는 포스트플랍 · 10만/30만 필드 분리 · 단골 레귤러 · 현장 시계·스톱 라인 · <a href="report.html" class="reportLink">플레이 리포트 →</a></div></div>
     <div class="tools">
       <div class="field"><label>테이블</label><select id="limit"><option value="100">10만 테이블</option><option value="300">30만 테이블</option></select></div>
       <div class="field"><label>내 좌석</label><select id="heroSeat"></select></div>
@@ -391,7 +391,9 @@ aside.side.stash{display:none!important}
         <div class="smallBtns">
           <button class="smallBtn" id="exportHistory" type="button">기록 JSON 열기/저장</button>
           <button class="smallBtn" id="importHistoryBtn" type="button">JSON 기록 가져오기</button>
-          <input id="importHistoryFile" type="file" accept=".json,application/json" hidden>
+          <input id="importHistoryFile" type="file" accept=".json,.gz,application/json,application/gzip" hidden>
+          <button class="smallBtn" id="exportArchiveBtn" type="button">누적 아카이브 내보내기</button>
+          <span class="exportStatus" id="archiveCount" style="margin:0 6px">누적 보관 확인 중…</span>
           <button class="smallBtn" id="clearHistory" type="button">기록 초기화</button>
         </div>
         <div class="exportPanel" id="exportPanel" hidden>
@@ -3675,7 +3677,7 @@ $('importHistoryBtn').addEventListener('click',()=>$('importHistoryFile').click(
 $('importHistoryFile').addEventListener('change',async e=>{
   const f=e.target.files&&e.target.files[0]; if(!f)return;
   try{
-    const txt=await f.text(), obj=JSON.parse(txt);
+    const txt=await v612ReadFile(f), obj=JSON.parse(txt);
     const incoming=(Array.isArray(obj)?obj:(Array.isArray(obj.rawHands)?obj.rawHands:[])).filter(x=>x&&typeof x==='object'&&!Array.isArray(x));
     if(!incoming.length)throw new Error('핸드 배열을 찾지 못했습니다.');
     const current=loadHistory();
@@ -3683,7 +3685,7 @@ $('importHistoryFile').addEventListener('change',async e=>{
     const map=new Map(current.map(x=>[key(x),x]));
     incoming.forEach(x=>map.set(key(x),x));
     const merged=[...map.values()].sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||'')));
-    saveHistory(merged);importLeakEvidence(incoming,current);
+    saveHistory(merged);importLeakEvidence(incoming,current);v612ArchivePut(incoming);
     renderHistory();
     $('exportStatus').textContent=`JSON ${incoming.length}개 핸드 가져오기 완료 · 중복 병합 후 ${merged.length}개 저장`;
     $('exportPanel').hidden=false;
@@ -5261,7 +5263,7 @@ function v611Mood(st){
  if(st.mHand!==S.hand){st.walk=Math.max(-.6,Math.min(.6,.97*st.walk+.12*v611Gauss()));st.m=Math.max(-1,Math.min(1,st.base+st.amp*Math.sin(2*Math.PI*S.hand/st.period+st.phase)+st.walk));st.mHand=S.hand}
  return st.m;
 }
-function v611IsField(){return !!S&&['Kangwon Live','Kangwon 30'].includes(S.tableProfile)}
+function v611IsField(){return !!S&&['Kangwon Live','Kangwon 30','Kangwon Aggro'].includes(S.tableProfile)}
 const v611PrevAgg30=kangwon30PreflopAggression;
 kangwon30PreflopAggression=function(p,tc,sc,k){
  const a=v611PrevAgg30(p,tc,sc,k);
@@ -5337,6 +5339,47 @@ v53RenderLiveBar=function(){
  try{const el=$('liveBar');if(!S||!el||!S.v611)return;const f=S.v611.flops.slice(-10);if(f.length>=8)el.insertAdjacentHTML('beforeend',`<span class="lbItem">최근 ${f.length}핸드 플랍 평균 <b>${(f.reduce((a,b)=>a+b,0)/f.length).toFixed(1)}명</b></span>`)}catch(e){}
 };
 Object.assign(PokerOSDebug,{patch:'6.11-candidate-20261118-cap-habit-mood-raise',v611CapperW,v611Cfg,v611Habit,v611CapProb,v611State,v611Mood,v611RaiseProb,kangwonRangePreflop,fieldPostflopAction,newHand});
+
+// ===== Patch 2026-11-19 v6.12: 누적 아카이브(IndexedDB) — 500핸드 한도 없이 모든 핸드 보관 =====
+// 최근 500핸드는 기존처럼 localStorage에 두고, 모든 핸드를 IndexedDB에도 복제한다(키: sessionId|handNo). 가져오기·내보내기·리포트가 이를 사용한다.
+const V612_DB='poker_os_archive_v1',V612_STORE='hands';
+let v612DbP=null;
+function v612Key(h){return (h.sessionId||'nosession')+'|'+(h.handNo!=null?h.handNo:(h.savedAt||''))+(h.sessionId?'':'|'+(h.savedAt||'')+'|'+(h.hole||''))}
+function v612Open(){
+ if(v612DbP)return v612DbP;
+ v612DbP=new Promise((res,rej)=>{try{const r=indexedDB.open(V612_DB,1);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains(V612_STORE))db.createObjectStore(V612_STORE,{keyPath:'k'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}});
+ v612DbP.catch(()=>{v612DbP=null});return v612DbP;
+}
+async function v612ArchivePut(list){
+ try{const recs=(list||[]).filter(h=>h&&typeof h==='object'&&!Array.isArray(h));if(!recs.length)return 0;const db=await v612Open();
+  await new Promise((res,rej)=>{const tx=db.transaction(V612_STORE,'readwrite'),st=tx.objectStore(V612_STORE);for(const h of recs)st.put({k:v612Key(h),h});tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)});
+  v612RefreshCount();return recs.length}catch(e){return 0}
+}
+async function v612ArchiveAll(){
+ try{const db=await v612Open();return await new Promise((res,rej)=>{const out=[],r=db.transaction(V612_STORE).objectStore(V612_STORE).openCursor();r.onsuccess=()=>{const c=r.result;if(c){out.push(c.value.h);c.continue()}else res(out.sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))||((a.handNo||0)-(b.handNo||0))))};r.onerror=()=>rej(r.error)})}catch(e){return []}
+}
+async function v612ArchiveCount(){try{const db=await v612Open();return await new Promise((res,rej)=>{const r=db.transaction(V612_STORE).objectStore(V612_STORE).count();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}catch(e){return -1}}
+async function v612RefreshCount(){const n=await v612ArchiveCount(),el=$('archiveCount');if(el)el.textContent=n<0?'누적 보관 사용 불가(브라우저 설정 확인)':`누적 보관 ${n.toLocaleString()}핸드 · 최근 500핸드는 별도 빠른 저장`}
+async function v612ReadFile(f){
+ if(/\.gz$/i.test(f.name)&&typeof DecompressionStream==='function'){return await new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text()}
+ return await f.text();
+}
+const v612PrevSave=saveHistory;
+saveHistory=function(arr){const r=v612PrevSave(arr);try{if(Array.isArray(arr))v612ArchivePut(arr.slice(-3))}catch(e){}return r};
+async function v612ExportArchive(){
+ const all=await v612ArchiveAll();const st=$('exportStatus');if($('exportPanel'))$('exportPanel').hidden=false;
+ if(!all.length){if(st)st.textContent='누적 아카이브가 비어 있습니다.';return}
+ const json=JSON.stringify({type:'poker-os-archive',schemaVersion:'archive-v1',exportedAt:new Date().toISOString(),count:all.length,rawHands:all});
+ let blob,name='kangwon_all_hands_archive_'+new Date().toISOString().slice(0,10);
+ try{if(typeof CompressionStream==='function'){blob=await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).blob();name+='.json.gz'}}catch(e){blob=null}
+ if(!blob){blob=new Blob([json],{type:'application/json'});name+='.json'}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+ if(st)st.textContent=`누적 아카이브 ${all.length.toLocaleString()}핸드를 ${name}로 저장했습니다. 가져오기에서 같은 파일을 다시 불러올 수 있습니다(.gz 지원).`;
+}
+$('exportArchiveBtn').addEventListener('click',v612ExportArchive);
+(async()=>{try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+ await v612ArchivePut(loadHistory());v612RefreshCount()})();
+Object.assign(PokerOSDebug,{v612ArchivePut,v612ArchiveAll,v612ArchiveCount,v612Key});
 })();
 </script>
 </body>

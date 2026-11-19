@@ -244,6 +244,7 @@ function runPokerOSRegressionV611(D,doc){
   const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
   const cp=D.v611CapProb,hb=D.v611Habit,rp=D.v611RaiseProb;
   const capper={name:'엄태호',type:'Maniac'},reg={name:'아무개',type:'Regular'},stn={name:'손님',type:'Calling Station'};
+  ok('v6.12 누적 아카이브 API 노출',typeof D.v612ArchivePut==='function'&&typeof D.v612ArchiveAll==='function'&&D.v612Key({sessionId:'S-1',handNo:5})==='S-1|5',D.v612Key&&D.v612Key({sessionId:'S-1',handNo:5}));
   ok('캡: 지정 인물은 일반인보다 습관 높음',hb(capper)>.8&&hb(reg)<.2,[hb(capper),hb(reg)]);
   ok('캡: 같은 패면 지정 인물이 더 자주',cp(capper,3)>cp(reg,3)*2,[cp(capper,3),cp(reg,3)]);
   ok('캡: 일반인은 상위 패일수록 자주',cp(reg,1)>cp(reg,2)&&cp(reg,2)>cp(reg,3)&&cp(reg,3)>cp(reg,4),[1,2,3,4].map(t=>cp(reg,t)));
