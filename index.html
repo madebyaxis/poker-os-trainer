@@ -3685,7 +3685,8 @@ $('importHistoryFile').addEventListener('change',async e=>{
     const map=new Map(current.map(x=>[key(x),x]));
     incoming.forEach(x=>map.set(key(x),x));
     const merged=[...map.values()].sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||'')));
-    saveHistory(merged);importLeakEvidence(incoming,current);v612ArchivePut(incoming);
+    const isArc=!Array.isArray(obj)&&obj.type==='poker-os-archive';
+    saveHistory(merged);if(!isArc)importLeakEvidence(incoming,current);v612ArchivePut(incoming,isArc);
     renderHistory();
     $('exportStatus').textContent=`JSON ${incoming.length}개 핸드 가져오기 완료 · 중복 병합 후 ${merged.length}개 저장`;
     $('exportPanel').hidden=false;
@@ -5350,9 +5351,9 @@ function v612Open(){
  v612DbP=new Promise((res,rej)=>{try{const r=indexedDB.open(V612_DB,1);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains(V612_STORE))db.createObjectStore(V612_STORE,{keyPath:'k'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}});
  v612DbP.catch(()=>{v612DbP=null});return v612DbP;
 }
-async function v612ArchivePut(list){
+async function v612ArchivePut(list,keepExisting){
  try{const recs=(list||[]).filter(h=>h&&typeof h==='object'&&!Array.isArray(h));if(!recs.length)return 0;const db=await v612Open();
-  await new Promise((res,rej)=>{const tx=db.transaction(V612_STORE,'readwrite'),st=tx.objectStore(V612_STORE);for(const h of recs)st.put({k:v612Key(h),h});tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)});
+  await new Promise((res,rej)=>{const tx=db.transaction(V612_STORE,'readwrite'),st=tx.objectStore(V612_STORE);for(const h of recs){const k=v612Key(h);if(keepExisting){const g=st.get(k);g.onsuccess=()=>{if(!g.result)st.put({k,h})}}else st.put({k,h})}tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)});
   v612RefreshCount();return recs.length}catch(e){return 0}
 }
 async function v612ArchiveAll(){
