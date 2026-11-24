@@ -216,3 +216,13 @@
 - **가져오기/내보내기**: JSON·`.json.gz` 가져오기는 모두 아카이브에도 적재(중복은 키로 병합, 이미 있는 핸드는 기존 것을 유지, 아카이브 파일은 약점 버킷에 다시 반영하지 않음). “누적 아카이브 내보내기”는 전체를 `.json.gz`로 저장. “기록 초기화”는 최근 500핸드만 지우고 아카이브는 유지.
 - **리포트**: 아카이브가 있으면 500핸드를 넘는 핸드까지 합쳐 다시 그림.
 - **Aggro 프로필**: v6.11 보정(캡 단골 인물 위주 · 플랍 참여 시간 흐름 · 포스트플랍 레이즈)을 Kangwon Aggro에도 적용(아선 플레이어 제외). 시뮬레이션 캡 수준 약 18%(기존 플레이 29~34%).
+
+## v6.13 변경점 · PC·휴대폰 클라우드 자동 동기화
+- **구성**: `sync.js`(신규) + Google Apps Script 웹앱(`Poker OS Trainer Sync`) + Google Drive JSON 2개.
+  `index.html`·`report.html`이 `<head>`에서 `sync.js`를 함께 불러옵니다. `sync.js`의 `CFG.endpoint`를 비우면 예전처럼 이 브라우저에만 저장됩니다.
+- **동기화 대상**: 최근 핸드(`poker_os_history_v5_lzw1`, LZW 그대로), 손익 원장(`poker_os_pl_ledger_v1`, 최대 30,000행), 진행 세션(`..._active_session_v30`), 약점(`poker_os_leaks_v1`), 솔버 학습(`poker_os_solver_learning_v2`), 단골 관찰(`poker_os_regular_memory_v1`), 훈련 프로필(`..._training_profile_v30`), 바이인(`poker_os_hero_buyin_v1`), 팟가드(`poker_os_potguard_v1`), 실전 기록(`poker_os_real_sessions_v1`), 리포트 설정(`poker_os_report_prefs_v1`), 현장 관찰(`poker_os_field_obs_v1`).
+- **전체 아카이브**: IndexedDB `poker_os_archive_v1`(500핸드 초과분)는 자동 경로에서 제외하고, 동기화 패널의 “전체 아카이브 백업/복원”으로 200핸드씩 주고받습니다(콜드 Drive 파일 `poker_os_trainer_archive.json`, 최대 4,000핸드).
+- **병합 규칙(기록 보존)**: 핸드는 앱 가져오기와 같은 키(`savedAt|handNo|position|hole`), 원장은(`t|sid|pl|hn`)로 합집합. 학습/설정은 카운터 최대값(`deepMax`), 세션은 `savedAt` 최신 우선이며 **진행 중인 로컬 세션은 절대 덮지 않습니다**. 서버도 저장 전에 같은 합집합 병합을 하고, 설정 키는 `t`(ms)가 더 새로운 쪽만 받습니다.
+- **자동화**: 기록 변경 시 2초 디바운스 푸시, 90초 폴링(탭이 보일 때만), 탭 복귀·온라인 복구·페이지 종료 시 1회. 상단에 `☁️ 동기화됨 / 동기화 중… / 오프라인` 배지, 누르면 수동 `[지금 동기화] [클라우드 불러오기] [클라우드 저장] [전체 아카이브 백업/복원] [JSON 백업]` 패널.
+- **회귀 테스트**: `tests/regression.js`의 `runPokerOSRegressionV613`(sync.js 로드·배지·키 형식·합집합·카운터 병합 등 13검사).
+- **보안 참고**: 저장소가 공개라 `sync.js`에 든 sync token도 공개됩니다. 토큰은 Drive JSON을 읽고 쓰는 용도만 가지며, 바꾸려면 Apps Script의 `SYNC_TOKEN`과 `sync.js`의 `token`을 함께 고쳐 다시 배포하세요.

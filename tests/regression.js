@@ -267,3 +267,34 @@ function runPokerOSRegressionV611(D,doc){
   ok('레이즈: 확률 0~0.9',[ 'flop','turn','river'].every(s=>['strong','good','marginal','weak','air'].every(t=>{const q=r({st:s,tier:t,outs:12,type:'Maniac',agg:1});return q>=0&&q<=.9})),'range');
   return out;
 }
+
+// v6.13 (2026-11-24) PC·폰 클라우드 동기화(sync.js) 검사 — 순수 병합 함수만 호출한다.
+function runPokerOSRegressionV613(D,doc){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const S=doc&&doc.defaultView&&doc.defaultView.PokerOSSync;
+  ok('sync.js 로드 · PokerOSSync 노출',!!S,typeof S);
+  if(!S){return out;}
+  ok('동기화 배지가 화면에 삽입됨',!!(doc&&doc.querySelector('.posSyncBadge')),doc&&!!doc.querySelector('.posSyncBadge'));
+  ok('엔드포인트·토큰 설정됨',!!S.cfg.endpoint&&!!S.cfg.token,[S.cfg.endpoint?'endpoint ok':'endpoint 없음',S.cfg.token?'token ok':'token 없음']);
+  const h1={savedAt:'2026-11-20T01:00:00.000Z',handNo:1,position:'BTN',hole:'A♠ K♠',handPL:1000};
+  const h2={savedAt:'2026-11-20T01:05:00.000Z',handNo:2,position:'CO',hole:'7♥ 7♦',handPL:-500};
+  ok('핸드 키 = 앱 가져오기 키 형식',
+    S.handKey(h1)==='2026-11-20T01:00:00.000Z|1|BTN|A♠ K♠',S.handKey(h1));
+  const one=S.mergeHandsUnion([h1],[h1]);
+  ok('같은 핸드는 중복 제거',one.length===1,one.length);
+  const two=S.mergeHandsUnion([h1],[h2]);
+  ok('다른 핸드는 합집합',two.length===2&&two[0].handNo===1&&two[1].handNo===2,two.map(x=>x.handNo));
+  const order=S.mergeHandsUnion([h2],[h1]);
+  ok('합집합은 savedAt 오름차순',order.length===2&&order[0].handNo===1,order.map(x=>x.handNo));
+  const many=[h1,h2];
+  ok('같은 배열 두 번 합쳐도 그대로',S.mergeHandsUnion(many,many).length===2,S.mergeHandsUnion(many,many).length);
+  ok('클라우드가 비어도 로컬 기록 유지(빈 배열 병합)',S.mergeHandsUnion(many,[]).length===2,S.mergeHandsUnion(many,[]).length);
+  ok('원장 키 형식',S.ledgerKey({t:'2026-11-20T01:00:00.000Z',sid:'S-1',pl:1000,hn:3})==='2026-11-20T01:00:00.000Z|S-1|1000|3',S.ledgerKey({t:'2026-11-20T01:00:00.000Z',sid:'S-1',pl:1000,hn:3}));
+  const m=S.deepMax({a:{attempts:3,correct:1},b:[1,2]},{a:{attempts:1,correct:2},b:[2,3]});
+  ok('학습 카운터는 큰 값 병합',m.a.attempts===3&&m.a.correct===2,m.a);
+  ok('배열은 합집합 병합',m.b.length===3,m.b);
+  ok('로컬에만 있는 값 유지',S.deepMax({x:5},{}).x===5,S.deepMax({x:5},{}).x);
+  const st=S.status();
+  ok('상태 조회 가능',st&&st.enabled===true,st);
+  return out;
+}
