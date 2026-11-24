@@ -226,3 +226,6 @@
 - **자동화**: 기록 변경 시 2초 디바운스 푸시, 90초 폴링(탭이 보일 때만), 탭 복귀·온라인 복구·페이지 종료 시 1회. 상단에 `☁️ 동기화됨 / 동기화 중… / 오프라인` 배지, 누르면 수동 `[지금 동기화] [클라우드 불러오기] [클라우드 저장] [전체 아카이브 백업/복원] [JSON 백업]` 패널.
 - **회귀 테스트**: `tests/regression.js`의 `runPokerOSRegressionV613`(sync.js 로드·배지·키 형식·합집합·카운터 병합 등 13검사).
 - **보안 참고**: 저장소가 공개라 `sync.js`에 든 sync token도 공개됩니다. 토큰은 Drive JSON을 읽고 쓰는 용도만 가지며, 바꾸려면 Apps Script의 `SYNC_TOKEN`과 `sync.js`의 `token`을 함께 고쳐 다시 배포하세요.
+
+### 동기화 백엔드 (재배포용)
+`sync-server/Code.gs` = 배포된 Apps Script(`Poker OS Trainer Sync`)의 소스입니다. 토큰을 바꾸거나 다시 배포할 때 이 파일을 script.google.com 새 프로젝트에 붙여넣고, 웹 앱(실행: 나 / 액세스: 모든 사용자)으로 배포한 뒤 `sync.js`의 `CFG.endpoint`·`token`을 맞추면 됩니다.
