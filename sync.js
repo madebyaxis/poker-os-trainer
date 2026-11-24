@@ -50,7 +50,8 @@
     potguard: { ls: K.potguard, mode: 'last' },
     prefs: { ls: K.prefs, mode: 'last' },
     real: { ls: K.real, mode: 'union' },
-    fieldobs: { ls: K.fieldobs, mode: 'union' }
+    fieldobs: { ls: K.fieldobs, mode: 'union' },
+    coach: { ls: K.coach, mode: 'last', cmpField: 'builtAt' }   // 리포트가 바로 읽는 코칭 스냅샷
   };
 
   var meta = loadMeta();
@@ -286,7 +287,12 @@
       });
       changed = JSON.stringify(out) !== JSON.stringify(localV);
     } else { // last
-      if (force || cloudT > localT) { out = cloudV; changed = JSON.stringify(out) !== JSON.stringify(localV); }
+      var newer = force || cloudT > localT;
+      if (!newer && def.cmpField && localV && cloudV && typeof localV === 'object' && typeof cloudV === 'object') {
+        var aT = Date.parse(localV[def.cmpField] || ''), cT = Date.parse(cloudV[def.cmpField] || '');
+        if (isFinite(aT) && isFinite(cT) && cT > aT) newer = true;
+      }
+      if (newer) { out = cloudV; changed = JSON.stringify(out) !== JSON.stringify(localV); }
       else out = localV;
     }
     if (changed) {
@@ -439,7 +445,7 @@
     fns.forEach(function (name) {
       try { if (typeof window[name] === 'function') window[name](); } catch (e) {}
     });
-    try { if (window.PokerOSDebug && typeof PokerOSDebug.buildCoachSnapshot === 'function') PokerOSDebug.buildCoachSnapshot(); } catch (e) {}
+    try { if (typeof window.buildCoachSnapshot === 'function') window.buildCoachSnapshot(); } catch (e) {}
     markRebuilt();
   }
   function markRebuilt() {}
