@@ -4077,7 +4077,7 @@ function archiveDecode(packed){
 }
 const v5LegacyLoadHistory=loadHistory;loadHistory=function(){try{const v=localStorage.getItem(V5_ARCHIVE_KEY);if(v!==null){const x=JSON.parse(archiveDecode(v));return Array.isArray(x)?x:[]}return v5LegacyLoadHistory()}catch(e){console.error('V5 archive read failed',e);return []}};
 saveHistory=function(arr){try{localStorage.setItem(V5_ARCHIVE_KEY,archiveEncode(JSON.stringify(arr.slice(-500))));return true}catch(e){console.error('V5 archive save failed',e);if($('hint'))$('hint').textContent='기록 저장 실패 · JSON 내보내기로 현재 기록을 보관하세요.';return false}};
-Object.assign(PokerOSDebug,{loadHistory,saveHistory,archiveEncode,archiveDecode});
+Object.assign(PokerOSDebug,{loadHistory,saveHistory,archiveEncode,archiveDecode,buildCoachSnapshot});
 
 trainingProfile=loadTrainingProfile();initLeaksFromHistory();$('solverRun').addEventListener('click',solverLabRun);$('solverUse').addEventListener('click',attachSolverPolicy);
 setup();

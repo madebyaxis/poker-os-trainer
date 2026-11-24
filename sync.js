@@ -280,6 +280,7 @@
       out = cloudV; changed = (raw === null);
     } else if (def.mode === 'max') {
       out = deepMax(localV, cloudV);
+      if (name === 'leaks') out = sanitizeLeaks(out);
       changed = JSON.stringify(out) !== JSON.stringify(localV) && JSON.stringify(out) !== raw;
     } else if (def.mode === 'union') {
       out = unionArrayLocal(localV, cloudV, function (x) {
@@ -300,6 +301,17 @@
       stats.keys.push(name);
     }
     if (cloudT > localT) { meta.t[name] = cloudT; }
+  }
+
+  // 앱의 emptyBucket() 모양(attempts·recent·responseMs)을 갖춘 bucket만 통과시킨다.
+  function sanitizeLeaks(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    Object.keys(obj).forEach(function (k) {
+      if (k === '_imported') return;
+      var b = obj[k];
+      if (!b || typeof b !== 'object' || typeof b.attempts !== 'number' || !Array.isArray(b.recent) || !Array.isArray(b.responseMs)) delete obj[k];
+    });
+    return obj;
   }
 
   function applySession(entry, stats) {
@@ -441,14 +453,13 @@
 
   function refreshApp() {
     if (isReportPage()) { reloadOnce('report'); return; }   // 리포트는 그리기가 클로저 안이라 한 번 다시 그린다
-    var fns = ['renderHistory', 'renderEdgeMetrics', 'renderRecentHistoryLite', 'renderCurriculum', 'renderReview'];
-    fns.forEach(function (name) {
-      try { if (typeof window[name] === 'function') window[name](); } catch (e) {}
-    });
-    try { if (typeof window.buildCoachSnapshot === 'function') window.buildCoachSnapshot(); } catch (e) {}
-    markRebuilt();
+    // 앱 내부 렌더 함수는 전역이 아니라 PokerOSDebug로 노출된다.
+    var D = window.PokerOSDebug || null;
+    if (!D) return;
+    try { if (typeof D.buildCoachSnapshot === 'function') D.buildCoachSnapshot(); } catch (e) {}
+    try { if (typeof D.renderHistory === 'function') D.renderHistory(); } catch (e) {}
+    try { if (typeof D.render === 'function') D.render(); } catch (e) {}
   }
-  function markRebuilt() {}
 
   function reloadOnce(tag) {
     try {
