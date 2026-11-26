@@ -277,38 +277,48 @@ aside.side.stash{display:none!important}
 .reviewDecision.soft.good{border-color:#2d4a35;background:#111b14}.reviewDecision.soft.fix{border-color:#5a4a2a;background:#221d12}
 .choiceBox small.mrConf{display:block;font-size:10px;font-weight:400;opacity:.7;margin-top:2px}.choiceBox small.mrMix{display:block;font-size:11px;font-weight:500;opacity:.85;margin-top:2px}
 
-/* ===== v6.17 (2026-11-26) 휴대폰 테이블 재배치: 좌석 2열 + 중앙 보드 전용 띠 + 큰 카드 + 색으로 구분되는 액션 ===== */
+/* ===== v6.17b (2026-11-26) 휴대폰 테이블: 작은 좌석 + 타원 배치(시계방향) + 중앙 보드 띠. 상대 카드 뒷면은 숨기고 폴드/차례로 상황 표시 ===== */
 .seat .actShort{display:none}
 .seat .act.a-fold{color:#9aa3a6}.seat .act.a-check{color:#7fd0ff}.seat .act.a-call{color:#7ee787}.seat .act.a-aggr{color:#ffd166}
 @media (max-width:650px){
  .dealerFig{display:none}
- .table{height:558px;min-height:0;border-radius:42%/20%;margin:0}
- .table .seat{width:calc(50% - 6px);height:72px;min-height:0;padding:4px 7px;border-radius:10px;display:grid;
-   grid-template-columns:minmax(0,1fr) auto;grid-template-rows:17px 30px 18px;gap:1px 6px;align-items:center;box-sizing:border-box}
- .table .seat .seat-top{grid-column:1;grid-row:1;min-width:0;justify-content:flex-start;gap:4px}
- .table .seat .name{font-size:13px;max-width:100%}
- .table .seat .stack{grid-column:2;grid-row:1;font-size:13px;text-align:right}
- .table .seat .pos{grid-column:1;grid-row:2;font-size:12px;font-weight:800}
- .table .seat .minicards{grid-column:2;grid-row:2;justify-self:end;gap:3px}
- .table .seat .mini{width:21px;height:29px;font-size:11px;border-radius:4px}
- .table .seat .act{grid-column:1/-1;grid-row:3;font-size:13px;font-weight:900;text-align:left;min-height:0;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .table{height:468px;min-height:0;border-radius:46%/30%;margin:0}
+ .table:after{content:'↻ 시계방향';display:block;position:absolute;left:50%;top:268px;transform:translateX(-50%);font-size:10px;letter-spacing:.08em;opacity:.45;pointer-events:none;color:#d9e6d9}
+ .table .seat{width:min(25vw,96px);height:54px;min-height:0;padding:3px 5px;border-radius:9px;display:grid;box-sizing:border-box;
+   grid-template-columns:minmax(0,1fr) auto;grid-template-rows:14px 13px 15px;gap:0 3px;align-items:center}
+ .table .seat .seat-top{grid-column:1;grid-row:1;min-width:0;justify-content:flex-start;gap:3px}
+ .table .seat .name{font-size:11px;max-width:100%}
+ .table .seat .regTag{display:none}
+ .table .seat .stack{grid-column:2;grid-row:1;font-size:11px;text-align:right;white-space:nowrap}
+ .table .seat .stack .badge,.table .seat .stack [class*="Badge"]{display:none}
+ .table .seat .pos{grid-column:1;grid-row:2;font-size:10px;font-weight:800;line-height:13px}
+ .table .seat .minicards{display:none}
+ .table .seat.revealed .minicards,.table .seat.hero .minicards{display:flex;grid-column:2;grid-row:2/4;justify-self:end;gap:2px}
+ .table .seat .mini{width:17px;height:24px;font-size:9px;border-radius:3px}
+ .table .seat .act{grid-column:1/-1;grid-row:3;font-size:11px;font-weight:900;text-align:left;min-height:0;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .table .seat.revealed .act,.table .seat.hero .act{grid-column:1}
  .table .seat .actFull{display:none}.table .seat .actShort{display:inline}
- .table .seat .dealer{width:18px;height:18px;font-size:10px}
- .table .seat.folded{opacity:.55}
- .table .seat.active{outline:3px solid var(--gold);outline-offset:0;box-shadow:0 0 16px #f3df8eaa}
- .table .seat.s5,.table .seat.s4,.table .seat.s3,.table .seat.s2{left:3px;right:auto;transform:none;bottom:auto}
- .table .seat.s6,.table .seat.s7,.table .seat.s8,.table .seat.s9{right:3px;left:auto;transform:none;bottom:auto}
- .table .seat.s5,.table .seat.s6{top:4px}
- .table .seat.s4,.table .seat.s7{top:82px}
- .table .seat.s3,.table .seat.s8{top:312px}
- .table .seat.s2,.table .seat.s9{top:392px}
- .table .seat.s1{left:50%;right:auto;top:auto;bottom:2px;width:58%;transform:translateX(-50%)}
- .table .center{left:50%;top:235px;transform:translate(-50%,-50%);width:calc(100% - 14px);gap:4px}
- .table .center .board{gap:4px;min-height:84px;padding:6px 8px;flex-wrap:nowrap;justify-content:center}
- .table .center .card{width:min(15.2vw,60px);height:min(21.4vw,84px);font-size:23px;border-radius:7px;line-height:1.05}
- .table .center .street{font-size:11px;letter-spacing:.14em}
- .table .center .pot{font-size:14px;padding:5px 12px}
- .table:after{display:none}
+ .table .seat .dealer{width:15px;height:15px;font-size:9px}
+ .table .seat.folded{opacity:.5}
+ .table .seat.active{outline:3px solid var(--gold);outline-offset:0;box-shadow:0 0 14px #f3df8eaa}
+ /* 타원 배치: 위(5·6) 안쪽 → 옆(4·7) 바깥 → 보드 띠 → 옆(3·8) 바깥 → 아래(2·9) 안쪽 → 나(1) */
+ .table .seat.s2,.table .seat.s3,.table .seat.s4,.table .seat.s5{right:auto}
+ .table .seat.s6,.table .seat.s7,.table .seat.s8,.table .seat.s9{left:auto}
+ .table .seat.s2,.table .seat.s3,.table .seat.s4,.table .seat.s5,.table .seat.s6,.table .seat.s7,.table .seat.s8,.table .seat.s9{bottom:auto;transform:none}
+ .table .seat.s5{left:calc(50% - min(25vw,96px) - 4px);top:4px}
+ .table .seat.s6{right:calc(50% - min(25vw,96px) - 4px);top:4px}
+ .table .seat.s4{left:2px;top:62px}
+ .table .seat.s7{right:2px;top:62px}
+ .table .seat.s3{left:2px;top:276px}
+ .table .seat.s8{right:2px;top:276px}
+ .table .seat.s2{left:14%;top:336px}
+ .table .seat.s9{right:14%;top:336px}
+ .table .seat.s1{left:50%;right:auto;top:auto;bottom:4px;width:min(46vw,180px);transform:translateX(-50%)}
+ .table .center{left:50%;top:188px;transform:translate(-50%,-50%);width:calc(100% - 12px);gap:3px;margin:0}
+ .table .center .board{gap:4px;min-height:70px;padding:5px 7px;flex-wrap:nowrap;justify-content:center}
+ .table .center .card{width:min(13.6vw,54px);height:min(19vw,76px);font-size:21px;border-radius:7px;line-height:1.05}
+ .table .center .street{font-size:10px;letter-spacing:.14em}
+ .table .center .pot{font-size:13px;padding:4px 11px}
 }
 </style>
 <script src="sync.js?v=20261126"></script>  <!-- Poker OS 클라우드 동기화(Google Apps Script + Drive JSON). 로컬 전용으로 쓰려면 sync.js의 endpoint를 비우면 됩니다. -->
@@ -3440,7 +3450,7 @@ function render(reveal=false){
  $('rules').textContent=S.cfg.label==='10만'
   ?'10만: SB 2천 / BB 5천. PF Raise→Cap, Flop/Turn Bet→Raise→Cap, River Bet→Raise→Re-raise→Cap. Skill×Style 독립. Field parameters는 잠정이며 실측 강원랜드 분포가 아닙니다. Adaptive는 deal/scenario만 편향하고 상대 액션은 일반 policy를 사용합니다. Canonical만 채점. Solver Lab은 conditional HU CFR, Model/Approx/Exploit 비채점. 훈련 손익은 실전 EV 아님. 회계용 rake 5%, cap 20,000원(2026-11-13 확인).'
   :'Poker OS v3 30만 설정: SB 1만 / BB 2만, PF·Flop 2만 단위, Turn·River 3만 단위. 상대 AI는 Style × Skill 혼합 테이블이며 성향·실력은 플레이 중 공개하지 않습니다. Adaptive에서는 최근 오류·경계범위를 반영한 맞춤 시작패와 프리플랍 목표상황을 생성합니다. canonical Rule DB만 실력 KPI에 채점합니다. 정본이 없는 구간은 Full Decision Engine이 Range·Equity Monte Carlo·Pot Odds·Action EV·관찰 기반 Exploit으로 Model 액션을 제시하지만 KPI 오답으로 채점하지 않습니다. 레이크는 회계 연속성을 위해 훈련 시뮬레이션에서 5%·cap 20,000원(10만·30만 공통, 2026-11-13 현장 확인)을 사용합니다. 올인 시 메인/사이드팟을 분리하고, 파산한 AI는 성향·올인/리바인 횟수·체류시간에 따라 리바인 또는 다른 플레이어로 교체됩니다. 칩 단위 반올림은 별도 모델링하지 않습니다.';
- $('seats').innerHTML=S.players.map((p,i)=>{const show=i===S.hero||(S.handOver&&reveal&&!p.folded);const status=playerStatusBadge(p);return `<div class="seat s${((i-S.hero+9)%9)+1} ${i===S.hero?'hero':''} ${i===S.actor&&!S.handOver?'active':''} ${p.folded?'folded':''} ${p.stack===0?'busted':''} ${p.pendingAction?'pending':''} ${S.winnerSeats&&S.winnerSeats.includes(i)?'winner':''}">
+ $('seats').innerHTML=S.players.map((p,i)=>{const show=i===S.hero||(S.handOver&&reveal&&!p.folded);const status=playerStatusBadge(p);return `<div class="seat s${((i-S.hero+9)%9)+1} ${i===S.hero?'hero':''} ${i===S.actor&&!S.handOver?'active':''} ${p.folded?'folded':''} ${show&&i!==S.hero?'revealed':''} ${p.stack===0?'busted':''} ${p.pendingAction?'pending':''} ${S.winnerSeats&&S.winnerSeats.includes(i)?'winner':''}">
  <div class="seat-top"><span class="name">${p.name}</span>${i===S.btn?'<span class="dealer">D</span>':''}</div>
  <div class="pos">${pos(i)}</div><div class="stack"><span class="stackFull">${fmt(p.stack)}</span><span class="stackShort">${manShort(p.stack)}</span> ${status}</div>
  <div class="minicards">${p.hole.map(c=>card(c,true,!show)).join('')}</div><div class="act ${v617ActCls(p.last)}"><span class="actFull">${p.last||' '}</span><span class="actShort">${v617ShortAct(p.last)}</span></div></div>`}).join('');
