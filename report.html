@@ -93,6 +93,7 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:#1d2a20}
   <div class="ctl">단위<div class="seg" id="unitSeg"><button data-v="won" class="on">원</button><button data-v="bb">BB</button></div></div>
   <div class="ctl" id="modeCtl">훈련 모드<select id="modeSel"><option value="all">전체</option><option value="simulation">실전 시뮬</option><option value="adaptive">Adaptive</option><option value="exam">시험</option></select></div>
   <div class="ctl" id="tpCtl">테이블 성향<select id="tpSel"><option value="all">전체</option><option value="aggro">공격·루즈 테이블(훈련)</option><option value="normal">일반 강원랜드</option></select></div>
+  <div class="ctl" id="stCtl">전략 태그<select id="stSel" title="트레이너의 '전략 실험 태그'로 나눈 기록만 손익·세션 탭에 표시합니다"><option value="all">전체</option></select></div>
   <div class="ctl" id="hphCtl">현장 환산 핸드/시간<input id="hph" type="number" min="10" max="60" step="1" value="30" style="width:84px"></div>
  </div>
 
@@ -122,6 +123,15 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:#1d2a20}
   <div class="desc" id="curveDesc"></div>
   <div class="legend" id="curveLegend"></div>
   <div class="chart" id="curve"></div>
+ </div>
+
+ <div class="card" id="stratCard" hidden>
+  <h2>전략 실험별 손익 비교 <span class="note">태그별 따로 · 가상칩 훈련</span></h2>
+  <div class="desc" id="stratDesc"></div>
+  <div class="legend" id="stratLegend"></div>
+  <div class="chart" id="stratChart"></div>
+  <div class="tblwrap"><table id="stratTable"></table></div>
+  <div class="note" id="stratNote" style="margin-top:6px"></div>
  </div>
 
  <div class="card" id="peerCard" hidden>
@@ -206,7 +216,7 @@ const $=id=>document.getElementById(id);
 const LEDGER_KEY='poker_os_pl_ledger_v1',V5_ARCHIVE_KEY='poker_os_history_v5_lzw1',LEGACY_KEY='kangwon_limit_holdem_trainer_history_v30',REAL_KEY='poker_os_real_sessions_v1',PREF_KEY='poker_os_report_prefs_v1';
 const BB={'10만':5000,'30만':20000};
 const MODE_KO={simulation:'실전 시뮬',adaptive:'Adaptive',exam:'시험'};
-let prefs={src:'trainer',lim:'all',unit:'won',mode:'all',hph:30,tab:'coach',tp:'all'};
+let prefs={src:'trainer',lim:'all',unit:'won',mode:'all',hph:30,tab:'coach',tp:'all',st:'all'};
 try{Object.assign(prefs,JSON.parse(localStorage.getItem(PREF_KEY)||'{}'))}catch{}
 const savePrefs=()=>{try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch{}};
 
@@ -222,7 +232,8 @@ function loadTrainerRows(){
  let led=null;
  try{const l=JSON.parse(localStorage.getItem(LEDGER_KEY)||'null');if(Array.isArray(l)&&l.length)led=l}catch{}
  const hist=(()=>{try{return histAll()}catch{return []}})();
- const rowOf=h=>({t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',pl:Number(h.handPL)||0,bb:Number(h.bb)||BB[h.limit]||5000,m:h.trainingMode||'',pr:h.tableProfile||'',rk:Number(h.rake)||0});
+ const rowOf=h=>({t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',pl:Number(h.handPL)||0,bb:Number(h.bb)||BB[h.limit]||5000,m:h.trainingMode||'',pr:h.tableProfile||'',rk:Number(h.rake)||0,st:h.strategyTag||'기본'});
+ if(led)led=led.map(r=>r.st?r:Object.assign({},r,{st:'기본'}));
  if(!led){_ledgerGap=0;return hist.map(rowOf)}
  // 손익 장부에 빠진 핸드(저장 실패 등)는 핸드 기록·누적 아카이브로 보충한다. 키: 저장 시각+세션.
  const seen=new Set(led.map(r=>r.t+'|'+r.sid)),add=[];
@@ -234,13 +245,15 @@ function loadReal(){try{const x=JSON.parse(localStorage.getItem(REAL_KEY)||'[]')
 function saveReal(arr){localStorage.setItem(REAL_KEY,JSON.stringify(arr))}
 
 // 공통 세션 형식: {id,date,lim,hours,pl,points:[[h,cum원]],hands?,mode?}
-function trainerSessions(){
- const hph=Math.max(5,Number(prefs.hph)||30),rows=loadTrainerRows().filter(r=>(prefs.mode==='all'||r.m===prefs.mode)&&(!prefs.tp||prefs.tp==='all'||(prefs.tp==='aggro'?r.pr==='Kangwon Aggro':r.pr!=='Kangwon Aggro')));
+function trainerRowsBase(){return loadTrainerRows().filter(r=>(prefs.mode==='all'||r.m===prefs.mode)&&(!prefs.tp||prefs.tp==='all'||(prefs.tp==='aggro'?r.pr==='Kangwon Aggro':r.pr!=='Kangwon Aggro')))}
+function trainerSessions(){return sessionsFromRows(trainerRowsBase().filter(r=>!prefs.st||prefs.st==='all'||(r.st||'기본')===prefs.st))}
+function sessionsFromRows(rows){
+ const hph=Math.max(5,Number(prefs.hph)||30);
  const by=new Map();for(const r of rows){const k=r.sid||('t'+r.t?.slice(0,13));if(!by.has(k))by.set(k,[]);by.get(k).push(r)}
  const out=[];
  for(const [id,rs] of by){rs.sort((a,b)=>String(a.t).localeCompare(String(b.t)));let cum=0;const pts=[[0,0]];rs.forEach((r,i)=>{cum+=r.pl;pts.push([(i+1)/hph,cum])});
   const startMs=sidMs(id)??Date.parse(rs[0].t),endMs=Date.parse(rs[rs.length-1].t);
-  out.push({id,date:kst(startMs),startMs,endMs,lim:rs[0].lim,hours:rs.length/hph,pl:cum,points:pts,hands:rs.length,mode:rs[0].m,rake:rs.reduce((a,r)=>a+r.rk,0)})}
+  out.push({id,date:kst(startMs),startMs,endMs,lim:rs[0].lim,hours:rs.length/hph,pl:cum,points:pts,hands:rs.length,mode:rs[0].m,st:rs[0].st||'기본',rake:rs.reduce((a,r)=>a+r.rk,0)})}
  return out.sort((a,b)=>(a.startMs||0)-(b.startMs||0));
 }
 function realSessions(){
@@ -307,6 +320,7 @@ function renderCurve(sessions,pts){
  const H=pts[pts.length-1].h;
  $('curveDesc').textContent=prefs.src==='trainer'?`x축은 현장 환산 누적 시간(핸드 ÷ ${prefs.hph}/h), y축은 누적 손익. 세션 경계마다 곡선이 이어집니다.`:'x축은 실전 누적 플레이 시간, y축은 재투입을 뺀 누적 손익. 세션 안의 중간 기록이 있으면 그대로 그립니다.';
  if(prefs.src==='trainer'&&_ledgerGap)$('curveDesc').textContent+=` · 손익 장부에 없던 ${_ledgerGap}핸드를 핸드 기록으로 보충했습니다.`;
+ if(prefs.src==='trainer'&&prefs.st&&prefs.st!=='all')$('curveDesc').textContent+=` · 전략 태그 '${prefs.st}'만 표시 중.`;
  if(pts.length<2||H<=0){el.innerHTML='<div class="empty">표시할 기록이 없습니다.</div>';return}
  const W=Math.max(320,el.clientWidth||900),Hh=Math.round(Math.min(360,Math.max(220,W*.42))),m={l:58,r:14,t:12,b:30},iw=W-m.l-m.r,ih=Hh-m.t-m.b;
  // 다운샘플(화면 폭의 2배 정도만)
@@ -369,10 +383,11 @@ function renderTable(sessions){
 function render(){
  document.querySelectorAll('.seg').forEach(seg=>{const key={srcSeg:'src',limSeg:'lim',unitSeg:'unit'}[seg.id];seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===prefs[key]))});
  $('modeSel').value=prefs.mode;$('tpSel').value=prefs.tp||'all';$('hph').value=prefs.hph;
- $('modeCtl').style.display=$('tpCtl').style.display=$('hphCtl').style.display=prefs.src==='trainer'?'':'none';
+ $('modeCtl').style.display=$('tpCtl').style.display=$('hphCtl').style.display=$('stCtl').style.display=prefs.src==='trainer'?'':'none';
+ renderTagSelect();
  const sessions=currentSessions(),pts=cumulative(sessions);
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===prefs.tab));document.querySelectorAll('section[data-tab]').forEach(x=>x.hidden=x.dataset.tab!==prefs.tab);
- renderCoach();renderKpis(sessions,pts);renderCurve(sessions,pts);renderPeers();renderBuckets(sessions);renderInsights(sessions);renderTable(sessions);renderDetail();renderObs();renderOpp();
+ renderCoach();renderKpis(sessions,pts);renderCurve(sessions,pts);renderStrategy();renderPeers();renderBuckets(sessions);renderInsights(sessions);renderTable(sessions);renderDetail();renderObs();renderOpp();
  const n=loadReal().length;$('realStatus').textContent=n?`실전 세션 ${n}개 저장됨`:'저장된 실전 기록 없음';
  if(prefs.src==='real'&&!n)$('curve').innerHTML='<div class="empty">아직 실전 기록이 없습니다. 아래 "실전 기록 불러오기"에서 파일을 불러오세요.</div>';
 }
@@ -673,6 +688,76 @@ function peerBuild(){
  }
  return {by,hero,exact,est,hph};
 }
+// ----- 전략 실험(태그)별 손익 -----
+// 트레이너의 '전략 실험 태그'로 나눈 핸드를 태그별 곡선·표로 비교한다. 태그 없는 기존 기록은 '기본'.
+function strategyGroups(){
+ const by=new Map();
+ for(const r of trainerRowsBase()){const t=r.st||'기본';let g=by.get(t);if(!g){g={tag:t,rows:[],last:''};by.set(t,g)}g.rows.push(r);if(String(r.t)>g.last)g.last=String(r.t)}
+ return [...by.values()].sort((a,b)=>a.tag==='기본'?-1:b.tag==='기본'?1:String(b.last).localeCompare(String(a.last)));
+}
+function renderTagSelect(){
+ const sel=$('stSel');if(prefs.src!=='trainer'){return}
+ const tags=[...new Set(loadTrainerRows().map(r=>r.st||'기본'))].sort((a,b)=>a==='기본'?-1:b==='기본'?1:a.localeCompare(b));
+ if(prefs.st!=='all'&&!tags.includes(prefs.st)){prefs.st='all';savePrefs()}
+ sel.innerHTML=`<option value="all">전체 (${tags.length}개)</option>`+tags.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t.replace(/[<>&]/g,'')}</option>`).join('');
+ sel.value=prefs.st||'all';
+}
+function strategyStats(g){
+ const rs=g.rows.filter(r=>prefs.lim==='all'||r.lim===prefs.lim),sessions=sessionsFromRows(rs),pts=cumulative(sessions);
+ const bbs=rs.map(r=>r.pl/(r.bb||BB[r.lim]||5000)),n=bbs.length,mean=n?bbs.reduce((a,b)=>a+b,0)/n:0;
+ const sd=n>1?Math.sqrt(bbs.reduce((a,b)=>a+(b-mean)**2,0)/(n-1)):0,H=pts[pts.length-1].h,V=pts[pts.length-1].v;
+ const top=k=>{const m=new Map();for(const r of rs){const v=r[k]||'';m.set(v,(m.get(v)||0)+1)}let b=['',0];for(const e of m)if(e[1]>b[1])b=e;return b};
+ return {tag:g.tag,n,sessions:sessions.length,pts,H,V,bb100:mean*100,se:n>1?100*sd/Math.sqrt(n):0,mdd:drawdown(pts).mdd,wins:sessions.filter(s=>s.pl>0).length,hourly:H>0?V/H:0,mode:top('m'),prof:top('pr')};
+}
+function strategyVerdict(x,ref){
+ if(!ref)return '-';if(x===ref)return '<span class="note">기준</span>';
+ const MIN=100;if(x.n<MIN||ref.n<MIN)return `<span class="note">표본 부족 (${Math.min(x.n,ref.n)}/${MIN}핸드)</span>`;
+ const d=x.bb100-ref.bb100,ci=1.96*Math.sqrt(x.se**2+ref.se**2),t=(d>=0?'+':'')+d.toFixed(1)+' ±'+ci.toFixed(0);
+ return Math.abs(d)<ci?`<span class="note">차이 불분명 (${t})</span>`:d>0?`<span class="pos">더 좋음 (${t})</span>`:`<span class="neg">더 나쁨 (${t})</span>`;
+}
+function renderStrategy(){
+ const card=$('stratCard');if(prefs.src!=='trainer'){card.hidden=true;return}
+ card.hidden=false;
+ const groups=strategyGroups(),S=groups.map(strategyStats).filter(x=>x.n>0);
+ const chart=$('stratChart'),tbl=$('stratTable');
+ if(S.length<2){
+  $('stratLegend').innerHTML='';chart.innerHTML='';tbl.innerHTML='';$('stratNote').textContent='';
+  $('stratDesc').textContent=S.length?`지금은 태그가 '${S[0].tag}' 하나뿐입니다. 트레이너 세팅의 '전략 실험 태그'에 이름(예: 림프 확대 실험)을 적고 새 세션을 시작하면 그 세션부터 따로 쌓여 여기서 곡선·표로 비교됩니다. 위 '전략 태그' 선택으로 한 태그만 골라 손익 탭 전체를 따로 볼 수도 있습니다.`:'표시할 기록이 없습니다.';
+  return;
+ }
+ const ref=S.find(x=>x.tag==='기본')||S.reduce((a,b)=>b.n>a.n?b:a);
+ const COL=['var(--series-1)','var(--series-2)','var(--series-3)'],DASH=['','7 3','2 3'];
+ S.forEach((x,i)=>{x.color=i<3?COL[i]:'var(--text-muted)';x.dash=i<3?DASH[i]:'1 3'});
+ $('stratDesc').textContent=`x축은 태그별로 따로 센 누적 플레이 시간(핸드 ÷ ${prefs.hph}/h), y축은 그 태그의 누적 손익입니다. 위 필터(테이블·훈련 모드·성향)는 적용되고 태그 선택은 적용되지 않습니다. 색은 태그 순서대로 3개까지, 나머지는 회색 점선입니다.`;
+ $('stratLegend').innerHTML=S.map(x=>`<span><svg width="24" height="8" style="vertical-align:middle;margin-right:5px"><line x1="0" x2="24" y1="4" y2="4" stroke="${x.color}" stroke-width="2.4" stroke-dasharray="${x.dash}"/></svg>${x.tag.replace(/[<>&]/g,'')} · ${x.n}핸드</span>`).join('')+`<span><i style="background:var(--text-muted);height:1px"></i>0선</span>`;
+ const W=Math.max(320,chart.clientWidth||900),Hh=Math.round(Math.min(380,Math.max(240,W*.42))),m={l:58,r:78,t:12,b:30},iw=W-m.l-m.r,ih=Hh-m.t-m.b;
+ const Hmax=Math.max(1e-6,...S.map(x=>x.H)),vals=S.flatMap(x=>x.pts.map(p=>p.v)),vmin=Math.min(0,...vals),vmax=Math.max(0,...vals),pad=(vmax-vmin||1)*.06,y0=vmin-pad,y1=vmax+pad;
+ const X=h=>m.l+iw*h/Hmax,Y=v=>m.t+ih*(1-(v-y0)/(y1-y0)),yt=niceTicks(y0,y1,5),xt=niceTicks(0,Hmax,Math.min(8,Math.max(3,Math.round(iw/110))));
+ const path=x=>{const maxN=Math.max(200,iw*2);let q=x.pts;if(q.length>maxN){const st=q.length/maxN,o=[];for(let i=0;i<q.length;i+=st)o.push(q[Math.floor(i)]);o.push(q[q.length-1]);q=o}return q.map((p,i)=>(i?'L':'M')+X(p.h).toFixed(1)+' '+Y(p.v).toFixed(1)).join('')};
+ // 끝 라벨이 겹치지 않게 y 순서대로 최소 12px 간격을 둔다(직접 라벨은 최대 4개).
+ const ends=S.slice(0,4).map(x=>({x,y:Y(x.pts[x.pts.length-1].v)})).sort((a,b)=>a.y-b.y);for(let i=1;i<ends.length;i++)if(ends[i].y-ends[i-1].y<12)ends[i].y=ends[i-1].y+12;
+ chart.innerHTML=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="전략 태그별 누적 시간별 손익 비교 선 그래프">
+  <g class="axis">${yt.map(v=>`<line x1="${m.l}" x2="${m.l+iw}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end">${fmtV(v)}</text>`).join('')}${xt.map(h=>`<text x="${X(h)}" y="${m.t+ih+18}" text-anchor="middle">${h}h</text>`).join('')}</g>
+  <line x1="${m.l}" x2="${m.l+iw}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--text-muted)"/>
+  ${S.slice().reverse().map(x=>`<path d="${path(x)}" fill="none" stroke="${x.color}" stroke-width="${x===ref?2.4:2}" stroke-dasharray="${x.dash}" stroke-linejoin="round" stroke-linecap="round"/>`).join('')}
+  ${ends.map(e=>`<text x="${Math.min(W-2,X(e.x.pts[e.x.pts.length-1].h)+5)}" y="${e.y+4}" font-size="10.5" fill="var(--text-secondary)">${e.x.tag.replace(/[<>&]/g,'').slice(0,10)} ${fmtV(e.x.V)}</text>`).join('')}
+  <line id="sx" x1="0" x2="0" y1="${m.t}" y2="${m.t+ih}" stroke="var(--text-secondary)" opacity="0"/>
+  <rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" id="shit"/>
+ </svg>`;
+ const svg=chart.querySelector('svg'),sx=svg.querySelector('#sx');
+ const at=(x,h)=>{let lo=0,hi=x.pts.length-1;if(h>=x.H)return x.pts[hi];while(lo<hi){const mid=(lo+hi+1)>>1;if(x.pts[mid].h<=h)lo=mid;else hi=mid-1}return x.pts[lo]};
+ const move=ev=>{const r=svg.getBoundingClientRect(),sc=W/r.width,px=((ev.touches?ev.touches[0].clientX:ev.clientX)-r.left)*sc,h=Math.max(0,Math.min(Hmax,(px-m.l)/iw*Hmax));
+  sx.setAttribute('x1',X(h));sx.setAttribute('x2',X(h));sx.setAttribute('opacity',.5);
+  const er=chart.getBoundingClientRect();
+  showTip(`<b>${fmtH(h)}</b>`+S.map(x=>h>x.H+1e-9?`<br><span style="color:${x.color}">●</span> ${x.tag.replace(/[<>&]/g,'')} <span class="note">기록 끝</span>`:`<br><span style="color:${x.color}">●</span> ${x.tag.replace(/[<>&]/g,'')} <b class="${cls(at(x,h).v)}">${fmtV(at(x,h).v)}</b>`).join(''),er.left+window.scrollX+X(h)/sc,er.top+window.scrollY+m.t/sc-4)};
+ const leave=()=>{sx.setAttribute('opacity',0);hideTip()},hit=svg.querySelector('#shit');
+ hit.addEventListener('mousemove',move);hit.addEventListener('touchmove',move,{passive:true});hit.addEventListener('touchstart',move,{passive:true});hit.addEventListener('mouseleave',leave);hit.addEventListener('touchend',leave);
+ const MODE_SHORT=k=>MODE_KO[k]||k||'-';
+ tbl.innerHTML=`<thead><tr><th>전략 태그</th><th>세션</th><th>핸드</th><th>환산 시간</th><th>누적 손익</th><th>BB/100 <span class="note">±95%</span></th><th>시간당</th><th>MDD</th><th>세션 승률</th><th>주 모드</th><th>${ref.tag==='기본'?"'기본'":ref.tag.replace(/[<>&]/g,'')} 대비</th></tr></thead><tbody>${S.map(x=>`<tr><td><span style="color:${x.color}">●</span> ${x.tag.replace(/[<>&]/g,'')}</td><td>${x.sessions}</td><td>${x.n}</td><td>${fmtH(x.H)}</td><td class="${cls(x.V)}">${fmtV(x.V)}</td><td>${x.bb100>=0?'+':''}${x.bb100.toFixed(1)} <span class="note">±${(1.96*x.se).toFixed(0)}</span></td><td class="${cls(x.hourly)}">${x.H>0?fmtV(x.hourly):'-'}</td><td class="neg">${x.mdd?'-'+fmtV(x.mdd,false):'0'}</td><td>${x.sessions?Math.round(100*x.wins/x.sessions)+'%':'-'}</td><td>${MODE_SHORT(x.mode[0])} <span class="note">${x.n?Math.round(100*x.mode[1]/x.n):0}%</span></td><td>${strategyVerdict(x,ref)}</td></tr>`).join('')}</tbody>`;
+ const modes=new Set(S.map(x=>x.mode[0])),profs=new Set(S.map(x=>x.prof[0]));
+ $('stratNote').innerHTML=`BB/100의 ±는 핸드별 손익 변동으로 계산한 95% 오차범위입니다(핸드가 서로 독립이라고 본 값이라 실제보다 좁을 수 있음). 100핸드 미만이면 비교하지 않습니다. 이 손익은 상대 AI 모델에 대한 가상칩 결과라 실전 손익이 아닙니다.`+(modes.size>1?` <b class="neg">태그마다 주 훈련 모드가 다릅니다.</b> Adaptive는 약점 패를 더 자주 받아 손익이 다르게 나오므로, 위 '훈련 모드' 필터를 같은 모드(권장: 실전 시뮬)로 맞춘 뒤 비교하세요.`:'')+(profs.size>1?` <b class="neg">태그마다 주 테이블 성향이 다릅니다.</b>`:'');
+}
+
 function renderPeers(){
  const card=$('peerCard');if(prefs.src!=='trainer'){card.hidden=true;return}
  const D=peerBuild(),MINH=30,P=[...D.by.values()].filter(e=>e.n>=MINH).sort((a,b)=>b.cum-a.cum);
@@ -741,6 +826,7 @@ $('obAdd').addEventListener('click',()=>{const v=id=>$(id).value,num=id=>v(id)==
 for(const [id,key] of [['srcSeg','src'],['limSeg','lim'],['unitSeg','unit']])$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;prefs[key]=b.dataset.v;savePrefs();render()});
 $('modeSel').addEventListener('change',e=>{prefs.mode=e.target.value;savePrefs();render()});
 $('tpSel').addEventListener('change',e=>{prefs.tp=e.target.value;savePrefs();render()});
+$('stSel').addEventListener('change',e=>{prefs.st=e.target.value;savePrefs();render()});
 $('hph').addEventListener('change',e=>{prefs.hph=Math.max(10,Math.min(60,Number(e.target.value)||30));savePrefs();render()});
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,150)});
 window.PokerReport={render,currentSessions,cumulative,buckets,parseCSV,archiveDecode};

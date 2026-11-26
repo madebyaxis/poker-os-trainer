@@ -291,8 +291,10 @@ aside.side.stash{display:none!important}
       <div class="field"><label>훈련 모드</label><select id="trainingMode" aria-describedby="trainingModeHelp"><option value="adaptive">Adaptive · 약점 집중</option><option value="simulation">실전 시뮬 · 필드 재현</option><option value="exam">시험 모드 · 강한 상대</option></select><div id="trainingModeHelp" class="modeNote" style="max-width:240px;margin-top:4px">Adaptive · 개인 약점을 더 자주 만나도록 샘플링합니다.</div></div>
       <div class="field"><label>세션 목표</label><select id="sessionTarget"><option value="50">50핸드</option><option value="100" selected>100핸드</option><option value="200">200핸드</option></select></div>
       <div class="field"><label>잠정 Field profile</label><select id="tableProfile"><option value="Normal">Normal</option><option value="Soft">Soft</option><option value="Kangwon Live">강원랜드 10만 현장</option><option value="Kangwon 30">강원랜드 30만 현장</option><option value="Kangwon Aggro">강원랜드 공격·루즈 테이블(훈련)</option><option value="Reg Heavy">Reg Heavy</option></select></div>
+      <div class="field"><label>전략 실험 태그</label><input id="strategyTag" list="strategyTagList" maxlength="24" placeholder="기본" autocomplete="off" style="min-height:42px;border-radius:10px;border:1px solid var(--line);background:#171b18;color:var(--text);padding:9px 12px;width:150px" title="새 세션부터 적용됩니다. 손익 리포트에서 태그별로 따로 볼 수 있습니다. 비우면 기본."><datalist id="strategyTagList"></datalist></div>
       <button class="btn primary" id="start">새 세션</button>
       <button class="btn autoOn" id="autoToggle" type="button">자동 진행 ON</button>
+      <button class="btn" id="soundToggle" type="button" title="칩·액션 효과음 켜기/끄기">🔊 효과음 ON</button><input id="soundVol" type="range" min="0" max="100" step="5" value="60" aria-label="효과음 볼륨" title="효과음 볼륨" style="width:84px;align-self:center">
       <button class="btn rebuyBtn" id="rebuyHero" type="button" disabled>리바인</button>
       <button class="btn sitoutBtn" id="sitOut" type="button" disabled title="지금 스택으로 일어납니다(캐시아웃). 핸드 중이면 이번 핸드가 끝나면 일어납니다.">일어나기</button>
       <button class="btn" id="endSession" type="button" disabled>세션 리포트</button>
@@ -1213,7 +1215,7 @@ function startSession(){
    else{const o=initialPool[oi++];players.push(fieldStyle({seat:i,name:o[0],type:o[1],loose:o[2],agg:o[3],skill:skills[si++],stack:cfg.buyin,...lifecycleDefaults()},chosenProfile))}
  }
  const seatedRegulars=seatKangwonRegulars(players,cfg,chosenProfile,hero,$('trainingMode').value);
- S={cfg,hero,btn:Math.floor(Math.random()*9),hand:0,startStack:cfg.buyin,heroTotalBuyin:cfg.buyin,heroNeedsRebuy:false,resumeAutoAfterRebuy:true,players,deck:[],board:[],pot:0,street:'idle',currentBet:0,actor:null,acted:new Set(),handOver:true,decisions:[],fastForward:false,winnerSeats:[],winnerText:'',historySaved:false,preflopLimpers:0,preflopRaised:false,preflopRaiseCount:0,preflopRaiserSeat:null,lastAggressorSeat:null,prevStreetAggressorSeat:null,streetAggressionCount:0,heroReachedRiver:false,heroParticipatedHand:false,heroProfile:{actions:0,folds:0,calls:0,checks:0,raises:0,facedBet:0,foldsToBet:0,callsVsBet:0,raisesVsBet:0},sessionRake:0,handRake:0,lastPotGross:0,lastPotNet:0,lastUncalledRefund:0,initialChips:cfg.buyin*9,chipsAdded:0,chipsRemoved:0,trainingMode:$('trainingMode').value,sessionTarget:Number($('sessionTarget').value)||100,sessionEnded:false,endAfterHand:false,tableProfile:$('tableProfile').value,fieldMonitor:{},sessionId:'S-'+Date.now(),sessionStartedAt:new Date().toISOString(),heroDecisionStartedAt:0,heroDecisionActiveMs:0,heroDecisionLastTick:0,heroPreflopFacingRecorded:false,heroFirstFacing:'',trainingGateActive:false,forcedDrillQueue:[],trainingGateRemaining:0,readGateActive:false,pendingReadCheckpoint:0,endAfterTrainingGate:false,resumeAutoAfterGate:true,lastAdaptiveBlockHand:0,trainingPreflopTarget:'',trainingHeroHoleCode:'',adaptiveRecentCodes:[],postflopPressurePlan:{label:'none',turn:false,river:false,used:{turn:false,river:false},responseUsed:{turn:false,river:false}},aiHandActionStats:emptyAIHandActionStats()};
+ S={cfg,hero,btn:Math.floor(Math.random()*9),hand:0,startStack:cfg.buyin,heroTotalBuyin:cfg.buyin,heroNeedsRebuy:false,resumeAutoAfterRebuy:true,players,deck:[],board:[],pot:0,street:'idle',currentBet:0,actor:null,acted:new Set(),handOver:true,decisions:[],fastForward:false,winnerSeats:[],winnerText:'',historySaved:false,preflopLimpers:0,preflopRaised:false,preflopRaiseCount:0,preflopRaiserSeat:null,lastAggressorSeat:null,prevStreetAggressorSeat:null,streetAggressionCount:0,heroReachedRiver:false,heroParticipatedHand:false,heroProfile:{actions:0,folds:0,calls:0,checks:0,raises:0,facedBet:0,foldsToBet:0,callsVsBet:0,raisesVsBet:0},sessionRake:0,handRake:0,lastPotGross:0,lastPotNet:0,lastUncalledRefund:0,initialChips:cfg.buyin*9,chipsAdded:0,chipsRemoved:0,trainingMode:$('trainingMode').value,sessionTarget:Number($('sessionTarget').value)||100,sessionEnded:false,endAfterHand:false,tableProfile:$('tableProfile').value,fieldMonitor:{},sessionId:'S-'+Date.now(),strategyTag:v613TagForNewSession(),sessionStartedAt:new Date().toISOString(),heroDecisionStartedAt:0,heroDecisionActiveMs:0,heroDecisionLastTick:0,heroPreflopFacingRecorded:false,heroFirstFacing:'',trainingGateActive:false,forcedDrillQueue:[],trainingGateRemaining:0,readGateActive:false,pendingReadCheckpoint:0,endAfterTrainingGate:false,resumeAutoAfterGate:true,lastAdaptiveBlockHand:0,trainingPreflopTarget:'',trainingHeroHoleCode:'',adaptiveRecentCodes:[],postflopPressurePlan:{label:'none',turn:false,river:false,used:{turn:false,river:false},responseUsed:{turn:false,river:false}},aiHandActionStats:emptyAIHandActionStats()};
  $('log').innerHTML='';$('review').innerHTML='<div class="reviewItem"><b>세션 시작</b><p>가상칩 훈련입니다. 실제 베팅/결제 기능은 없습니다.</p></div>';
  syncTrainingModeUI();
  log(`${cfg.label} 세션 시작 · 가상 스택 ${fmt(cfg.buyin)} · ${TRAINING_MODE_META[S.trainingMode]?.label||S.trainingMode} · 목표 ${S.sessionTarget}핸드`,'sys');$('next').disabled=false;$('endSession').disabled=false;readSeatOptions();renderCurriculum();renderEdgeMetrics();persistSession();newHand();
@@ -2938,7 +2940,7 @@ function saveCurrentHand(){
     netPot:S.lastPotNet||0,
     accountingVersion:ACCOUNTING_VERSION,
     reviewEngine:REVIEW_ENGINE_VERSION,
-    sessionId:S.sessionId,trainingMode:S.trainingMode||mode(),bb:S.cfg.bb,heroFirstFacing:S.heroFirstFacing||'',
+    sessionId:S.sessionId,strategyTag:S.strategyTag||'기본',trainingMode:S.trainingMode||mode(),bb:S.cfg.bb,heroFirstFacing:S.heroFirstFacing||'',
     adaptiveTarget:S.trainingPreflopTarget||'',adaptiveHoleCode:S.trainingHeroHoleCode||'',adaptiveBiasedDeal:!!S.trainingHeroHoleCode,
     showdownReached:!!S.showdownReached,heroParticipatedHand:!!S.heroParticipatedHand,
     trainingBucket:S.trainingBucket,scenarioBiased:!!S.scenarioBiased,publicActionHistory:deepClone(S.publicActionHistory||[]),tableProfile:S.tableProfile,fieldEligibility:deepClone(S.fieldEligibility||{}),fieldMonitor:deepClone(S.fieldMonitor||{}),
@@ -4216,7 +4218,7 @@ postflopStyleCfg=function(p){
 // 손익 원장: 핸드별 요약만 남겨 500핸드 보관 제한과 무관하게 누적 리포트를 만든다.
 function loadPLLedger(){try{const x=JSON.parse(localStorage.getItem(PL_LEDGER_KEY)||'null');return Array.isArray(x)?x:null}catch{return null}}
 function savePLLedger(arr){try{localStorage.setItem(PL_LEDGER_KEY,JSON.stringify(arr.slice(-PL_LEDGER_MAX)));return true}catch{return false}}
-function ledgerRow(h){return {t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',pl:Number(h.handPL)||0,bb:Number(h.bb)||bbForLimit(h.limit),m:h.trainingMode||'',pr:h.tableProfile||'',rk:Number(h.rake)||0,ms:Number(h.performanceTelemetry?.handDurationMs)||0}}
+function ledgerRow(h){return {t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',pl:Number(h.handPL)||0,bb:Number(h.bb)||bbForLimit(h.limit),m:h.trainingMode||'',pr:h.tableProfile||'',st:h.strategyTag||'기본',rk:Number(h.rake)||0,ms:Number(h.performanceTelemetry?.handDurationMs)||0}}
 function ensurePLLedger(){let l=loadPLLedger();if(!l){l=loadHistory().map(ledgerRow);savePLLedger(l)}return l}
 const v53SaveCurrentHand=saveCurrentHand;
 saveCurrentHand=function(){
@@ -4834,7 +4836,7 @@ function v61Animate(){
  // 핸드 종료: 팟을 승자에게 밀어 준다(한 번만).
  if(!v61.winDone){
   v61.winDone=true;const ws=(S.winnerSeats||[]).filter(i=>seats[i]);
-  if(ws.length&&!quiet&&v61.potShown){const n=Math.max(3,Math.min(8,Math.round(v61.potShown/d.big)+3));ws.forEach(w=>v61Fly(potEl,seats[w],Math.ceil(n/ws.length),d.bigCls,120))}
+  if(ws.length&&!quiet&&v61.potShown){const n=Math.max(3,Math.min(8,Math.round(v61.potShown/d.big)+3));ws.forEach(w=>v61Fly(potEl,seats[w],Math.ceil(n/ws.length),d.bigCls,120));if(typeof v613Play==='function')v613Play('win',n)}
   setTimeout(()=>{if(S&&S.handOver&&v61.key===S.sessionId+'#'+S.hand)v61RenderPot(0)},quiet?0:420);
  }
 }
@@ -5382,6 +5384,124 @@ $('exportArchiveBtn').addEventListener('click',v612ExportArchive);
 (async()=>{try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
  await v612ArchivePut(loadHistory());v612RefreshCount()})();
 Object.assign(PokerOSDebug,{v612ArchivePut,v612ArchiveAll,v612ArchiveCount,v612Key});
+// ===== Patch 2026-11-26 v6.14: 칩·액션 효과음 + 전략 실험 태그 =====
+// 효과음: 외부 파일 없이 Web Audio로 합성한다(칩 클릭·폴드 스윗·체크 노크·올인 쿵·팟 쓸어가기).
+// 브라우저 정책상 첫 클릭·키 입력 전에는 소리가 나지 않는다. 폴드 후 빨리감기·자동 진행 가속 구간·백그라운드 탭에서는 울리지 않는다.
+const V613_SOUND_KEY='poker_os_sound_v1';
+const v613Snd={on:true,vol:.6,ctx:null,master:null,noise:null,lastAt:0,count:0,log:[]};
+try{const x=JSON.parse(localStorage.getItem(V613_SOUND_KEY)||'null');if(x){v613Snd.on=x.on!==false;if(Number.isFinite(x.vol))v613Snd.vol=Math.min(1,Math.max(0,x.vol))}}catch(e){}
+function v613SndSave(){try{localStorage.setItem(V613_SOUND_KEY,JSON.stringify({on:v613Snd.on,vol:v613Snd.vol}))}catch(e){}}
+// 소리 계획(순수 함수): 어떤 소리를 언제 얼마나 세게 낼지만 정한다. 테스트에서 오디오 없이 확인한다.
+function v613Plan(kind,n=1){
+ const k=Math.max(1,Math.min(6,Math.round(n)||1)),ev=[];
+ if(kind==='bet'){for(let i=0;i<k;i++)ev.push({type:'click',at:i*.045,pitch:[1,.92,1.1,.96,1.06,.9][i%6],gain:.45})}
+ else if(kind==='raise'){ev.push({type:'thump',at:0,gain:.35});for(let i=0;i<k+1;i++)ev.push({type:'click',at:.01+i*.04,pitch:[1.05,.9,1.12,.95,1.08,.9,1][i%7],gain:i<2?.6:.45})}
+ else if(kind==='allin'){ev.push({type:'thump',at:0,gain:.6});for(let i=0;i<Math.min(9,k+4);i++)ev.push({type:'click',at:.01+i*.032,pitch:.88+(i%5)*.07,gain:.55})}
+ else if(kind==='check'){ev.push({type:'knock',at:0,gain:.7},{type:'knock',at:.1,gain:.55})}
+ else if(kind==='fold'){ev.push({type:'swish',at:0,gain:.4})}
+ else if(kind==='win'){const m=Math.max(4,Math.min(8,k+2));for(let i=0;i<m;i++)ev.push({type:'click',at:i*.05,pitch:.9+i*.045,gain:.38})}
+ return ev;
+}
+function v613Ctx(){
+ if(v613Snd.ctx)return v613Snd.ctx;
+ const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+ try{
+  const c=new AC(),m=c.createGain();m.gain.value=v613Snd.vol;m.connect(c.destination);
+  const buf=c.createBuffer(1,c.sampleRate,c.sampleRate),d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  v613Snd.ctx=c;v613Snd.master=m;v613Snd.noise=buf;return c;
+ }catch(e){return null}
+}
+function v613Voice(c,e,t0){
+ const t=t0+e.at,out=v613Snd.master;
+ if(e.type==='click'){ // 칩 부딪힘: 대역 노이즈 + 짧은 하강 사인
+  const pitch=e.pitch*(.97+Math.random()*.06),src=c.createBufferSource();src.buffer=v613Snd.noise;
+  const bp=c.createBiquadFilter();bp.type='bandpass';bp.frequency.value=3300*pitch;bp.Q.value=2.2;
+  const g=c.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(e.gain,t+.003);g.gain.exponentialRampToValueAtTime(.0001,t+.05);
+  src.connect(bp);bp.connect(g);g.connect(out);src.start(t,Math.random()*.5);src.stop(t+.07);
+  const o=c.createOscillator(),og=c.createGain();o.type='sine';o.frequency.setValueAtTime(1900*pitch,t);o.frequency.exponentialRampToValueAtTime(900*pitch,t+.03);
+  og.gain.setValueAtTime(e.gain*.35,t);og.gain.exponentialRampToValueAtTime(.0001,t+.045);o.connect(og);og.connect(out);o.start(t);o.stop(t+.06);
+ }else if(e.type==='thump'){ // 칩 더미 내려놓는 낮은 소리
+  const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(70,t+.12);
+  g.gain.setValueAtTime(e.gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+.16);o.connect(g);g.connect(out);o.start(t);o.stop(t+.18);
+ }else if(e.type==='knock'){ // 체크: 테이블 노크
+  const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.setValueAtTime(240,t);o.frequency.exponentialRampToValueAtTime(110,t+.06);
+  g.gain.setValueAtTime(e.gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+.09);o.connect(g);g.connect(out);o.start(t);o.stop(t+.11);
+ }else if(e.type==='swish'){ // 폴드: 카드 미끄러짐
+  const src=c.createBufferSource();src.buffer=v613Snd.noise;
+  const bp=c.createBiquadFilter();bp.type='bandpass';bp.Q.value=.9;bp.frequency.setValueAtTime(1200,t);bp.frequency.exponentialRampToValueAtTime(4800,t+.16);
+  const g=c.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(e.gain,t+.04);g.gain.exponentialRampToValueAtTime(.0001,t+.18);
+  src.connect(bp);bp.connect(g);g.connect(out);src.start(t,Math.random()*.5);src.stop(t+.2);
+ }
+}
+// 재생: 켜져 있고 오디오가 풀린(running) 상태일 때만. 같은 순간에 소리가 몰리면 일부 건너뛴다.
+function v613Play(kind,n=1){
+ if(!v613Snd.on||v613Snd.vol<=0||document.hidden)return false;
+ const c=v613Ctx();if(!c)return false;
+ if(c.state==='suspended'){c.resume().catch(()=>{});return false}
+ if(c.state!=='running')return false;
+ const now=c.currentTime;if(now-v613Snd.lastAt>.25)v613Snd.count=0;
+ if(v613Snd.count>=40)return false;
+ v613Snd.lastAt=now;
+ const plan=v613Plan(kind,n);v613Snd.count+=plan.length;
+ try{for(const e of plan)v613Voice(c,e,now+.005)}catch(err){console.error('sound',err);return false}
+ v613Snd.log.push(kind);if(v613Snd.log.length>300)v613Snd.log.shift();
+ return true;
+}
+function v613Unlock(){if(!v613Snd.on)return;const c=v613Ctx();if(c&&c.state==='suspended')c.resume().catch(()=>{})}
+['pointerdown','keydown','touchend'].forEach(ev=>document.addEventListener(ev,v613Unlock,{passive:true}));
+// act() 래핑: 실제로 액션이 처리됐을 때만 소리를 낸다(확신 미선택으로 막힌 클릭은 소리 없음).
+const v613Act=act;
+act=function(seat,a,hero){
+ const p=S&&S.players?S.players[seat]:null;
+ const live=!!(S&&!S.handOver&&p&&!p.folded&&!p.allin&&S.acted&&!S.acted.has(seat));
+ const quiet=!S||S.fastForward||document.hidden,stack0=p?p.stack:0,fly=(typeof v61Denom==='function'?v61Denom().fly:5000)||5000;
+ const ret=v613Act.apply(this,arguments);
+ try{
+  if(!live||quiet||!p)return ret;
+  const did=p.folded||(S.acted&&S.acted.has(seat));if(!did)return ret;
+  const paid=Math.max(0,stack0-p.stack),n=Math.max(1,Math.min(6,Math.round(paid/fly)||1));
+  if(a==='fold')v613Play('fold');
+  else if(paid<=0)v613Play('check');
+  else if(p.stack===0)v613Play('allin',n);
+  else if(a==='raise')v613Play('raise',n);
+  else v613Play('bet',n);
+ }catch(e){console.error('act sound',e)}
+ return ret;
+};
+function v613SoundButton(){
+ const b=$('soundToggle'),v=$('soundVol');if(!b||!v)return;
+ b.textContent=v613Snd.on?'🔊 효과음 ON':'🔇 효과음 OFF';b.classList.toggle('autoOn',v613Snd.on);v.value=Math.round(v613Snd.vol*100);v.disabled=!v613Snd.on;
+}
+$('soundToggle')?.addEventListener('click',()=>{
+ v613Snd.on=!v613Snd.on;v613SndSave();v613SoundButton();
+ if(v613Snd.on){const c=v613Ctx();if(c){c.resume().then(()=>v613Play('raise',2)).catch(()=>{})}}
+});
+$('soundVol')?.addEventListener('input',e=>{v613Snd.vol=Math.min(1,Math.max(0,Number(e.target.value)/100||0));if(v613Snd.master)v613Snd.master.gain.value=v613Snd.vol;v613SndSave()});
+$('soundVol')?.addEventListener('change',()=>{v613Play('bet',2)});
+v613SoundButton();
+// ----- 전략 실험 태그 -----
+// 새 세션을 시작할 때 입력칸의 태그를 세션에 붙인다. 핸드 기록·손익 장부(st)에 같이 남고 리포트에서 태그별로 나눠 본다. 비우면 '기본'.
+const V613_TAG_KEY='poker_os_strategy_tag_v1',V613_TAGS_KEY='poker_os_strategy_tags_v1';
+function v613NormTag(x){const s=String(x==null?'':x).replace(/\s+/g,' ').trim().slice(0,24);return s||'기본'}
+function v613TagList(){try{const a=JSON.parse(localStorage.getItem(V613_TAGS_KEY)||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string'&&x):[]}catch(e){return []}}
+function v613RenderTagList(){const dl=$('strategyTagList');if(!dl)return;const list=['기본',...v613TagList().filter(t=>t!=='기본')];dl.innerHTML=list.map(t=>`<option value="${t.replace(/"/g,'&quot;')}"></option>`).join('')}
+function v613TagForNewSession(){
+ const tag=v613NormTag($('strategyTag')?.value);
+ try{localStorage.setItem(V613_TAG_KEY,tag);const l=[tag,...v613TagList().filter(t=>t!==tag)].slice(0,20);localStorage.setItem(V613_TAGS_KEY,JSON.stringify(l))}catch(e){}
+ v613RenderTagList();return tag;
+}
+{const inp=$('strategyTag');if(inp){try{const t=localStorage.getItem(V613_TAG_KEY);if(t&&t!=='기본')inp.value=t}catch(e){}}v613RenderTagList()}
+// 진행 중 세션의 태그를 현장 바에 표시한다(입력칸 값이 다르면 다음 새 세션부터 적용된다는 안내).
+const v613Render=render;
+render=function(reveal=false){
+ v613Render(reveal);
+ try{
+  const bar=$('liveBar');if(!S||!bar||bar.querySelector('.lbTag'))return;
+  const cur=S.strategyTag||'기본',inp=v613NormTag($('strategyTag')?.value),diff=inp!==cur;
+  bar.insertAdjacentHTML('beforeend',`<span class="lbItem lbTag">전략 <b>${cur.replace(/[<>&]/g,'')}</b>${diff?` <small>(입력칸 '${inp.replace(/[<>&]/g,'')}'은 새 세션부터)</small>`:''}</span>`);
+ }catch(e){console.error('tag bar',e)}
+};
+Object.assign(PokerOSDebug,{v613Play,v613Plan,v613Snd,v613NormTag,v613TagForNewSession});
 })();
 </script>
 </body>
