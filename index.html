@@ -276,6 +276,40 @@ aside.side.stash{display:none!important}
 @keyframes v691pulse{50%{box-shadow:0 0 0 5px rgba(217,164,65,.25)}}
 .reviewDecision.soft.good{border-color:#2d4a35;background:#111b14}.reviewDecision.soft.fix{border-color:#5a4a2a;background:#221d12}
 .choiceBox small.mrConf{display:block;font-size:10px;font-weight:400;opacity:.7;margin-top:2px}.choiceBox small.mrMix{display:block;font-size:11px;font-weight:500;opacity:.85;margin-top:2px}
+
+/* ===== v6.17 (2026-11-26) 휴대폰 테이블 재배치: 좌석 2열 + 중앙 보드 전용 띠 + 큰 카드 + 색으로 구분되는 액션 ===== */
+.seat .actShort{display:none}
+.seat .act.a-fold{color:#9aa3a6}.seat .act.a-check{color:#7fd0ff}.seat .act.a-call{color:#7ee787}.seat .act.a-aggr{color:#ffd166}
+@media (max-width:650px){
+ .dealerFig{display:none}
+ .table{height:558px;min-height:0;border-radius:42%/20%;margin:0}
+ .table .seat{width:calc(50% - 6px);height:72px;min-height:0;padding:4px 7px;border-radius:10px;display:grid;
+   grid-template-columns:minmax(0,1fr) auto;grid-template-rows:17px 30px 18px;gap:1px 6px;align-items:center;box-sizing:border-box}
+ .table .seat .seat-top{grid-column:1;grid-row:1;min-width:0;justify-content:flex-start;gap:4px}
+ .table .seat .name{font-size:13px;max-width:100%}
+ .table .seat .stack{grid-column:2;grid-row:1;font-size:13px;text-align:right}
+ .table .seat .pos{grid-column:1;grid-row:2;font-size:12px;font-weight:800}
+ .table .seat .minicards{grid-column:2;grid-row:2;justify-self:end;gap:3px}
+ .table .seat .mini{width:21px;height:29px;font-size:11px;border-radius:4px}
+ .table .seat .act{grid-column:1/-1;grid-row:3;font-size:13px;font-weight:900;text-align:left;min-height:0;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .table .seat .actFull{display:none}.table .seat .actShort{display:inline}
+ .table .seat .dealer{width:18px;height:18px;font-size:10px}
+ .table .seat.folded{opacity:.55}
+ .table .seat.active{outline:3px solid var(--gold);outline-offset:0;box-shadow:0 0 16px #f3df8eaa}
+ .table .seat.s5,.table .seat.s4,.table .seat.s3,.table .seat.s2{left:3px;right:auto;transform:none;bottom:auto}
+ .table .seat.s6,.table .seat.s7,.table .seat.s8,.table .seat.s9{right:3px;left:auto;transform:none;bottom:auto}
+ .table .seat.s5,.table .seat.s6{top:4px}
+ .table .seat.s4,.table .seat.s7{top:82px}
+ .table .seat.s3,.table .seat.s8{top:312px}
+ .table .seat.s2,.table .seat.s9{top:392px}
+ .table .seat.s1{left:50%;right:auto;top:auto;bottom:2px;width:58%;transform:translateX(-50%)}
+ .table .center{left:50%;top:235px;transform:translate(-50%,-50%);width:calc(100% - 14px);gap:4px}
+ .table .center .board{gap:4px;min-height:84px;padding:6px 8px;flex-wrap:nowrap;justify-content:center}
+ .table .center .card{width:min(15.2vw,60px);height:min(21.4vw,84px);font-size:23px;border-radius:7px;line-height:1.05}
+ .table .center .street{font-size:11px;letter-spacing:.14em}
+ .table .center .pot{font-size:14px;padding:5px 12px}
+ .table:after{display:none}
+}
 </style>
 <script src="sync.js?v=20261126"></script>  <!-- Poker OS 클라우드 동기화(Google Apps Script + Drive JSON). 로컬 전용으로 쓰려면 sync.js의 endpoint를 비우면 됩니다. -->
 </head>
@@ -3393,6 +3427,8 @@ function enableHero(){
  persistSession();
 }
 function disableHero(){$('fold').disabled=true;$('call').disabled=true;$('raise').disabled=true}
+function v617ActCls(t){t=String(t||'');if(/^Fold/.test(t))return 'a-fold';if(/^Check/.test(t))return 'a-check';if(/ALL-IN|Raise|Bet|3-bet|Cap|레이즈|벳|캡|올인/i.test(t))return 'a-aggr';if(/^Call|^SB Complete|콜|컴플리트/.test(t))return 'a-call';return ''}
+function v617ShortAct(t){t=String(t||'').replace(/\s*\(총[^)]*\)/,'').replace(/^(Call|SB Complete) \+/,'$1 ').replace(/\s*·\s*총\s*/,' ');return t||'&nbsp;'}
 function render(reveal=false){
  if(!S)return;readSeatOptions();$('endSession').disabled=!!S.sessionEnded;$('street').textContent=S.street;$('board').innerHTML=S.board.map(c=>card(c)).join('');
  $('pot').textContent=S.handOver&&S.lastPotGross?`POT ${fmt(S.lastPotGross)} · RAKE ${fmt(S.handRake)} · NET ${fmt(S.lastPotNet)}`:'POT '+fmt(S.pot);
@@ -3407,7 +3443,7 @@ function render(reveal=false){
  $('seats').innerHTML=S.players.map((p,i)=>{const show=i===S.hero||(S.handOver&&reveal&&!p.folded);const status=playerStatusBadge(p);return `<div class="seat s${((i-S.hero+9)%9)+1} ${i===S.hero?'hero':''} ${i===S.actor&&!S.handOver?'active':''} ${p.folded?'folded':''} ${p.stack===0?'busted':''} ${p.pendingAction?'pending':''} ${S.winnerSeats&&S.winnerSeats.includes(i)?'winner':''}">
  <div class="seat-top"><span class="name">${p.name}</span>${i===S.btn?'<span class="dealer">D</span>':''}</div>
  <div class="pos">${pos(i)}</div><div class="stack"><span class="stackFull">${fmt(p.stack)}</span><span class="stackShort">${manShort(p.stack)}</span> ${status}</div>
- <div class="minicards">${p.hole.map(c=>card(c,true,!show)).join('')}</div><div class="act">${p.last||' '}</div></div>`}).join('');
+ <div class="minicards">${p.hole.map(c=>card(c,true,!show)).join('')}</div><div class="act ${v617ActCls(p.last)}"><span class="actFull">${p.last||' '}</span><span class="actShort">${v617ShortAct(p.last)}</span></div></div>`}).join('');
  if(S.handOver){
    const hp=S.players[S.hero].stack-S.heroStart;
    $('status').innerHTML=`<b>${S.winnerText||'핸드 종료'}</b> · Hero ${hp>=0?'+':''}${fmt(hp)}`;
