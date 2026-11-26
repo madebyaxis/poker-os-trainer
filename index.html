@@ -3698,7 +3698,9 @@ const DRILL_BANK={
   {s:'10만 PF · CO · EP Raise · Hero ATo',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09',w:'dominance/OOP 위험을 가격보다 먼저 본다.'},
   {s:'10만 PF · HJ · EP Raise · Hero JTs · 포지션 괜찮음',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09 | vs EP Raise Dominated Fold',w:'2026-11-13 실전 교정: 수딧 커넥터는 앞자리 레이즈 콜 범위(TT~JJ, AQs) 밖이다. 포지션이 좋아도 폴드.'},
   {s:'10만 PF · CO · EP Raise · Hero T9s',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09 | vs EP Raise Dominated Fold',w:'2026-11-13 실전 교정: 9-10s로 앞자리 레이즈 콜 → 패배. "싸니까 콜" 금지.'},
-  {s:'10만 PF · BTN · EP Raise · Hero JJ',o:['Fold','Call','Cap'],a:'Call',r:'P10-PF13 | vs EP Raise Value Call',w:'Strategy v1.1: 앞자리 레이즈에 TT~JJ, AQs는 콜. 캡은 QQ+/AK.'}
+  {s:'10만 PF · BTN · EP Raise · Hero JJ',o:['Fold','Call','Cap'],a:'Call',r:'P10-PF13 | vs EP Raise Value Call',w:'Strategy v1.1: 앞자리 레이즈에 TT~JJ, AQs는 콜. 캡은 QQ+/AK.'},
+  {s:'30만 PF · BTN · CO Raise · Hero 72o',o:['Fold','Call','Cap'],a:'Fold',r:'P30-PF11 | Facing Raise Matrix',w:'BTN은 CO 오픈 상대 거의 전부 콜이지만 72o는 예외 목록입니다(29.7% vs 필요 38.3%).'},
+  {s:'30만 PF · CO · MP Raise · Hero 55',o:['Fold','Call','Cap'],a:'Fold',r:'P30-PF11 | Facing Raise Matrix',w:'CO·콜러0의 콜 하단은 66입니다. 55는 필요 승률 38.3%에 못 미쳐 폴드.'}
  ]
 };
 function forcedDrillPlan(blockNo){
@@ -5048,9 +5050,7 @@ const KANGWON_REGULARS={
   {name:'도경민',type:'Loose-Passive',loose:.70,agg:.22,skill:'Recreational'},
   {name:'석현수',type:'Calling Station',loose:.80,agg:.18,skill:'Recreational'},
   {name:'왕지석',type:'Loose-Aggressive',loose:.64,agg:.72,skill:'Average'},
-  {name:'곽정훈',type:'Nit',loose:.20,agg:.26,skill:'Average'},
-  {s:'30만 PF · BTN · CO Raise · Hero 72o',o:['Fold','Call','Cap'],a:'Fold',r:'P30-PF11 | Facing Raise Matrix',w:'BTN은 CO 오픈 상대 거의 전부 콜이지만 72o는 예외 목록입니다(29.7% vs 필요 38.3%).'},
-  {s:'30만 PF · CO · MP Raise · Hero 55',o:['Fold','Call','Cap'],a:'Fold',r:'P30-PF11 | Facing Raise Matrix',w:'CO·콜러0의 콜 하단은 66입니다. 55는 필요 승률 38.3%에 못 미쳐 폴드.'}
+  {name:'곽정훈',type:'Nit',loose:.20,agg:.26,skill:'Average'}
  ],
  '30만':[
   {name:'장도현',type:'Tight-Aggressive',loose:.30,agg:.72,skill:'Strong'},
