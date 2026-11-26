@@ -75,7 +75,7 @@ textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;fon
 tr.clickable{cursor:pointer}tr.clickable:hover td{background:#1d2a20}
 @media (max-width:640px){.kpi .v{font-size:18px}h1{font-size:17px}}
 </style>
-<script src="sync.js?v=20261126"></script>  <!-- Poker OS 클라우드 동기화(Google Apps Script + Drive JSON). 로컬 전용으로 쓰려면 sync.js의 endpoint를 비우면 됩니다. -->
+<script src="sync.js?v=20261126b"></script>  <!-- Poker OS 클라우드 동기화(Google Apps Script + Drive JSON). 로컬 전용으로 쓰려면 sync.js의 endpoint를 비우면 됩니다. -->
 </head>
 <body>
 <div class="wrap">
@@ -141,6 +141,7 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:#1d2a20}
   <div class="legend" id="peerLegend"></div>
   <div class="chart" id="peerChart"></div>
   <div class="tblwrap"><table id="peerTable"></table></div>
+  <div class="note" id="peerNote" style="margin-top:6px"></div>
  </div>
 
  <div class="card">
@@ -220,6 +221,13 @@ const MODE_KO={simulation:'실전 시뮬',adaptive:'Adaptive',exam:'시험'};
 let prefs={src:'trainer',lim:'all',unit:'won',mode:'all',hph:30,tab:'coach',tp:'all',st:'all'};
 try{Object.assign(prefs,JSON.parse(localStorage.getItem(PREF_KEY)||'{}'))}catch{}
 const savePrefs=()=>{try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch{}};
+// 2026-11-26: 헤드리스 시뮬레이션으로 들어간 오염 세션 25개. 원장에서 지워도 핸드 기록(V5 아카이브·예전 키·IndexedDB)에 남아
+//  histAll()을 타고 KPI·누적 곡선·비교 그래프에 되살아났다. sync.js의 목록을 우선 쓰고, 없으면 아래 목록으로 이중 방어한다.
+const BAD_SID_FALLBACK=['S-1795668281901','S-1795668338824','S-1795668485535','S-1795669180748','S-1795670625753','S-1795670668963','S-1795670669523','S-1795670672345','S-1795670672448','S-1795670674127','S-1795670675064','S-1795670675288','S-1795670675466','S-1795670676995','S-1795670677043','S-1795670678507','S-1795670679607','S-1795670679767','S-1795670679794','S-1795670680514','S-1795670680832','S-1795671601608','S-1795671601844','S-1795671734809','S-1795672131541'];
+const BAD_SIDS={};BAD_SID_FALLBACK.forEach(s=>{BAD_SIDS[s]=1});
+try{const bs=window.PokerOSSync&&window.PokerOSSync.badSids;if(bs)Object.keys(bs).forEach(s=>{BAD_SIDS[s]=1})}catch{}
+const isBadSid=sid=>!!(sid&&BAD_SIDS[sid]);
+const isBadHand=h=>!!(h&&(isBadSid(h.sessionId)||isBadSid(h.sid)));
 
 // ----- data -----
 function archiveDecode(packed){
@@ -234,11 +242,12 @@ function loadTrainerRows(){
  try{const l=JSON.parse(localStorage.getItem(LEDGER_KEY)||'null');if(Array.isArray(l)&&l.length)led=l}catch{}
  const hist=(()=>{try{return histAll()}catch{return []}})();
  const rowOf=h=>({t:h.savedAt,sid:h.sessionId||'',lim:h.limit||'10만',pl:Number(h.handPL)||0,bb:Number(h.bb)||BB[h.limit]||5000,m:h.trainingMode||'',pr:h.tableProfile||'',rk:Number(h.rake)||0,st:h.strategyTag||'기본'});
- if(led)led=led.map(r=>r.st?r:Object.assign({},r,{st:'기본'}));
- if(!led){_ledgerGap=0;return hist.map(rowOf)}
+ if(led)led=led.filter(r=>!isBadSid(r.sid)).map(r=>r.st?r:Object.assign({},r,{st:'기본'}));
+ if(!led){_ledgerGap=0;return hist.filter(h=>!isBadHand(h)).map(rowOf)}
  // 손익 장부에 빠진 핸드(저장 실패 등)는 핸드 기록·누적 아카이브로 보충한다. 키: 저장 시각+세션.
+ //  (오염 세션은 여기서 보충되면 원장 삭제가 무효가 되므로 반드시 건너뜁니다.)
  const seen=new Set(led.map(r=>r.t+'|'+r.sid)),add=[];
- for(const h of hist){const k=h.savedAt+'|'+(h.sessionId||'');if(!seen.has(k)){seen.add(k);add.push(rowOf(h))}}
+ for(const h of hist){if(isBadHand(h))continue;const k=h.savedAt+'|'+(h.sessionId||'');if(!seen.has(k)){seen.add(k);add.push(rowOf(h))}}
  _ledgerGap=add.length;
  return add.length?led.concat(add).sort((a,b)=>String(a.t).localeCompare(String(b.t))):led;
 }
@@ -247,7 +256,17 @@ function saveReal(arr){localStorage.setItem(REAL_KEY,JSON.stringify(arr))}
 
 // 공통 세션 형식: {id,date,lim,hours,pl,points:[[h,cum원]],hands?,mode?}
 function trainerRowsBase(){return loadTrainerRows().filter(r=>(prefs.mode==='all'||r.m===prefs.mode)&&(!prefs.tp||prefs.tp==='all'||(prefs.tp==='aggro'?r.pr==='Kangwon Aggro':r.pr!=='Kangwon Aggro')))}
-function trainerSessions(){return sessionsFromRows(trainerRowsBase().filter(r=>!prefs.st||prefs.st==='all'||(r.st||'기본')===prefs.st))}
+// 핸드 기록(histAll)에 상단 필터를 그대로 적용한다. 다른 플레이어와 비교·상대별 리뷰가 다른 표와 같은 표본을 쓰게 한다.
+function handPass(h){
+ return (prefs.lim==='all'||h.limit===prefs.lim)
+  &&(prefs.mode==='all'||h.trainingMode===prefs.mode)
+  &&(!prefs.tp||prefs.tp==='all'||(prefs.tp==='aggro'?h.tableProfile==='Kangwon Aggro':h.tableProfile!=='Kangwon Aggro'))
+  &&(!prefs.st||prefs.st==='all'||(h.strategyTag||'기본')===prefs.st)
+  &&!isBadHand(h);
+}
+function filterLabel(){
+ return [prefs.lim==='all'?'테이블 전체':prefs.lim+' 테이블',prefs.mode==='all'?'훈련 모드 전체':(MODE_KO[prefs.mode]||prefs.mode),(!prefs.tp||prefs.tp==='all')?'성향 전체':(prefs.tp==='aggro'?'공격·루즈 테이블':'일반 강원랜드'),(!prefs.st||prefs.st==='all')?'태그 전체':'태그 '+prefs.st].join(' · ');
+}function trainerSessions(){return sessionsFromRows(trainerRowsBase().filter(r=>!prefs.st||prefs.st==='all'||(r.st||'기본')===prefs.st))}
 function sessionsFromRows(rows){
  const hph=Math.max(5,Number(prefs.hph)||30);
  const by=new Map();for(const r of rows){const k=r.sid||('t'+r.t?.slice(0,13));if(!by.has(k))by.set(k,[]);by.get(k).push(r)}
@@ -424,7 +443,7 @@ const pct=(a,b)=>b?Math.round(100*a/b)+'%':'-';
 function median(a){const x=a.filter(Number.isFinite).sort((p,q)=>p-q);return x.length?x[Math.floor(x.length/2)]:null}
 function cardsHtml(str){return String(str||'').split(' ').filter(Boolean).map(c=>`<span class="${/[♥♦]/.test(c)?'suit-r':'suit-b'}">${c}</span>`).join(' ')}
 function coachFiltered(snap){
- const f=r=>(prefs.lim==='all'||r.lim===prefs.lim)&&(prefs.mode==='all'||r.m===prefs.mode)&&(!sidFilter||r.sid===sidFilter)&&(prefs.tp==='all'||(prefs.tp==='aggro'?r.tp==='Kangwon Aggro':r.tp!=='Kangwon Aggro'));
+ const f=r=>(prefs.lim==='all'||r.lim===prefs.lim)&&(prefs.mode==='all'||r.m===prefs.mode)&&(!sidFilter||r.sid===sidFilter)&&(prefs.tp==='all'||(prefs.tp==='aggro'?r.tp==='Kangwon Aggro':r.tp!=='Kangwon Aggro'))&&!isBadSid(r.sid);
  return {hands:(snap.hands||[]).filter(f),dec:(snap.decisions||[]).filter(f)};
 }
 function patternOf(r){
@@ -559,7 +578,7 @@ document.getElementById('sessTable').addEventListener('click',e=>{const tr=e.tar
 
 // ----- session detail -----
 let detailSid='',detFilter='all',_hist=null;
-function histAll(){if(_hist)return _hist;let h=[];try{const v=localStorage.getItem(V5_ARCHIVE_KEY);h=JSON.parse(v!==null?archiveDecode(v):(localStorage.getItem(LEGACY_KEY)||'[]'))}catch(e){console.error(e)}return _hist=Array.isArray(h)?h:[]}
+function histAll(){if(_hist)return _hist;let h=[];try{const v=localStorage.getItem(V5_ARCHIVE_KEY);h=JSON.parse(v!==null?archiveDecode(v):(localStorage.getItem(LEGACY_KEY)||'[]'))}catch(e){console.error(e)}return _hist=(Array.isArray(h)?h:[]).filter(x=>!isBadHand(x))}
 const ST_S={preflop:'프',flop:'플',turn:'턴',river:'리'};
 function heroActs(h){const by={};for(const a of h.publicActionHistory||[]){if(a.position!==h.position)continue;(by[a.street]=by[a.street]||[]).push(a.semantic)}return by}
 function heroLine(h){const by=heroActs(h);return ['preflop','flop','turn','river'].filter(k=>by[k]).map(k=>`${ST_S[k]} ${by[k].map(x=>ACT_KO[x]||x).join('→')}`).join(' · ')||'-'}
@@ -611,7 +630,7 @@ function renderInsights(sessions){
  const T=$('insightTable'),T2=$('insightTable2'),L=$('insightList'),snap=loadCoach();
  if(prefs.src!=='trainer'||!snap){$('insightCard').hidden=prefs.src!=='trainer';T.innerHTML=T2.innerHTML=L.innerHTML='';return}
  $('insightCard').hidden=false;
- const f=r=>(prefs.lim==='all'||r.lim===prefs.lim)&&(prefs.mode==='all'||r.m===prefs.mode)&&(prefs.tp==='all'||(prefs.tp==='aggro'?r.tp==='Kangwon Aggro':r.tp!=='Kangwon Aggro'));
+ const f=r=>(prefs.lim==='all'||r.lim===prefs.lim)&&(prefs.mode==='all'||r.m===prefs.mode)&&(prefs.tp==='all'||(prefs.tp==='aggro'?r.tp==='Kangwon Aggro':r.tp!=='Kangwon Aggro'))&&!isBadSid(r.sid);
  const hands=(snap.hands||[]).filter(f).sort((a,b)=>String(a.t).localeCompare(String(b.t))),dec=(snap.decisions||[]).filter(f),hph=Math.max(5,prefs.hph||30);
  const idx=new Map(),cnt=new Map();for(const h of hands){const n=cnt.get(h.sid)||0;cnt.set(h.sid,n+1);idx.set(h.sid+'|'+h.t,n)}
  const NB=4,B=Array.from({length:NB},()=>({n:0,bb:[],vp:0,pf:0,ms:[],g:0,bad:0,sp:0,spOk:0,sf:0,sfLoose:0}));
@@ -644,8 +663,8 @@ let oppMode='style',oppSel='',_oppCache=null;
 const STYLE_KO={'Calling Station':'콜링스테이션','Loose-Passive':'루즈 패시브','Maniac':'매니악','Loose-Aggressive':'루즈 어그레시브','Tricky-Aggressive':'트리키 어그레시브','Regular':'레귤러','Tight-Aggressive':'타이트 어그레시브','Tight-Passive':'타이트 패시브','Nit':'닛'};
 const SKILL_KO={Recreational:'취미',Average:'보통',Regular:'단골',Strong:'강함'};
 function oppBuild(){
- const H=histAll().filter(h=>prefs.lim==='all'||h.limit===prefs.lim),corr=new Map();
- for(const r of ((loadCoach()||{}).decisions||[]))if(r.cls==='correction')corr.set(r.t,(corr.get(r.t)||0)+1);
+ const H=histAll().filter(handPass),corr=new Map();
+ for(const r of ((loadCoach()||{}).decisions||[]))if(!isBadSid(r.sid)&&r.cls==='correction')corr.set(r.t,(corr.get(r.t)||0)+1);
  const by={style:new Map(),name:new Map()};
  for(const h of H){const om=Array.isArray(h.opponents)?h.opponents:[],pa=h.publicActionHistory||[],bbv=Number(h.bb)||BB[h.limit]||5000,pl=(Number(h.handPL)||0)/bbv;
   for(const o of om){const acts=pa.filter(a=>a.seat===o.seat),pf=acts.filter(a=>a.street==='preflop').map(a=>a.semantic),vol=pf.some(x=>['Call','Raise','3-bet','Cap'].includes(x)),rz=pf.some(x=>['Raise','3-bet','Cap'].includes(x)),inPot=vol||acts.some(a=>a.street!=='preflop');
@@ -655,7 +674,7 @@ function oppBuild(){
 function renderOpp(){
  const card=$('oppCard');if(prefs.src!=='trainer'){card.hidden=true;return}card.hidden=false;
  const by=oppBuild(),M=by[oppMode],rows=[...M.values()].sort((a,b)=>b.seen-a.seen).slice(0,oppMode==='name'?40:20);
- $('oppDesc').textContent=`최근 ${histAll().length}핸드(핸드별 기록이 남은 범위) 기준. '내 손익'은 그 상대가 참여한 팟에서의 내 BB 손익이며 다인팟은 참여자 모두에게 겹쳐 집계됩니다. 행을 누르면 해당 핸드를 봅니다. 이름은 세션마다 성향·실력이 바뀔 수 있어 이름+성향 조합으로 묶었습니다.`;
+ $('oppDesc').textContent=`상단 필터(${filterLabel()}) · 최근 ${histAll().filter(handPass).length}핸드(핸드별 기록이 남은 범위) 기준. '내 손익'은 그 상대가 참여한 팟에서의 내 BB 손익이며 다인팟은 참여자 모두에게 겹쳐 집계됩니다. 행을 누르면 해당 핸드를 봅니다. 이름은 세션마다 성향·실력이 바뀔 수 있어 이름+성향 조합으로 묶었습니다.`;
  document.querySelectorAll('#oppChips button').forEach(b=>b.classList.toggle('on',b.dataset.v===oppMode));
  $('oppTable').innerHTML=`<thead><tr><th>${oppMode==='style'?'성향':'상대'}</th>${oppMode==='name'?'<th>성향·실력</th>':''}<th>본 핸드</th><th>참여율</th><th>레이즈</th><th>참여 팟</th><th>내 손익/팟</th><th>합계</th><th>내 교정</th></tr></thead><tbody>${rows.map(e=>`<tr class="clickable ${oppSel===e.k?'sel':''}" data-k="${e.k.replace(/"/g,'')}"><td>${oppMode==='style'?(STYLE_KO[e.k]||e.k):e.k.split('|')[0]}</td>${oppMode==='name'?`<td>${STYLE_KO[e.style]||e.style} · ${SKILL_KO[e.skill]||e.skill}</td>`:''}<td>${e.seen}</td><td>${P0(e.vp,e.seen)}</td><td>${P0(e.rz,e.seen)}</td><td>${e.pots}</td><td class="${cls(e.pl)}">${e.pots?(e.pl/e.pots>0?'+':'')+(e.pl/e.pots).toFixed(2)+'BB':'-'}</td><td class="${cls(e.pl)}">${(e.pl>0?'+':'')+e.pl.toFixed(1)}BB</td><td>${e.corr||''}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">기록 없음</td></tr>'}</tbody>`;
  const sel=M.get(oppSel),det=$('oppDetail');
@@ -672,7 +691,8 @@ $('oppTable').addEventListener('click',e=>{const tr=e.target.closest('tr[data-k]
 
 // ----- 다른 플레이어와 비교 -----
 function peerBuild(){
- const H=histAll().slice().sort((a,b)=>String(a.savedAt).localeCompare(String(b.savedAt))),hph=Math.max(5,prefs.hph||30);
+ // 상단 필터(테이블·훈련 모드·성향·전략 태그)를 반영한다. 예전엔 전체 핸드를 써서 다른 손익 표와 표본이 어긋났다.
+ const H=histAll().filter(handPass).slice().sort((a,b)=>String(a.savedAt).localeCompare(String(b.savedAt))),hph=Math.max(5,prefs.hph||30);
  const by=new Map();let exact=0,est=0;const hero={n:0,cum:0,pts:[{h:0,v:0}]};
  for(const h of H){
   const bb=Number(h.bb)||1;hero.n++;hero.cum+=(Number(h.handPL)||0)/bb;hero.pts.push({h:hero.n/hph,v:hero.cum});
@@ -764,7 +784,7 @@ function renderPeers(){
  const card=$('peerCard');if(prefs.src!=='trainer'){card.hidden=true;return}
  const D=peerBuild(),MINH=30,P=[...D.by.values()].filter(e=>e.n>=MINH).sort((a,b)=>b.cum-a.cum);
  if(!P.length||D.hero.n<MINH){card.hidden=true;return}card.hidden=false;
- $('peerDesc').textContent=`핸드별 기록이 남은 ${D.hero.n}핸드 기준, x축은 각자 테이블에 앉은 누적 시간(핸드 ÷ ${D.hph}/h), y축은 누적 손익(BB). 상대는 ${MINH}핸드 이상 본 ${P.length}명. 손익 기록이 있는 ${D.exact}핸드는 정확값, 나머지 ${D.est}핸드는 베팅액·승자로 추정(사이드팟·찹 오차 있음)입니다. 상대는 자리를 뜨면 곡선이 끝나므로 길이가 다릅니다.`;
+ $('peerDesc').textContent=`상단 필터(${filterLabel()}) 적용 · 핸드별 기록이 남은 ${D.hero.n}핸드 기준. x축은 각자 테이블에 앉은 누적 시간(핸드 ÷ ${D.hph}/h), y축은 누적 손익(BB). 상대는 ${MINH}핸드 이상 본 ${P.length}명. 손익 기록이 있는 ${D.exact}핸드는 정확값, 나머지 ${D.est}핸드는 베팅액·승자로 추정(사이드팟·찹 오차 있음)입니다. 상대는 자리를 뜨면 곡선이 끝나므로 길이가 다릅니다.`;
  $('peerLegend').innerHTML=`<span><i style="background:var(--series-1)"></i>나</span><span><i style="background:var(--series-3)"></i>상대 중 최고</span><span><i style="background:var(--series-2)"></i>상대 중 최저</span><span><i style="background:var(--text-muted);height:1px"></i>나머지 상대</span>`;
  const el=$('peerChart'),W=Math.max(320,el.clientWidth||900),Hh=Math.round(Math.min(380,Math.max(240,W*.45))),m={l:52,r:56,t:12,b:30},iw=W-m.l-m.r,ih=Hh-m.t-m.b;
  const all=[D.hero,...P],Hmax=Math.max(...all.map(e=>e.pts[e.pts.length-1].h)),vals=all.flatMap(e=>e.pts.map(p=>p.v)),vmin=Math.min(0,...vals),vmax=Math.max(0,...vals),pad=(vmax-vmin||1)*.06,y0=vmin-pad,y1=vmax+pad;
@@ -783,7 +803,7 @@ function renderPeers(){
  const rows=[{me:1,name:'나',style:'',skill:'',n:D.hero.n,cum:D.hero.cum},...P.map(e=>({name:e.name,style:e.style,skill:e.skill,n:e.n,cum:e.cum}))].sort((a,b)=>b.cum/b.n-a.cum/a.n);
  const rank=rows.findIndex(r=>r.me)+1;
  $('peerTable').innerHTML=`<thead><tr><th>#</th><th>플레이어</th><th>성향·실력</th><th>핸드</th><th>시간</th><th>누적(BB)</th><th>BB/100</th></tr></thead><tbody>${rows.slice(0,25).map((r,i)=>`<tr${r.me?' style="font-weight:700;background:var(--surface-2,rgba(57,135,229,.10))"':''}><td>${i+1}</td><td>${r.name}</td><td>${r.me?'':(STYLE_KO[r.style]||r.style)+' · '+(SKILL_KO[r.skill]||r.skill)}</td><td>${r.n}</td><td>${(r.n/D.hph).toFixed(1)}h</td><td class="${r.cum>=0?'pos':'neg'}">${sgn(r.cum)}</td><td class="${r.cum>=0?'pos':'neg'}">${(r.cum/r.n*100>=0?'+':'')+(r.cum/r.n*100).toFixed(1)}</td></tr>`).join('')}${rank>25?`<tr style="font-weight:700"><td>${rank}</td><td>나</td><td></td><td>${D.hero.n}</td><td>${(D.hero.n/D.hph).toFixed(1)}h</td><td>${sgn(D.hero.cum)}</td><td>${(D.hero.cum/D.hero.n*100).toFixed(1)}</td></tr>`:''}</tbody>`;
- $('peerTable').insertAdjacentHTML('afterend',`<div class="note" style="margin-top:6px">내 순위: ${P.length+1}명 중 ${rank}위 (BB/100 기준). 같은 상대도 이름·성향·실력이 다르면 다른 사람으로 셉니다. 표본이 수십~백 핸드라 BB/100은 ±수십 오차가 큽니다(순위는 참고용).</div>`);
+ $('peerNote').textContent=`내 순위: ${P.length+1}명 중 ${rank}위 (BB/100 기준). 같은 상대도 이름·성향·실력이 다르면 다른 사람으로 셉니다. 표본이 수십~백 핸드라 BB/100은 ±수십 오차가 큽니다(순위는 참고용).`;
 }
 
 // ----- 현장 관찰 -----
@@ -837,7 +857,7 @@ render();
 (async()=>{try{const db=await new Promise((res,rej)=>{const r=indexedDB.open('poker_os_archive_v1',1);r.onupgradeneeded=()=>{r.transaction.abort();rej(new Error('none'))};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
  if(!db.objectStoreNames.contains('hands'))return;
  const all=await new Promise((res,rej)=>{const out=[],q=db.transaction('hands').objectStore('hands').openCursor();q.onsuccess=()=>{const c=q.result;if(c){out.push(c.value.h);c.continue()}else res(out)};q.onerror=()=>rej(q.error)});
- const cur=histAll(),key=h=>(h.sessionId||'')+'|'+(h.handNo!=null?h.handNo:h.savedAt);const m=new Map(all.map(h=>[key(h),h]));cur.forEach(h=>m.set(key(h),h));
+ const cur=histAll(),key=h=>(h.sessionId||'')+'|'+(h.handNo!=null?h.handNo:h.savedAt);const m=new Map(all.filter(h=>h&&!isBadHand(h)).map(h=>[key(h),h]));cur.forEach(h=>m.set(key(h),h));
  if(m.size>cur.length){_hist=[...m.values()].sort((a,b)=>String(a.savedAt||'').localeCompare(String(b.savedAt||''))||((a.handNo||0)-(b.handNo||0)));render()}}catch(e){}})();
 })();
 </script>

@@ -32,6 +32,55 @@
   // 그 사고로 들어간 가짜 세션 ID — 로컬 원장에서 제거하고 pull/push 모두에서 무시한다.
   var BAD_SIDS = {"S-1795668281901":1,"S-1795668338824":1,"S-1795668485535":1,"S-1795669180748":1,"S-1795670625753":1,"S-1795670668963":1,"S-1795670669523":1,"S-1795670672345":1,"S-1795670672448":1,"S-1795670674127":1,"S-1795670675064":1,"S-1795670675288":1,"S-1795670675466":1,"S-1795670676995":1,"S-1795670677043":1,"S-1795670678507":1,"S-1795670679607":1,"S-1795670679767":1,"S-1795670679794":1,"S-1795670680514":1,"S-1795670680832":1,"S-1795671601608":1,"S-1795671601844":1,"S-1795671734809":1,"S-1795672131541":1};
   function notBad(r) { return !(r && BAD_SIDS[r.sid]); }
+  // 2026-11-26 후속: v6.16은 원장(ledger)만 정리했고 핸드 기록(V5 아카이브·예전 원시 아카이브·IndexedDB)은 그대로 두었다.
+  //  그래서 리포트의 histAll()이 오염 핸드를 다시 읽어 KPI·누적 곡선·비교 그래프에 되살렸다. 핸드도 같은 기준으로 걸러 영구 삭제한다.
+  function notBadHand(h) { return !(h && (BAD_SIDS[h.sessionId || ''] || BAD_SIDS[h.sid || ''])); }
+  function isBadHand(h) { return !notBadHand(h); }
+
+  // ---------- V5 아카이브 LZW (index.html archiveEncode/archiveDecode와 같은 포맷) ----------
+  //  report.html 단독으로 열면 window.PokerOSDebug 가 없으므로 여기에 폴백을 둔다.
+  function lzwEncode(text) {
+    var bytes = unescape(encodeURIComponent(String(text))), out = [], dict = new Map(), next = 257, w = '';
+    var reset = function () { dict = new Map(); for (var i = 0; i < 256; i++) dict.set(String.fromCharCode(i), i); next = 257; };
+    reset();
+    for (var i = 0; i < bytes.length; i++) {
+      var c = bytes.charAt(i), wc = w + c;
+      if (dict.has(wc)) { w = wc; continue; }
+      out.push(dict.get(w));
+      if (next < 65535) dict.set(wc, next++); else { out.push(256); reset(); }
+      w = c;
+    }
+    if (w) out.push(dict.get(w));
+    var packed = '';
+    for (var j = 0; j < out.length; j += 8000) packed += String.fromCharCode.apply(null, out.slice(j, j + 8000));
+    return 'POKER_LZW1:' + packed;
+  }
+  function lzwDecode(packed) {
+    if (typeof packed !== 'string' || packed.indexOf('POKER_LZW1:') !== 0) return packed;
+    var input = packed.slice(11), out = [], dict = [], next = 257, w = '';
+    var reset = function () { dict = []; for (var i = 0; i < 256; i++) dict[i] = String.fromCharCode(i); next = 257; w = ''; };
+    reset();
+    for (var i = 0; i < input.length; i++) {
+      var code = input.charCodeAt(i);
+      if (code === 256) { reset(); continue; }
+      var entry = dict[code] !== undefined ? dict[code] : (code === next && w ? w + w[0] : null);
+      if (entry === null) throw new Error('Invalid archive');
+      out.push(entry);
+      if (w && next < 65535) dict[next++] = w + entry[0];
+      w = entry;
+    }
+    return decodeURIComponent(escape(out.join('')));
+  }
+  function decodeHistory(raw) {
+    if (raw === null || raw === undefined) return null;
+    var dec = (window.PokerOSDebug && window.PokerOSDebug.archiveDecode) || lzwDecode;
+    var arr = JSON.parse(dec(raw));
+    return Array.isArray(arr) ? arr : [];
+  }
+  function encodeHistory(list) {
+    var enc = (window.PokerOSDebug && window.PokerOSDebug.archiveEncode) || lzwEncode;
+    return enc(JSON.stringify(list || []));
+  }
 
   var K = {
     session: 'kangwon_limit_holdem_trainer_active_session_v30',
@@ -213,6 +262,24 @@
     }).catch(function () { return []; });
   }
   function idbCount() { return idbAll().then(function (a) { return a.length; }); }
+  // 오염 세션 핸드를 누적 아카이브(IndexedDB)에서도 삭제한다. 앱·리포트가 아카이브를 읽어 다시 합치기 때문이다.
+  function idbPurgeBad() {
+    return idbOpen().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction(IDB_STORE, 'readwrite'), st = tx.objectStore(IDB_STORE), n = 0;
+        var cur = st.openCursor();
+        cur.onsuccess = function () {
+          var c = cur.result;
+          if (!c) return;
+          if (isBadHand(c.value && c.value.h)) { try { c.delete(); n++; } catch (e) {} }
+          c.continue();
+        };
+        cur.onerror = function () { rej(cur.error); };
+        tx.oncomplete = function () { res(n); };
+        tx.onerror = function () { rej(tx.error); };
+      });
+    }).catch(function () { return 0; });
+  }
 
   // ---------- 네트워크 ----------
   function enabled() { return !!(CFG.endpoint && CFG.token) && !isAutomated(); }
@@ -236,30 +303,93 @@
   }
 
   // ---------- 병합 ----------
-  function cloudHandsSnapshot() { return readJSON(K.history); }
+  // V5 아카이브는 LZW 문자열로 저장되므로 JSON.parse로는 읽을 수 없다. 여기서는 반드시 디코드해서 쓴다.
+  //  (v6.16까지 이 함수가 원문을 그대로 parse해 핸드 배열이 늘 비어 있었고, 그 때문에 로컬 핸드가 클라우드로 올라가지 않았다.)
+  function cloudHandsSnapshot() {
+    try {
+      var raw = readRaw(K.history);
+      if (raw === null) return [];
+      var arr = decodeHistory(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
 
   function mergeHandsIntoLocal(cloudHands, stats) {
-    if (!cloudHands || !cloudHands.length) return;
+    cloudHands = (cloudHands || []).filter(notBadHand);
+    if (!cloudHands.length) return;
     var local = [];
     var failed = false;
     try {
       var raw = readRaw(K.history);
-      var dec = window.PokerOSDebug && PokerOSDebug.archiveDecode;
       if (raw !== null) {
-        local = JSON.parse(dec ? dec(raw) : raw) || [];
+        local = decodeHistory(raw) || [];
         if (!Array.isArray(local)) local = [];
       }
     } catch (e) { failed = true; local = []; }
     if (failed) { idbPut(cloudHands); return; }   // 로컬 기록을 읽지 못했으면 건드리지 않는다(보존 우선)
+    local = local.filter(notBadHand);
     var merged = unionBy(local, cloudHands, handKey, bySavedAt, 0);
     var added = merged.length - local.length;
     if (added > 0 || (merged.length && JSON.stringify(merged.map(handKey)) !== JSON.stringify(local.map(handKey)))) {
-      var enc = window.PokerOSDebug && PokerOSDebug.archiveEncode;
-      var payload = JSON.stringify(merged.slice(-500));
-      writeRaw(K.history, enc ? enc(payload) : payload);
+      writeRaw(K.history, encodeHistory(merged.slice(-500)));
       stats.hands += Math.max(0, added);
     }
     idbPut(merged);
+  }
+
+  // 오염 핸드를 이 브라우저에서 영구 삭제한다(V5 LZW 아카이브 · 예전 원시 아카이브 · IndexedDB · 코칭 스냅샷).
+  //  원장(ledger)만 지우면 histAll()이 핸드 기록에서 되살리므로 네 곳을 모두 처리해야 한다.
+  var _idbPurged = false;
+  function purgeBadHands() {
+    var out = { history: 0, legacy: 0, coach: 0, idb: 0 };
+    try {
+      var raw = readRaw(K.history);
+      if (raw !== null) {
+        var list = null;
+        try { list = decodeHistory(raw); } catch (e) { list = null; }
+        if (list) {
+          var clean = list.filter(notBadHand);
+          out.history = list.length - clean.length;
+          if (out.history) writeRaw(K.history, encodeHistory(clean));
+        }
+      }
+    } catch (e) {}
+    try {
+      var rawL = readRaw(K.historyLegacy);
+      if (rawL !== null) {
+        var arrL = JSON.parse(rawL);
+        if (Array.isArray(arrL)) {
+          var cleanL = arrL.filter(notBadHand);
+          out.legacy = arrL.length - cleanL.length;
+          if (out.legacy) writeRaw(K.historyLegacy, JSON.stringify(cleanL));
+        }
+      }
+    } catch (e) {}
+    try {
+      var c = readJSON(K.coach);
+      if (c && typeof c === 'object') {
+        var n = 0;
+        if (c.sessions && typeof c.sessions === 'object') {
+          Object.keys(c.sessions).forEach(function (k) { if (BAD_SIDS[k]) { delete c.sessions[k]; n++; } });
+        }
+        ['hands', 'decisions'].forEach(function (f) {
+          if (Array.isArray(c[f])) {
+            var before = c[f].length;
+            c[f] = c[f].filter(function (r) { return notBad(r) && notBadHand(r); });
+            n += before - c[f].length;
+          }
+        });
+        out.coach = n;
+        if (n) writeRaw(K.coach, JSON.stringify(c));
+      }
+    } catch (e) {}
+    if (!_idbPurged) {
+      _idbPurged = true;
+      idbPurgeBad().then(function (n) {
+        if (n && ui && ui.note) ui.note.textContent = '오염 핸드 ' + n + '건을 누적 아카이브에서 삭제했습니다';
+      });
+    }
+    return out;
   }
 
   function purgeBadLedger() {
@@ -355,6 +485,7 @@
   function mergePull(res, opts) {
     opts = opts || {};
     var stats = { hands: 0, ledger: 0, keys: [], session: false };
+    purgeBadHands();                     // 병합 전에 로컬 오염 핸드를 먼저 지운다
     var d = res || {};
     if (d.hands) mergeHandsIntoLocal(d.hands, stats);
     if (d.ledger) mergeLedgerIntoLocal(d.ledger, stats);
@@ -374,6 +505,7 @@
     var since = force ? '' : (meta.pushCursor || '');
     var hands = cloudHandsSnapshot();
     if (!Array.isArray(hands)) hands = [];
+    hands = hands.filter(notBadHand);
     if (since) hands = hands.filter(function (h) { return String(h.savedAt || '') > since; });
 
     var ledger = readJSON(K.ledger);
@@ -759,7 +891,7 @@
     }, CFG.pollMs);
   }
 
-  if (!isAutomated()) purgeBadLedger();
+  if (!isAutomated()) { purgeBadLedger(); purgeBadHands(); }   // 2026-11-26: 원장·핸드·아카이브·코칭 스냅샷까지 오염 세션 정리
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
 
@@ -769,6 +901,10 @@
     handKey: handKey, ledgerKey: ledgerKey, deepMax: deepMax,
     status: function () { return { enabled: enabled(), lastSyncAt: meta.lastSyncAt, lastError: meta.lastError, lastResult: lastResult }; },
     archiveBackup: archiveBackup, archiveRestore: archiveRestore, idbAll: idbAll,
-    setEndpoint: function (url, token) { CFG.endpoint = url; CFG.token = token; }
+    setEndpoint: function (url, token) { CFG.endpoint = url; CFG.token = token; },
+    // 2026-11-26: 오염 세션 필터를 앱·리포트가 같이 쓴다(이중 방어).
+    badSids: BAD_SIDS, isBadHand: isBadHand, notBadHand: notBadHand,
+    purgeBadHands: purgeBadHands, idbPurgeBad: idbPurgeBad,
+    lzwEncode: lzwEncode, lzwDecode: lzwDecode
   };
 })();

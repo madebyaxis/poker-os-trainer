@@ -3,11 +3,20 @@
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
 ## Current build (2026-11-26 기준)
-- Trainer: **v6.19 Candidate** (2026-11-26 포스트플랍 정본) — v6.18 기반
+- Trainer: **v6.20** (2026-11-26 오염 핸드 정화 후속) — v6.19 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.20 변경점 (2026-11-26) · 오염 핸드 완전 정화 + 비교 그래프 필터 정합
+- **남아 있던 오염 경로**: v6.16은 손익 장부(`poker_os_pl_ledger_v1`)만 정리했습니다. 핸드 기록(`poker_os_history_v5_lzw1` LZW 아카이브 · `kangwon_limit_holdem_trainer_history_v30` · IndexedDB `poker_os_archive_v1`)에는 시뮬레이션 25세션·314핸드가 남아, 리포트 `histAll()`을 타고 KPI·누적 곡선·전략 실험 비교·세션 경과 시간대·누적 시간별 개선 제안·세션 목록·다른 플레이어와 비교·상대별 리뷰·현장 관찰 비교까지 다시 반영됩니다. 특히 `loadTrainerRows()`가 장부에 없는 핸드를 핸드 기록에서 보충하므로, 장부에서 지운 오염 세션이 표에 그대로 되살아났습니다.
+- **sync.js**: `notBadHand()` 추가, 시작할 때와 pull 병합 때 `purgeBadHands()`로 ① V5 LZW 아카이브 ② 예전 원시 키 ③ IndexedDB ④ 코칭 스냅샷(`sessions`/`hands`/`decisions`)에서 오염 세션을 영구 삭제. 클라우드 pull(`mergeHandsIntoLocal`)·push(`localPushPayload`) 양쪽에서도 차단합니다.
+- **이중 방어**: `report.html`(자체 목록 + `window.PokerOSSync.badSids`)과 `index.html`(앱 `loadHistory`)도 같은 세션을 읽지 않습니다. 앱은 읽을 때 아카이브에서도 지웁니다.
+- **다른 플레이어와 비교 수정**: `peerBuild()`가 상단 필터(테이블·훈련 모드·테이블 성향·전략 태그)를 전혀 쓰지 않아 다른 손익 표와 표본이 어긋났습니다. 이제 같은 필터를 적용하고, 설명 줄에 적용 필터와 핸드 수를 표시합니다. 상대별 리뷰(`oppBuild`)도 같은 기준을 씁니다.
+- **중복 안내문 버그**: `renderPeers()`가 `peerTable.insertAdjacentHTML('afterend', …)`로 안내문을 붙여 그릴 때마다 하나씩 쌓였습니다. 고정 `#peerNote` 요소에 `textContent`로 쓰도록 바꿉니다.
+- **핸드 동기화 버그**: `cloudHandsSnapshot()`이 LZW 아카이브 문자열을 `JSON.parse`해 늘 빈 배열을 돌려줬습니다(그래서 로컬 핸드가 클라우드로 올라가지 않고, 동기화 패널의 핸드 수도 0이었습니다). 디코드해서 쓰도록 고칩니다. 최근 500핸드가 클라우드(서버 상한 600)로 올라가 기기 간에 이어집니다.
+- 캐시 버스터 `sync.js?v=20261126b`.
 
 ## v6.19 변경점 (2026-11-26) · 포스트플랍 정본(Postflop Canon v1)
 - **`POSTFLOP_CANON` 27규칙**을 프리플랍 `CANON`과 같은 자리에 추가했습니다(10만·30만 공통). 리밋 래더·캡·레이크(5%/2만)·g_hat 표를 데이터에 함께 둡니다.
