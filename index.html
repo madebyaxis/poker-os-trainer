@@ -4822,7 +4822,7 @@ if(!restored){
   $('status').textContent='새 세션을 시작하세요.';
 }
 // Patch 2026-11-13: rake cap 확정 · EP raise call/fold 보강 · 림프 팟 오프수트 폴드 · 턴 T04/T05/T06 · 현장 field profile
-Object.assign(PokerOSDebug,{patch:'6.19-candidate-20261126-postflop-canon',POSTFLOP_CANON,PFX_CANON_IDS,pfClassify,pfxTexture,pfxPrice,pfxOuts,pfxGhat,pfxMatch,pfxContextFromSnapshot,pfContext,decisionMatches,canonicalRecommendation});
+try{Object.assign(PokerOSDebug,{patch:'6.19-candidate-20261126-postflop-canon',POSTFLOP_CANON,PFX_CANON_IDS,pfClassify,pfxTexture,pfxPrice,pfxOuts,pfxGhat,pfxMatch,pfxContextFromSnapshot,pfContext,decisionMatches,canonicalRecommendation});}catch(e){window.__pfxExportError=String((e&&e.stack)||e);console.error('Postflop canon exports failed',e)}
 Object.assign(PokerOSDebug,{patch:'5.2-candidate-20261113-field-corrections',p10TurnRule,canonicalRecommendation,CANON,RAKE_CAP,calcRake});
 // ===== Patch 2026-11-15 v5.3: 강원랜드 현장형 업데이트 =====
 // 1) 10만/30만 필드 분리(30만은 레귤러·공격형 비중↑)  2) 단골 레귤러(이름 고정, 관찰 기록이 세션 간 누적)
