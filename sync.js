@@ -657,7 +657,7 @@
     return idbAll().then(function (all) {
       if (!all.length) return { pushed: 0, total: 0 };
       var since = meta.archiveCursor || '';
-      var todo = all.filter(function (h) { return String(h.savedAt || '') > since; });
+      var todo = all.filter(notBadHand).filter(function (h) { return String(h.savedAt || '') > since; });
       if (!todo.length) return { pushed: 0, total: all.length };
       var pages = [], i = 0;
       while (i < todo.length) { pages.push(todo.slice(i, i + 200)); i += 200; }
