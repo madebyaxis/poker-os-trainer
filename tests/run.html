@@ -7,11 +7,15 @@
 <p>앱을 숨은 창으로 불러와 정본 규칙·레이크·턴 규칙만 검사합니다. 핸드 기록은 바꾸지 않습니다.</p>
 <div id="out">실행 중…</div>
 <iframe id="app"></iframe>
-<script src="regression.js"></script>
 <script>
-// 배포 캐시 회피: 항상 지금 배포된 index.html을 검사한다(GitHub Pages CDN이 이전 파일을 줄 수 있음).
-const appFrame=document.getElementById('app');
-appFrame.addEventListener('load',()=>setTimeout(()=>{
+// 캐시 회피: 항상 지금 배포된 index.html·regression.js를 검사한다(GitHub Pages CDN이 이전 파일을 줄 수 있음).
+(function(){
+  var s=document.createElement('script');
+  s.src='regression.js?v='+Date.now();
+  s.onerror=function(){var o=document.getElementById('out');if(o)o.innerHTML='<p class="bad">regression.js 로드 실패</p>'};
+  s.onload=function(){
+    var appFrame=document.getElementById('app');
+    appFrame.addEventListener('load',function(){setTimeout(function(){
   const out=document.getElementById('out');
   try{
     const D=document.getElementById('app').contentWindow.PokerOSDebug;
@@ -21,7 +25,10 @@ appFrame.addEventListener('load',()=>setTimeout(()=>{
     out.innerHTML=`<h3 class="${r.failed.length?'bad':'ok'}">${r.passed} / ${r.total} PASS</h3>`+
       (r.failed.length?'<pre>'+r.failed.map(f=>'✗ '+f.name+'\n'+JSON.stringify(f.got,null,1)).join('\n\n')+'</pre>':'<p class="ok">모든 검사를 통과했습니다.</p>');
   }catch(e){out.innerHTML='<p class="bad">실행 오류: '+e+'</p>'}
-},800));
-appFrame.src='../index.html?v='+Date.now();
+    },800)});
+    appFrame.src='../index.html?v='+Date.now();
+  };
+  document.body.appendChild(s);
+})();
 </script>
 </body></html>
