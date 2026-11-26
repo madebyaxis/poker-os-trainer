@@ -374,7 +374,7 @@ function runPostflopCanonRegression(D){
   // ── 통합 (추가)
   ok('POSTFLOP_CANON 규칙 27개',D.POSTFLOP_CANON.rules.length===27,D.POSTFLOP_CANON.rules.length);
   ok('정본 ID 화이트리스트에 PFX 포함',D.PFX_CANON_IDS.has('PFX-R04')&&!D.PFX_CANON_IDS.has('PFX-UNK'),[...D.PFX_CANON_IDS].length);
-  const mixed=D.pfxMatch({limit:'30만',street:'river',hole:H('Q♦ J♣'),board:B('Q♠ 6♦ 2♣ 9♥ 3♣'),ways:2,facing:'checked_to',toCall:0,pot:240000,read:{enough:true,hands:20,pfr:.05,postAgg:.2}});
+  const mixed=D.pfxMatch({limit:'30만',street:'river',hole:H('K♠ K♥'),board:B('Q♠ 6♦ 2♣ 9♥ 3♣'),ways:2,facing:'checked_to',toCall:0,pot:240000,read:{enough:true,hands:20,pfr:.05,postAgg:.2}});
   ok('믹스 규칙은 alt(체크)도 정답 처리',mixed&&mixed.action==='Bet'&&mixed.alt==='Check'&&D.decisionMatches({actualSemantic:'Check',rec:mixed.action,alt:mixed.alt}),mixed);
   const noBoard=D.snapshotCanonicalRecommendation({street:'turn',toCall:10000,handClass:'one_pair',boardRisk:{count:0,paired:false,flushComplete:false,straightRisk:false},playersActive:2,pos:'MP',currentBet:10000,streetAggressionCount:1,stack:400000},hand);
   ok('보드 없는 과거 기록은 review_only(PFX-UNK)',noBoard&&noBoard.action==='Review'&&noBoard.gradeable===false,noBoard);
