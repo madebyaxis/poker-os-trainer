@@ -727,7 +727,11 @@ const TRAINING_PROFILE_DEFAULT={
     strong_value:{name:'Strong made hand value',weight:3,seen:0,correct:0,streak:0},
     preflop:{name:'Preflop / Small-pair 진입 규율',weight:2.5,seen:0,correct:0,streak:0},
     blind:{name:'Blind / 가격 판단',weight:2.5,seen:0,correct:0,streak:0},
-    facing_raise:{name:'Facing raise 경계',weight:3,seen:0,correct:0,streak:0}
+    facing_raise:{name:'Facing raise 경계',weight:3,seen:0,correct:0,streak:0},
+    flop:{name:'Flop 정본(강한패·C-Bet·드로우)',weight:5,seen:0,correct:0,streak:0},
+    river_gate:{name:'River 블러프캐치 게이트',weight:5.2,seen:0,correct:0,streak:0},
+    turn_price:{name:'Turn 완성보드·드로우 가격',weight:4.6,seen:0,correct:0,streak:0},
+    river_thin:{name:'River 얇은 밸류',weight:4,seen:0,correct:0,streak:0}
   },
   read:{attempts:0,styleCorrect:0,skillCorrect:0},
   drillTotal:0,drillCorrect:0
@@ -841,6 +845,644 @@ const CANON={
       explain:'앞자리 레이즈 상대 QQ+와 AK는 프리미엄 밸류 재공격 구간입니다.'}
   }
 };
+
+/* --- POKER OS POSTFLOP CANON v1 : PURE FUNCTIONS (BEGIN) ---
+   강원랜드 10만·30만 포스트플랍 정본. 프리플랍 CANON과 같은 자리·같은 철학.
+   규칙은 데이터(POSTFLOP_CANON)에 있고, live 추천과 기록 재채점이 이 블록의 같은 함수를 호출한다.
+   이 블록은 DOM·전역 상태(S)를 참조하지 않는다. tests/regression.js가 그대로 실행한다. */
+const POSTFLOP_CANON={
+  schema:'poker-os-postflop-canon-v1',
+  version:'Postflop Canon v1',
+  limits:{
+    '10만':{bb:5000,sb:2000,small:5000,big:10000,
+      cap:{preflop:15000,flop:15000,turn:30000,river:40000},
+      ladder:{preflop:[5000,10000,15000],flop:[5000,10000,15000],turn:[10000,20000,30000],river:[10000,20000,30000,40000]}},
+    '30만':{bb:20000,sb:10000,small:20000,big:30000,
+      cap:{preflop:60000,flop:60000,turn:90000,river:90000},
+      ladder:{preflop:[20000,40000,60000],flop:[20000,40000,60000],turn:[30000,60000,90000],river:[30000,60000,90000]}}
+  },
+  rake:{rate:0.05,cap:20000},
+  bluff:{margin:0.02,
+    base:{unknown:0.10,passive:0.04,neutral:0.08,aggro:0.16,veryAggro:0.24},
+    mult:{ways3:0.65,ways4:0.45,completion:0.80,paired:0.85,betCall:0.60,nutBlocker:1.15}},
+  raiseRisk:{0:0,1:0.12,2:0.18,3:0.22,aggroMult:1.5,max:0.35},
+  rules:[
+    {id:'PFX-CAP',name:'캡 도달 콜',street:'any',limits:['10만','30만'],priority:200,
+      when:{facing:['capped']},action:{capped:'Call'},eval:'capPrice',mix:null,
+      confidence:'High',gradeable:true,requires:['board','facing','pot','toCall'],
+      why:'이미 캡이면 더 올릴 수 없습니다. 남은 가격만 보고 콜/폴드합니다.'},
+
+    /* 플랍 */
+    {id:'PFX-F01',name:'플랍 강한 완성패 직접 밸류',street:'flop',limits:['10만','30만'],priority:110,
+      when:{tier:['nuts','strong'],facing:['checked_to','bet','raised']},
+      action:{checked_to:'Bet',bet:'Raise',raised:'Raise'},mix:null,
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'플랍 강한 완성패(셋·스트레이트·투페어·풀하우스·쿼즈·플러시)는 슬로우플레이보다 직접 밸류. 멀티웨이일수록 느리게 가지 않습니다.'},
+    {id:'PFX-F02',name:'드라이 보드 원페어 벳',street:'flop',limits:['10만','30만'],priority:100,
+      when:{tier:['good'],ways:{max:3},riskCount:{max:1},board:['dry_high','dry_low'],facing:['checked_to'],initiative:true},
+      action:{checked_to:'Bet'},mix:'Bet 80 / Check 20',alt:{checked_to:'Check'},
+      confidence:'High',gradeable:true,requires:['board','ways','facing','initiative'],
+      why:'드라이 보드 2~3웨이 오버페어·TPTK는 주도권이 있으면 대부분 벳. 체크는 트랩/팟컨트롤 20%.'},
+    {id:'PFX-F03',name:'4웨이+ 원페어 선벳 금지',street:'flop',limits:['10만','30만'],priority:98,
+      when:{tier:['good'],ways:{min:4},facing:['checked_to']},
+      action:{checked_to:'Check'},mix:'Check 80 / Bet 20',alt:{checked_to:'Bet'},
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'4웨이 이상에서 원페어 선벳은 이긴 패만 받습니다. 보호벳 가치만 20% 믹스.'},
+    {id:'PFX-F04',name:'드라이 보드 마진 보호벳',street:'flop',limits:['10만','30만'],priority:90,
+      when:{tier:['marginal'],ways:{max:3},board:['dry_high','dry_low'],facing:['checked_to'],initiative:true},
+      action:{checked_to:'Bet'},mix:'Bet 50 / Check 50',alt:{checked_to:'Check'},
+      confidence:'Medium',gradeable:true,requires:['board','ways','facing','initiative'],
+      why:'탑페어 약키커·세컨드페어는 드라이·소수 인원에서 보호벳이 이득. 4웨이 이상은 체크.'},
+    {id:'PFX-F05',name:'4웨이+ 마진·약패 체크',street:'flop',limits:['10만','30만'],priority:88,
+      when:{tier:['marginal','weak'],ways:{min:4},facing:['checked_to']},
+      action:{checked_to:'Check'},mix:null,
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'4웨이 이상 원페어 이하 선벳은 팟 컨트롤.'},
+    {id:'PFX-F06',name:'플랍 드로우 세미블러프',street:'flop',limits:['10만','30만'],priority:86,
+      when:{draw:['fd','oesd','combo'],facing:['checked_to'],ways:{max:3}},
+      action:{checked_to:'Bet'},mix:'HU Bet 70 / 3way Bet 40',alt:{checked_to:'Check'},
+      confidence:'Medium',gradeable:true,requires:['board','ways','facing','hole'],
+      why:'드로우 세미블러프. 4웨이 이상은 폴드에쿼티가 급감해 체크.'},
+    {id:'PFX-F07',name:'플랍 드로우 콜',street:'flop',limits:['10만','30만'],priority:84,
+      when:{draw:['fd','oesd','gut','combo'],facing:['bet']},
+      action:{bet:'Call'},mix:'combo & ways<=3 & IP → Raise 40 / Call 60',
+      alt:{bet:'Raise'},altWhen:{draw:['combo'],ways:{max:3},ip:true},
+      confidence:'High',gradeable:true,requires:['board','hole','facing','pot','toCall'],
+      why:'리밋 플랍 1벳 가격은 거의 항상 맞습니다(9아웃 35% vs 필요 5~11%). 드로우 콜은 정본.'},
+    {id:'PFX-F08',name:'멀티웨이 위험보드 마진 콜 게이트',street:'flop',limits:['10만','30만'],priority:80,
+      when:{tier:['marginal','weak'],facing:['bet'],ways:{min:3},riskCount:{min:1}},
+      action:{bet:'Fold'},mix:'need<=8% → Call 50 / Fold 50',alt:{bet:'Call'},altWhen:{maxRawNeed:0.08},
+      confidence:'Medium',gradeable:true,requires:['board','ways','facing','pot','toCall'],
+      why:'멀티웨이 위험 보드에서 원페어 이하로 1벳 콜은 가격이 8% 이하일 때만. 그 밖은 폴드.'},
+    {id:'PFX-F09',name:'넛 블로커 에어 벳(비채점)',street:'flop',limits:['10만','30만'],priority:70,
+      when:{tier:['air'],facing:['checked_to'],ways:{max:2},board:['dry_high','dry_low'],blocker:'nut'},
+      action:{checked_to:'Bet'},mix:'Bet 35 / Check 65',
+      confidence:'Low',gradeable:false,requires:['board','ways','facing','hole'],
+      why:'넛 블로커 + 헤즈업 드라이에서만 소량 스틸. 코칭 규칙이라 채점하지 않습니다.'},
+    {id:'PFX-F10',name:'플랍 벳+레이즈 원페어 이하 폴드',street:'flop',limits:['10만','30만'],priority:60,
+      when:{tier:['marginal','weak','air'],facing:['raised']},
+      action:{raised:'Fold'},mix:null,
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'플랍 벳+레이즈에 원페어 이하는 폴드. 리밋 3벳 팟은 밸류 헤비.'},
+
+    /* 턴 */
+    {id:'PFX-T01',name:'턴 강한패 밸류',street:'turn',limits:['10만','30만'],priority:110,
+      when:{tier:['nuts','strong'],facing:['checked_to','bet','raised']},
+      action:{checked_to:'Bet',bet:'Raise',raised:'Raise'},mix:'완성 보드 + 3웨이 이상이면 Raise 대신 Call',
+      altWhen:{board:['completion'],ways:{min:3}},
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'턴 강한 패는 직접 밸류. 단 보드가 완성됐고 멀티웨이면 상위 족보 위험으로 콜로 조절.'},
+    {id:'PFX-T02',name:'턴 완성보드 멀티웨이 감속',street:'turn',limits:['10만','30만'],priority:100,
+      when:{tier:['marginal','weak','good'],board:['completion'],ways:{min:3},facing:['checked_to']},
+      action:{checked_to:'Check'},mix:null,
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'턴에 플러시·스트레이트가 완성된 멀티웨이에서 원페어 선벳은 이긴 패만 받습니다.'},
+    {id:'PFX-T03',name:'턴 완성보드 원페어 폴드',street:'turn',limits:['10만','30만'],priority:98,
+      when:{tier:['marginal','weak'],board:['completion'],ways:{min:3},facing:['bet']},
+      action:{bet:'Fold'},eval:'completionFold',mix:null,
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'완성 보드 멀티웨이에서 원페어로 1벳 콜은 이 게임 최대 누수. 관찰된 어그로가 없으면 폴드.'},
+    {id:'PFX-T04',name:'턴 멀티위험 블러프캐처 폴드',street:'turn',limits:['10만','30만'],priority:96,
+      when:{tier:['marginal','good'],danger:{min:2},facing:['bet','raised'],line:'flop_raiser_continues_or_turn_raise'},
+      action:{bet:'Fold',raised:'Fold'},eval:'dangerFold',mix:null,
+      confidence:'Medium',gradeable:true,requires:['board','ways','facing','history'],
+      why:'턴 위험요소 2개 이상 + 플랍 레이저의 연속 벳/턴 레이즈는 밸류 헤비. 오버페어·TPTK도 블러프캐처.'},
+    {id:'PFX-T05',name:'블랭크 턴 주도권 배럴',street:'turn',limits:['10만','30만'],priority:90,
+      when:{tier:['good'],board:['blank'],ways:{max:3},facing:['checked_to'],initiative:true,riskCount:{max:1}},
+      action:{checked_to:'Bet'},mix:'Bet 75 / Check 25',alt:{checked_to:'Check'},
+      confidence:'High',gradeable:true,requires:['board','ways','facing','initiative'],
+      why:'블랭크 턴 + 주도권 + 오버페어/TPTK는 두 번째 배럴이 기본.'},
+    {id:'PFX-T06',name:'턴 드로우 콜',street:'turn',limits:['10만','30만'],priority:86,
+      when:{draw:['fd','oesd','gut','combo'],facing:['bet']},
+      action:{bet:'Call'},eval:'drawCall',mix:'combo & IP & ways<=3 → Raise 35 / Call 65',
+      altWhen:{draw:['combo'],ip:true,ways:{max:3}},alt:{bet:'Raise'},
+      confidence:'High',gradeable:true,requires:['board','hole','facing','pot','toCall'],
+      why:'턴 1벳 콜 필요 승률은 4.7~14.4%. 8아웃 이상은 항상 콜, 4~6아웃은 clean outs와 임플라이드로 판정.'},
+    {id:'PFX-T07',name:'위험보드 투페어·셋 콜(캡 금지)',street:'turn',limits:['10만','30만'],priority:80,
+      when:{tier:['strong'],facing:['raised'],board:['completion','paired']},
+      action:{raised:'Call'},mix:null,
+      confidence:'Medium',gradeable:true,requires:['board','ways','facing'],
+      why:'위험 보드의 투페어·셋은 추가 캡보다 콜 우선.'},
+    {id:'PFX-T08',name:'완성보드 넛 블로커 벳(비채점)',street:'turn',limits:['10만','30만'],priority:72,
+      when:{tier:['good'],board:['completion'],ways:{min:3},facing:['checked_to'],blocker:'nutFlush'},
+      action:{checked_to:'Bet'},mix:null,
+      confidence:'Low',gradeable:false,requires:['board','hole','ways','facing'],
+      why:'완성 보드라도 그 수트 A를 들고 있으면 상대 넛 플러시가 없어 벳이 유력. 코칭 규칙이라 채점하지 않습니다.'},
+
+    /* 리버 */
+    {id:'PFX-R01',name:'리버 강한패 밸류',street:'river',limits:['10만','30만'],priority:110,
+      when:{tier:['nuts','strong'],facing:['checked_to','bet'],riskCount:{max:1}},
+      action:{checked_to:'Bet',bet:'Call'},mix:'넛 & 상대 어그로 → Raise 50 / Call 50',
+      altWhen:{tier:['nuts'],aggressiveRead:true},alt:{bet:'Raise'},
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'리버 강한 패는 체크로 밸류를 놓치지 않습니다. 벳을 받으면 넛이 아닌 이상 콜로 쇼다운.'},
+    {id:'PFX-R02',name:'넛 아닌 플러시 콜',street:'river',limits:['10만','30만'],priority:104,
+      when:{hc:['flush','near_nut'],facing:['bet']},
+      action:{bet:'Call'},mix:null,
+      confidence:'Medium',gradeable:true,requires:['board','ways','facing'],
+      why:'넛이 아닌 플러시는 레이즈하지 않고 콜로 쇼다운 밸류.'},
+    {id:'PFX-R03',name:'리버 완성+멀티웨이 원페어 폴드',street:'river',limits:['10만','30만'],priority:100,
+      when:{tier:['marginal','weak','good'],ways:{min:3},board:['completion','paired'],facing:['bet']},
+      action:{bet:'Fold'},eval:'completionFold',mix:null,
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'멀티웨이 + 완성/페어드 보드 + 원페어 이하 = 하드 폴드. 이 게임 최대 EV 누수.'},
+    {id:'PFX-R05',name:'리버 거대 팟 예외 콜',street:'river',limits:['10만','30만'],priority:96,
+      when:{tier:['marginal','good'],ways:{max:2},facing:['bet'],potBB:{min:20}},
+      action:{bet:'Call'},mix:null,
+      confidence:'Medium',gradeable:true,requires:['board','ways','facing','pot','toCall'],
+      why:'거대 팟 예외: g*가 5~7%까지 내려가면 원페어도 콜. 폴드가 더 큰 실수입니다.'},
+    {id:'PFX-R04',name:'리버 가격형 블러프캐치',street:'river',limits:['10만','30만'],priority:94,
+      when:{tier:['marginal','weak','good'],board:['dry_high','dry_low','blank'],ways:{max:3},facing:['bet']},
+      action:{bet:'Call'},eval:'bluffCatch',mix:null,
+      confidence:'Medium',gradeable:true,requires:['board','ways','facing','pot','toCall'],
+      why:'가격형 블러프캐치: g_hat >= g* + 2%p면 콜. 30만 12BB 1벳 g*=10.5%.'},
+    {id:'PFX-R06',name:'리버 얇은 밸류벳',street:'river',limits:['10만','30만'],priority:86,
+      when:{tier:['good','strong'],ways:{max:2},board:['dry_high','dry_low','blank'],facing:['checked_to']},
+      action:{checked_to:'Bet'},eval:'thinValue',mix:'Bet 85 / Check 15',alt:{checked_to:'Check'},
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'얇은 밸류벳: 팟 12BB·폴드 10%면 콜받을 때 손익분기 승률 2~6%뿐. 콜링스테이션 상대로 체크가 더 큰 누수.'},
+    {id:'PFX-R07',name:'리버 레이즈 직면 원페어 폴드',street:'river',limits:['10만','30만'],priority:80,
+      when:{tier:['marginal','weak','good'],facing:['raised','capped']},
+      action:{raised:'Fold',capped:'Fold'},mix:null,
+      confidence:'High',gradeable:true,requires:['board','ways','facing'],
+      why:'리버에서 원페어로 레이즈를 맞으면 폴드. 10만은 리버 4벳 캡이라 비용이 더 큽니다.'},
+
+    {id:'PFX-UNK',name:'문맥 결손 Review',street:'any',limits:['10만','30만'],priority:999,
+      when:{missingContext:true},action:{any:'Review'},mix:null,
+      confidence:'Low',gradeable:false,requires:[],
+      why:'보드·웨이·facing 중 하나라도 없으면 채점하지 않습니다(과채점 방지).'}
+  ]
+};
+const PFX_CANON_IDS=new Set(POSTFLOP_CANON.rules.filter(r=>r.gradeable!==false).map(r=>r.id));
+
+function pfxCfg(limit){return POSTFLOP_CANON.limits[limit]||POSTFLOP_CANON.limits['10만']}
+function pfxRake(amount){
+  const a=Math.max(0,Number(amount)||0);
+  return Math.min(Math.floor(a*POSTFLOP_CANON.rake.rate),POSTFLOP_CANON.rake.cap);
+}
+function pfxKey(c){return c?String(c.r)+String(c.s):''}
+function pfxCardOf(x){
+  if(!x)return null;
+  if(typeof x==='object'){
+    if(!x.r||!x.s)return null;
+    return {r:x.r,s:x.s,v:Number(x.v)||RV[x.r]||0};
+  }
+  const str=String(x).trim();
+  if(str.length<2)return null;
+  const r=str[0],s=str.slice(1);
+  if(!RV[r]||!SUITS.includes(s))return null;
+  return {r,s,v:RV[r]};
+}
+function pfxCardsOf(list){
+  if(Array.isArray(list))return list.map(pfxCardOf).filter(c=>c&&c.v);
+  if(typeof list==='string'){
+    const toks=list.trim().split(/\s+/).filter(Boolean);
+    return toks.map(pfxCardOf).filter(Boolean);
+  }
+  return [];
+}
+function pfxHoleOf(h){
+  const cards=pfxCardsOf(h);
+  return cards.length===2?cards:[];
+}
+function pfxStraightRisk(ranks){
+  const u=[...new Set(ranks.map(Number))].sort((a,b)=>b-a);
+  if(u.includes(14))u.push(1);
+  for(let hi=14;hi>=5;hi--){
+    const need=[hi,hi-1,hi-2,hi-3,hi-4];
+    if(need.filter(v=>u.includes(v)).length>=4)return true;
+  }
+  return false;
+}
+function pfxBestWindow(ranks){
+  const u=[...new Set(ranks.map(Number))];
+  if(u.includes(14))u.push(1);
+  let best=0;
+  for(let hi=14;hi>=5;hi--){
+    const w=[hi,hi-1,hi-2,hi-3,hi-4];
+    best=Math.max(best,w.filter(v=>u.includes(v)).length);
+  }
+  return best;
+}
+function pfxTexture(board,street){
+  const b=pfxCardsOf(board);
+  const out={code:'unknown',paired:false,flushComplete:false,straightRisk:false,riskCount:0,
+    high:0,connected:false,newFlush:false,newStraight:false,newPaired:false,flushSuit:null,maxSuit:0,street:street||''};
+  if(b.length<3)return out;
+  const ranks=b.map(c=>c.v), suits=b.map(c=>c.s);
+  const sc={};suits.forEach(s=>sc[s]=(sc[s]||0)+1);
+  const maxSuit=Math.max(...Object.values(sc));
+  const flushSuit=Object.keys(sc).find(s=>sc[s]===maxSuit)||null;
+  const paired=new Set(ranks).size<ranks.length;
+  const straightRisk=pfxStraightRisk(ranks);
+  const prev=b.slice(0,-1);
+  const prevSc={};prev.forEach(c=>prevSc[c.s]=(prevSc[c.s]||0)+1);
+  const prevMax=prev.length?Math.max(...Object.values(prevSc)):0;
+  const prevStraight=prev.length>=3?pfxStraightRisk(prev.map(c=>c.v)):false;
+  const prevPaired=prev.length>=3?new Set(prev.map(c=>c.v)).size<prev.length:false;
+  const prevHigh=prev.length?Math.max(...prev.map(c=>c.v)):0;
+  out.paired=paired;out.flushComplete=maxSuit>=3;out.straightRisk=straightRisk;
+  out.riskCount=(paired?1:0)+(out.flushComplete?1:0)+(straightRisk?1:0);
+  out.high=Math.max(...ranks);out.maxSuit=maxSuit;out.flushSuit=flushSuit;
+  out.newFlush=maxSuit>=3&&prevMax<3;
+  out.newStraight=straightRisk&&!prevStraight;
+  out.newPaired=paired&&!prevPaired;
+  const window=pfxBestWindow(ranks);
+  const sorted=ranks.slice().sort((x,y)=>y-x);
+  const gapConnector=sorted.some((v,i)=>sorted.slice(i+1).some(w=>v-w<=2&&v>=9));
+  out.connected=window>=3||gapConnector;out.straightWindow=window;
+  const st=street||(b.length===3?'flop':b.length===4?'turn':'river');
+  out.street=st;
+  if(st!=='flop'&&(out.newFlush||out.newStraight||maxSuit>=4))out.code='completion';
+  else if(paired)out.code='paired';
+  else if(st!=='flop'&&!out.newFlush&&!out.newStraight&&!out.newPaired&&out.high<=prevHigh)out.code='blank';
+  else if(st==='flop'&&maxSuit===3)out.code='monotone';
+  else if(maxSuit===2&&out.connected)out.code='twoTone_connected';
+  else if(out.high>=12&&!out.connected)out.code='dry_high';
+  else if(out.high<=9&&!out.connected)out.code='dry_low';
+  else out.code=maxSuit===2?'twoTone_connected':(out.high>=12?'dry_high':'dry_low');
+  return out;
+}
+function pfxHandClassOf(hole,board){
+  if(!hole||hole.length<2||!board||board.length<3)return 'unknown';
+  const all=[...hole,...board];
+  const cat=(ev7(all)||[0])[0];
+  if(cat===8)return 'straight_flush';
+  if(cat===7)return 'quads';
+  if(cat===6)return 'full_house';
+  if(cat===5){
+    const sc={};all.forEach(c=>sc[c.s]=(sc[c.s]||0)+1);
+    const fs=Object.keys(sc).find(s=>sc[s]>=5);
+    const heroSuit=hole.filter(c=>c.s===fs);
+    const highest=Math.max(...all.filter(c=>c.s===fs).map(c=>c.v));
+    const heroMax=heroSuit.length?Math.max(...heroSuit.map(c=>c.v)):0;
+    if(heroMax===14)return 'nut_flush';
+    if(heroMax===highest&&heroMax>=13)return 'near_nut';
+    return 'flush';
+  }
+  if(cat===4)return 'straight';
+  if(cat===3){
+    const rc={};all.forEach(c=>rc[c.v]=(rc[c.v]||0)+1);
+    const tripRank=Object.keys(rc).find(v=>rc[v]>=3);
+    if(hole[0].v===hole[1].v&&board.some(c=>c.v===hole[0].v))return 'set';
+    return hole.some(c=>String(c.v)===tripRank)?'trips':'board_trips';
+  }
+  if(cat===2){
+    const maxBoard=Math.max(...board.map(c=>c.v));
+    if(hole[0].v===hole[1].v&&hole[0].v>maxBoard)return 'overpair';
+    const bothPairBoard=board.some(c=>c.v===hole[0].v)&&board.some(c=>c.v===hole[1].v);
+    return bothPairBoard?'strong_two_pair':'weak_two_pair';
+  }
+  if(cat===1){
+    const maxBoard=Math.max(...board.map(c=>c.v));
+    if(hole[0].v===hole[1].v&&hole[0].v>maxBoard)return 'overpair';
+    const topPair=hole.find(c=>c.v===maxBoard);
+    if(topPair){
+      const other=hole.find(c=>c!==topPair);
+      if(other&&other.v===14)return 'TPTK';
+      return 'top_pair_weak';
+    }
+    const matched=hole.filter(c=>board.some(b=>b.v===c.v));
+    return matched.length?'one_pair':'high_card';
+  }
+  return 'high_card';
+}
+function pfxEmptyDraws(){
+  return {raw:0,clean:0,fd:false,nfd:false,oesd:false,gut:false,combo:false,flushOuts:0,straightOuts:0,equity1:0,equity2:0};
+}
+function pfxDrawProfile(hole,board,street,tex){
+  const out=pfxEmptyDraws();
+  if(!hole||hole.length<2||!board||board.length<3||street==='river')return out;
+  const cur=(ev7([...hole,...board])||[0])[0];
+  const known=new Set([...hole,...board].map(c=>c.r+c.s));
+  const full=[];for(const s of SUITS)for(const r of RANKS)full.push({r,s,v:RV[r]});
+  const rem=full.filter(c=>!known.has(c.r+c.s));
+  const sc={};[...hole,...board].forEach(c=>sc[c.s]=(sc[c.s]||0)+1);
+  const flushSet=new Set(),straightSet=new Set();
+  const heroSuitCount={};hole.forEach(c=>heroSuitCount[c.s]=(heroSuitCount[c.s]||0)+1);
+  for(const c of rem){
+    const cat=(ev7([...hole,...board,c])||[0])[0];
+    if(sc[c.s]===4&&heroSuitCount[c.s]>=1&&cat>=5)flushSet.add(c.r+c.s);
+    if(cur<4&&cat===4)straightSet.add(c.r+c.s);
+  }
+  const union=new Set([...flushSet,...straightSet]);
+  out.flushOuts=flushSet.size;
+  out.straightOuts=straightSet.size;
+  out.raw=union.size;
+  out.fd=flushSet.size>=8;
+  out.oesd=straightSet.size>=7;
+  out.gut=straightSet.size>=3&&straightSet.size<7;
+  out.combo=out.fd&&straightSet.size>=3;
+  const fs=tex&&tex.flushSuit?tex.flushSuit:(Object.keys(sc).sort((a,b)=>sc[b]-sc[a])[0]);
+  out.nfd=out.fd&&hole.some(c=>c.s===fs&&c.v===14);
+  const risk=tex?tex.riskCount:0;
+  const discount=risk>=2?0.65:risk===1?0.82:1;
+  out.clean=Math.round(out.raw*discount);
+  out.equity1=out.raw/46;
+  out.equity2=out.raw>0?1-((47-out.raw)*(46-out.raw))/(47*46):0;
+  return out;
+}
+function pfxTierFromClass(hc,tex){
+  const map={straight_flush:'nuts',quads:'nuts',full_house:'nuts',nut_flush:'nuts',
+    set:'strong',trips:'strong',straight:'strong',strong_two_pair:'strong',near_nut:'strong',flush:'strong',
+    overpair:'good',TPTK:'good',
+    top_pair_weak:'marginal',one_pair:'marginal',weak_two_pair:'marginal',
+    board_trips:'weak',high_card:'air'};
+  if(!hc||hc==='unknown')return '';
+  let tier=map[hc]||'marginal';
+  if(hc==='overpair'&&tex&&tex.code==='completion')tier='marginal';
+  return tier;
+}
+function pfClassify(hole,board,street){
+  const h=pfxHoleOf(hole), b=pfxCardsOf(board);
+  const tex=pfxTexture(b,street);
+  if(h.length<2||b.length<3)return {hc:'unknown',tier:'marginal',madeCat:0,draws:pfxEmptyDraws(),blockers:{nutFlush:false},topPairWeak:false,tex};
+  const hc=pfxHandClassOf(h,b);
+  const draws=pfxDrawProfile(h,b,street,tex);
+  const blockers={nutFlush:!!(tex.flushComplete&&tex.flushSuit&&h.some(c=>c.s===tex.flushSuit&&c.v===14))};
+  return {hc,tier:pfxTierFromClass(hc,tex),madeCat:(ev7([...h,...b])||[0])[0],draws,blockers,topPairWeak:hc==='top_pair_weak',tex};
+}
+function pfxOuts(hole,board,street,toCall,limit){
+  const tex=pfxTexture(board,street);
+  const d=pfxDrawProfile(pfxHoleOf(hole),pfxCardsOf(board),street,tex);
+  const cfg=pfxCfg(limit),bb=cfg.bb;
+  const tc=Math.max(0,Number(toCall)||0);
+  const callReqPot=d.equity1>0?tc*(1/d.equity1-2):Infinity;
+  const future=street==='turn'?1.5*bb:0;
+  const impliedReqPot=Number.isFinite(callReqPot)?Math.max(0,callReqPot-future):Infinity;
+  return {...d,equity1:d.equity1,equity2:d.equity2,
+    callReqPot,impliedReqPot,callReqPotBB:callReqPot/bb,impliedReqPotBB:impliedReqPot/bb};
+}
+function pfxPrice(street,limit,pot,toCall,ctx){
+  const cfg=pfxCfg(limit),P=Math.max(0,Number(pot)||0),b=Math.max(0,Number(toCall)||0);
+  const fin=x=>Math.max(1,x-pfxRake(x));
+  const rawNeed=b>0?b/fin(P+2*b):0;
+  const raisedNeed=b>0?2*b/fin(P+6*b):0;
+  const threeBetNeed=b>0?3*b/fin(P+9*b):0;
+  const fourBetNeed=b>0?4*b/fin(P+12*b):0;
+  const cappedNeed=(limit==='10만'&&street==='river')?fourBetNeed:threeBetNeed;
+  const behind=ctx&&Number.isFinite(ctx.playersBehind)?Math.max(0,ctx.playersBehind):0;
+  let rr=POSTFLOP_CANON.raiseRisk[behind]??POSTFLOP_CANON.raiseRisk[3];
+  rr=Number(rr)||0;
+  if(ctx&&ctx.read&&ctx.read.aggressive)rr=Math.min(POSTFLOP_CANON.raiseRisk.max,rr*POSTFLOP_CANON.raiseRisk.aggroMult);
+  if(ctx&&ctx.heroCloses)rr=0;
+  const effNeed=rawNeed*(1-rr)+raisedNeed*rr;
+  const mdf=b>0?P/(P+b):0;
+  const n=ctx&&ctx.ways?Math.max(2,Number(ctx.ways)||2):2;
+  const mdfMultiway=b>0?1-Math.pow(b/(P+b),1/n):0;
+  return {rawNeed,raisedNeed,threeBetNeed,fourBetNeed,cappedNeed,effNeed,mdf,mdfMultiway,
+    potBB:P/cfg.bb,betBB:b/cfg.bb,gStar:rawNeed,raiseRisk:rr,playersBehind:behind};
+}
+function pfxGhat(read,ctx){
+  const B=POSTFLOP_CANON.bluff,r=read||{};
+  let g;
+  if(!r.enough||!(Number(r.hands)>=10))g=B.base.unknown;
+  else if(Number(r.postAgg)<0.30&&Number(r.pfr)<0.10)g=B.base.passive;
+  else if(Number(r.postAgg)>=0.60)g=B.base.veryAggro;
+  else if(Number(r.postAgg)>=0.45||Number(r.pfr)>=0.25)g=B.base.aggro;
+  else g=B.base.neutral;
+  const tex=ctx&&ctx.tex?ctx.tex:null;
+  if(ctx&&ctx.ways>=4)g*=B.mult.ways4;else if(ctx&&ctx.ways===3)g*=B.mult.ways3;
+  if(tex&&tex.code==='completion')g*=B.mult.completion;
+  if(tex&&tex.paired)g*=B.mult.paired;
+  if(ctx&&ctx.betCallBefore)g*=B.mult.betCall;
+  if(ctx&&ctx.nutBlocker)g*=B.mult.nutBlocker;
+  return Math.max(0,Math.min(0.6,g));
+}
+function pfxHasContext(t){
+  if(!t.board||t.board.length<3)return false;
+  if(!t.ways)return false;
+  if(!t.facing)return false;
+  return true;
+}
+function pfxFlopRaiserContinues(t){
+  const hist=Array.isArray(t.history)?t.history:[];
+  if(!hist.length)return false;
+  const RAISE=['Raise','Cap','Re-raise','3-bet'];
+  const opp=hist.filter(a=>a.position!==t.pos);
+  const flopRaisers=new Set(opp.filter(a=>a.street==='flop'&&RAISE.includes(a.semantic)).map(a=>a.seat));
+  const turnRaise=opp.some(a=>a.street==='turn'&&RAISE.includes(a.semantic));
+  const turnBetByFlopRaiser=opp.some(a=>a.street==='turn'&&a.semantic==='Bet'&&flopRaisers.has(a.seat));
+  return turnRaise||turnBetByFlopRaiser;
+}
+function pfxDangerCount(t){
+  if(!t.tex)return 0;
+  let n=0;
+  if(t.ways>=3)n++;
+  if(t.tex.paired)n++;
+  if(t.tex.flushComplete)n++;
+  if(t.tex.straightRisk)n++;
+  if(pfxFlopRaiserContinues(t)&&t.ways>=3)n++;
+  return n;
+}
+function pfxWhenMatch(w,t){
+  if(!w)return true;
+  if(w.missingContext)return false;
+  if(w.tier&&!w.tier.includes(t.tier))return false;
+  if(w.hc&&!w.hc.includes(t.info.hc))return false;
+  if(w.ways){
+    if(Number.isFinite(w.ways.min)&&t.ways<w.ways.min)return false;
+    if(Number.isFinite(w.ways.max)&&t.ways>w.ways.max)return false;
+  }
+  if(w.board&&!w.board.includes(t.tex.code))return false;
+  if(w.facing&&!w.facing.includes(t.facing))return false;
+  if(w.riskCount){
+    if(Number.isFinite(w.riskCount.min)&&t.riskCount<w.riskCount.min)return false;
+    if(Number.isFinite(w.riskCount.max)&&t.riskCount>w.riskCount.max)return false;
+  }
+  if(w.danger){
+    const d=pfxDangerCount(t);
+    if(Number.isFinite(w.danger.min)&&d<w.danger.min)return false;
+    if(Number.isFinite(w.danger.max)&&d>w.danger.max)return false;
+  }
+  if(w.draw){
+    const dr=t.info.draws||{};
+    if(!w.draw.some(k=>dr[k]))return false;
+  }
+  if(w.blocker==='nut'||w.blocker==='nutFlush'){
+    if(!t.info.blockers.nutFlush)return false;
+  }
+  if(typeof w.initiative==='boolean'&&t.initiative!==w.initiative)return false;
+  if(typeof w.ip==='boolean'&&!!t.ip!==w.ip)return false;
+  if(w.potBB){
+    if(Number.isFinite(w.potBB.min)&&!(t.price.potBB>=w.potBB.min))return false;
+    if(Number.isFinite(w.potBB.max)&&!(t.price.potBB<=w.potBB.max))return false;
+  }
+  if(typeof w.aggressiveRead==='boolean'){
+    const ag=!!(t.read&&t.read.aggressive);
+    if(ag!==w.aggressiveRead)return false;
+  }
+  if(w.maxRawNeed&&!(t.price.rawNeed<=w.maxRawNeed))return false;
+  if(w.line==='flop_raiser_continues_or_turn_raise'&&!pfxFlopRaiserContinues(t))return false;
+  return true;
+}
+function pfxHasRequires(t,req){
+  for(const k of (req||[])){
+    if(k==='board'&&(!t.board||t.board.length<3))return false;
+    if(k==='ways'&&!t.ways)return false;
+    if(k==='facing'&&!t.facing)return false;
+    if(k==='hole'&&(!t.hole||t.hole.length!==2))return false;
+    if(k==='pot'&&!(t.pot>0))return false;
+    if(k==='toCall'&&!Number.isFinite(t.toCall))return false;
+    if(k==='history'&&!(Array.isArray(t.history)&&t.history.length>0))return false;
+    if(k==='initiative'&&typeof t.initiative!=='boolean')return false;
+    if(k==='tier'&&!t.tier)return false;
+  }
+  return true;
+}
+function pfxHold(rule,why,extra){
+  const r=pfxResult(rule,'Review',null,null,why,extra);
+  r.gradeable=false;r.tier='hold';r.source='Poker OS Engine v3';
+  r.action='Review';r.suggestedAction='Review';r.alt=null;
+  return r;
+}
+function pfxResult(rule,action,alt,mix,why,extra){
+  const gradeable=rule.gradeable!==false;
+  const r={action,alt:alt||null,mix:mix||rule.mix||null,
+    rule:rule.id+' | '+rule.name,why,confidence:rule.confidence||'Medium',
+    gradeable,source:gradeable?'Poker Decision Rule DB':'Poker OS Engine v3',
+    tier:gradeable?'canonical':'hold',canonicalRule:rule.id};
+  if(!gradeable){
+    r.suggestedAction=action;
+    r.action='Review';
+  }
+  if(extra)for(const k of Object.keys(extra))if(extra[k]!==undefined)r[k]=extra[k];
+  return r;
+}
+function pfxApply(rule,t){
+  const facing=t.facing;
+  let action=(rule.action&&(rule.action[facing]||rule.action.any))||'Review';
+  let alt=rule.alt?(rule.alt[facing]||rule.alt.any||null):null;
+  if(rule.altWhen&&!pfxWhenMatch(rule.altWhen,t))alt=null;
+  const evalKind=rule.eval||'';
+  const price=t.price;
+  if(evalKind==='bluffCatch'){
+    const ghat=pfxGhat(t.read,{ways:t.ways,tex:t.tex,betCallBefore:t.betCallBefore,nutBlocker:t.info.blockers.nutFlush});
+    const need=price.gStar+POSTFLOP_CANON.bluff.margin;
+    const call=ghat>=need;
+    action=call?'Call':'Fold';
+    alt=null;
+    return pfxResult(rule,action,null,rule.mix,
+      `가격형 블러프캐치 · g* ${(price.gStar*100).toFixed(1)}% + 2%p = ${(need*100).toFixed(1)}%, g_hat ${(ghat*100).toFixed(1)}% → ${call?'콜':'폴드'} (팟 ${price.potBB.toFixed(1)}BB, 콜 ${fmtChips(price.betBB)}BB)`,
+      {gHat:ghat,gStar:price.gStar,effNeed:price.effNeed});
+  }
+  if(evalKind==='thinValue'){
+    const aggressive=!!(t.read&&t.read.aggressive);
+    action=aggressive?'Check':'Bet';
+    alt=aggressive?'Bet':'Check';
+    return pfxResult(rule,action,alt,rule.mix,
+      aggressive?'리버 얇은 밸류: 어그로 상대는 레이즈 리스크로 체크 우선.':'리버 얇은 밸류: 패시브·콜링 상대로 12BB 팟 손익분기 승률은 2~6%뿐이라 벳이 이득.',
+      {gHat:pfxGhat(t.read,{ways:t.ways,tex:t.tex})});
+  }
+  if(evalKind==='capPrice'){
+    const strong=['nuts','strong','good'].includes(t.tier);
+    const call=strong||price.rawNeed<=0.12;
+    return pfxResult(rule,call?'Call':'Fold',null,null,
+      `캡 도달 · 콜 필요 승률 ${(price.rawNeed*100).toFixed(1)}% · ${t.tier} → ${call?'콜':'폴드'} (레이즈 불가)`,{});
+  }
+  if(evalKind==='completionFold'||evalKind==='dangerFold'){
+    const aggressive=!!(t.read&&t.read.aggressive);
+    if(aggressive&&t.read&&t.read.enough){
+      return pfxHold(rule,
+        `${evalKind==='dangerFold'?'위험요소가 겹쳤지만':'멀티웨이 완성 보드이지만'} 이 상대는 관찰 ${t.read.hands}핸드에서 PostAgg≈${Math.round((t.read.postAgg||0)*100)}%로 공격성이 확인됐습니다. 자동 폴드하지 않고 가격·블러프 빈도로 재평가합니다.`,
+        {gHat:pfxGhat(t.read,{ways:t.ways,tex:t.tex})});
+    }
+    return pfxResult(rule,'Fold',null,null,
+      evalKind==='dangerFold'
+        ?`턴 위험요소 ${pfxDangerCount(t)}개 + 연속 강한 액션. 패시브·레귤러의 연속 액션은 밸류 헤비라 오버페어도 폴드.`
+        :`멀티웨이 완성 보드에서 원페어 이하 블러프캐처는 폴드. 공격적 상대라는 충분한 관찰 근거가 없으면 Unknown baseline 폴드.`,
+      {gHat:pfxGhat(t.read,{ways:t.ways,tex:t.tex})});
+  }
+  if(evalKind==='drawCall'){
+    const outs=pfxOuts(t.hole,t.board,t.street,t.toCall,t.limit);
+    const clean=outs.clean,eq=outs.equity1;
+    let call;
+    if(clean>=8)call=true;
+    else if(clean>=4)call=(eq>=price.effNeed)||(outs.impliedReqPotBB<=price.potBB);
+    else call=(price.rawNeed<=0.06);
+    action=call?'Call':'Fold';
+    if(!call)alt=null;
+    return pfxResult(rule,action,alt,rule.mix,
+      `턴 드로우 ${outs.raw}아웃(clean ${clean}) 승률 ${(eq*100).toFixed(1)}% vs effNeed ${(price.effNeed*100).toFixed(1)}% · 필요팟 ${outs.impliedReqPotBB.toFixed(1)}BB(임플라이드 반영) / 현재 ${price.potBB.toFixed(1)}BB → ${call?'콜':'폴드'}`,
+      {cleanOuts:clean,effNeed:price.effNeed,gStar:price.gStar});
+  }
+  if(evalKind==='priceGate'){
+    if(t.price.rawNeed<=0.08)alt='Call';
+    return pfxResult(rule,action,alt,rule.mix,
+      `멀티웨이 위험 보드 원페어 이하 · 콜 필요 승률 ${(t.price.rawNeed*100).toFixed(1)}%${t.price.rawNeed<=0.08?' (8% 이하라 콜 믹스 허용)':''}.`,
+      {effNeed:t.price.effNeed,gStar:t.price.gStar});
+  }
+  return pfxResult(rule,action,alt,rule.mix,rule.why,{effNeed:price.effNeed,gStar:price.gStar});
+}
+function pfxMatch(ctx){
+  if(!ctx||!ctx.street||ctx.street==='preflop')return null;
+  const hole=pfxHoleOf(ctx.hole),board=pfxCardsOf(ctx.board);
+  const tex=pfxTexture(board,ctx.street);
+  const info=(hole.length===2&&board.length>=3)
+    ? pfClassify(hole,board,ctx.street)
+    : {hc:ctx.handClassHint||'unknown',tier:(ctx.handClassHint?pfxTierFromClass(ctx.handClassHint,tex):''),madeCat:0,
+       draws:pfxEmptyDraws(),blockers:{nutFlush:false},topPairWeak:false,tex};
+  const ways=Number(ctx.ways)||0;
+  const t={
+    limit:ctx.limit||'10만',street:ctx.street,hole,board,pos:ctx.pos||'',ip:!!ctx.ip,
+    ways,facing:ctx.facing||'',initiative:(typeof ctx.initiative==='boolean'?ctx.initiative:null),
+    toCall:Number.isFinite(ctx.toCall)?ctx.toCall:0,pot:Number(ctx.pot)||0,
+    history:Array.isArray(ctx.history)?ctx.history:[],
+    read:ctx.read||{enough:false,aggressive:false,pfr:0,postAgg:0,hands:0},
+    heroCloses:!!ctx.heroCloses,betCallBefore:!!ctx.betCallBefore,
+    info,tex,tier:info.tier,riskCount:tex.riskCount,
+    price:pfxPrice(ctx.street,ctx.limit,ctx.pot,ctx.toCall,{ways,read:ctx.read,playersBehind:Math.max(0,ways-2),heroCloses:!!ctx.heroCloses})
+  };
+  const rules=[...POSTFLOP_CANON.rules].sort((a,b)=>b.priority-a.priority);
+  for(const rule of rules){
+    if(rule.id==='PFX-UNK')continue;
+    if(rule.street!=='any'&&rule.street!==t.street)continue;
+    if(Array.isArray(rule.limits)&&!rule.limits.includes(t.limit))continue;
+    if(!pfxHasRequires(t,rule.requires))continue;
+    if(!pfxWhenMatch(rule.when,t))continue;
+    return pfxApply(rule,t);
+  }
+  if(!pfxHasContext(t)){
+    return pfxResult(POSTFLOP_CANON.rules.find(r=>r.id==='PFX-UNK'),'Review',null,null,
+      '포스트플랍 문맥(보드·남은 인원·facing)이 부족해 정본 채점을 하지 않습니다.',{});
+  }
+  return null;
+}
+function pfxContextFromSnapshot(d,limit){
+  const st=d&&d.street;
+  if(!st||st==='preflop')return null;
+  const cfg=pfxCfg(limit);
+  const board=pfxCardsOf(d.board);
+  let hole=pfxHoleOf(d.heroCards);
+  if(!hole.length)hole=pfxHoleOf(d.hole);
+  const ways=Number(d.playersActive)||0;
+  const tc=Number.isFinite(d.toCall)?Number(d.toCall):0;
+  const pot=Number(d.pot)||0;
+  const capV=st==='flop'?cfg.cap.flop:st==='turn'?cfg.cap.turn:cfg.cap.river;
+  let facing='';
+  if(tc>0){
+    facing='bet';
+    if(Number.isFinite(d.currentBet)&&Number.isFinite(d.streetAggressionCount)){
+      if(d.currentBet>=capV)facing='capped';
+      else if(d.streetAggressionCount>=2)facing='raised';
+    }
+  }else if(tc===0)facing='checked_to';
+  let read={enough:false,aggressive:false,pfr:0,postAgg:0,hands:0};
+  const src=d.opponentReadSnapshot||d.observedRead;
+  if(src)read={enough:!!src.enough,aggressive:!!src.aggressive,pfr:Number(src.pfr)||0,postAgg:Number(src.postAgg)||0,hands:Number(src.hands??src.handsAtTable)||0};
+  return {limit,street:st,hole,board,pos:d.pos||'',ip:['BTN','CO'].includes(d.pos||''),
+    ways,facing,initiative:(typeof d.initiative==='boolean'?d.initiative:null),
+    toCall:tc,pot,currentBet:Number.isFinite(d.currentBet)?d.currentBet:null,
+    streetAggressionCount:Number.isFinite(d.streetAggressionCount)?d.streetAggressionCount:null,
+    history:Array.isArray(d.publicActionHistory)?d.publicActionHistory:[],
+    read,handClassHint:d.handClass||'',heroCloses:false};
+}
+function fmtChips(bb){
+  const n=Number(bb);
+  if(!Number.isFinite(n))return '-';
+  return Math.abs(n)>=10?String(Math.round(n)):(Math.round(n*10)/10).toString();
+}
+/* --- POKER OS POSTFLOP CANON v1 : PURE FUNCTIONS (END) --- */
 
 function manShort(n){n=Math.round(Number(n)||0);const m=n/10000;return (Math.abs(m)>=100?Math.round(m):Math.round(m*10)/10).toLocaleString('ko-KR')+'만'}
 function fmt(n){n=Math.round(Number(n)||0);return (n<0?'-':'')+Math.abs(n).toLocaleString('ko-KR')}
@@ -1590,6 +2232,12 @@ function provisionalUTG2OpenReview(code){
 }
 
 function isCanonicalRecommendation(r){return !!r&&(r.tier==='canonical'||r.source==='Poker Decision Rule DB')}
+// 믹스 규칙은 action과 alt 둘 다 정답으로 인정한다(솔버 믹스와 같은 원칙).
+function decisionMatches(d){
+  const a=(d&&(d.actualSemantic||d.actual))||'';
+  if(!d)return false;
+  return a===d.rec||(!!d.alt&&a===d.alt);
+}
 function publicDeck(){const d=[];for(const su of SUITS)for(const r of RANKS)d.push({r,s:su,v:RV[r]});return d}
 function cardKey(c){return `${c.r}${c.s}`}
 function hash32(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
@@ -2090,50 +2738,34 @@ function canonicalRecommendation(){
     }
   }
 
-  // Postflop canonical rules currently available for 10만.
-  if(limit==='10만' && S.street!=='preflop'){
-    const hc=handClass(p), risk=boardRisk(), opp=S.lastAggressorSeat==null?null:S.players[S.lastAggressorSeat];
-    if(S.street==='flop' && ['set','straight','strong_two_pair'].includes(hc) && risk.count<=1){
-      return friendlyRuleResult(tc>0?'Raise':'Bet','P10-F01 | Flop Strong Made Value',
-        '플랍에서 강하게 완성된 패는 슬로우플레이보다 바로 돈을 더 받는 것이 기본입니다.','High',true,'Poker Decision Rule DB');
-    }
-    if(S.street==='turn'){
-      const tr=p10TurnRule({street:'turn',tc,hc,risk,players:live().length,history:S.publicActionHistory||[],heroPos:pos(S.hero),board:S.board,heroCards:p.hole,aggressive:observedAggressionRead(opp).aggressive});
-      if(tr){const tr2=friendlyRuleResult(tr.action,tr.rule,tr.why,tr.confidence,tr.gradeable,tr.source,tr.tier==='hold'?'hold':undefined);if(tr.suggestedAction)tr2.suggestedAction=tr.suggestedAction;return tr2}
-    }
-    if(S.street==='river'){
-      if(tc===0 && ['straight','set','strong_two_pair','nut_flush','near_nut'].includes(hc) && risk.count<=1){
-        return friendlyRuleResult('Bet','P10-R03 | River Safe Strong Value',
-          '리버까지 강한 패가 안전하게 남아 있으면 체크보다 밸류 베팅이 좋습니다.','High',true,'Poker Decision Rule DB');
-      }
-      if(tc>0 && hc==='flush' && risk.flushComplete){
-        return friendlyRuleResult('Call','P10-R02 | Non-nut Flush No-Raise',
-          '넛이 아닌 플러시는 베팅을 받았을 때 레이즈로 더 키우지 말고 콜 쪽이 기본입니다.','Medium',true,'Poker Decision Rule DB');
-      }
-      if(tc>0 && live().length>=3 && risk.count>=1 && ['one_pair','overpair','TPTK','weak_two_pair'].includes(hc)){
-        const read=observedAggressionRead(opp);
-        if(read.aggressive){
-          return friendlyRuleResult('Review','P10-R04 | Aggressive Opponent Override Review',
-            `멀티웨이 completion이라 기본 Fold 구간이지만, 이 상대는 관찰 ${read.hands}핸드에서 PFR≈${Math.round(read.pfr*100)}% / Post Agg≈${Math.round(read.postAgg*100)}%로 공격성이 충분히 확인됐습니다. 자동 Hard Fold하지 말고 pot odds와 실제 bluff/overvalue 빈도를 재평가합니다.`,
-            'Low',false,'Poker OS Engine v3','hold');
-        }
-        return friendlyRuleResult('Fold','P10-R04 | Completion+Multiway Bluff-catcher Fold',
-          '리버에서 여러 명이 남고 보드가 완성형으로 변했습니다. 공격적 상대라는 충분한 관찰 근거가 없으면 Unknown baseline으로 마지막 bluff-catcher 한 베팅을 줄입니다.','High',true,'Poker Decision Rule DB');
-      }
-      if(tc>0 && ['one_pair','overpair','TPTK'].includes(hc) && risk.count>=1){
-        const read=observedAggressionRead(opp);
-        if(read.aggressive){
-          return friendlyRuleResult('Review','P10-R01 | Aggressive Opponent Review',
-            `위험한 리버 원페어지만 관찰된 공격성이 높습니다(PFR≈${Math.round(read.pfr*100)}%, Post Agg≈${Math.round(read.postAgg*100)}%). 숨겨진 상대 타입이 아니라 실제 관찰치로 Call/Fold를 재평가합니다.`,
-            'Low',false,'Poker OS Engine v3','hold');
-        }
-        return friendlyRuleResult('Fold','P10-R01 | River One-pair vs Strong Bet Fold',
-          '리버 위험 보드에서 공격적 상대라는 충분한 관찰 근거가 없으면 Unknown baseline으로 한 쌍의 마지막 콜을 줄입니다.','High',true,'Poker Decision Rule DB');
-      }
-    }
+  // Postflop canonical rules: POSTFLOP_CANON 27규칙 → pfxMatch(순수 함수).
+  // live 추천과 기록 재채점(legacySnapshotCanonicalRecommendation)이 같은 함수를 쓴다.
+  if(S.street!=='preflop'){
+    let pfx=null;
+    try{pfx=pfxMatch(pfContext());}catch(e){console.error('Postflop canon error',e)}
+    if(pfx)return pfx;
   }
   return null;
 }
+
+function pfContext(){
+  const p=S.players[S.hero],tc=Math.max(0,S.currentBet-p.streetBet);
+  const ways=live().length;
+  const capNow=cap();
+  let facing='checked_to';
+  if(tc>0)facing=S.currentBet>=capNow?'capped':(S.streetAggressionCount>=2?'raised':'bet');
+  const opp=S.lastAggressorSeat!=null?S.players[S.lastAggressorSeat]:null;
+  const read=observedAggressionRead(opp);
+  const betCallBefore=(S.publicActionHistory||[]).some(a=>a.street===S.street&&a.seat!==S.hero&&a.toCall>0&&a.semantic==='Call');
+  return {limit:S.cfg.label,street:S.street,hole:p.hole,board:S.board,pos:pos(S.hero),
+    ip:['BTN','CO'].includes(pos(S.hero)),ways,facing,
+    initiative:S.prevStreetAggressorSeat===S.hero,
+    toCall:tc,pot:S.pot,currentBet:S.currentBet,cap:capNow,
+    streetAggressionCount:S.streetAggressionCount,history:S.publicActionHistory||[],
+    read:{enough:read.enough,aggressive:read.aggressive,pfr:read.pfr,postAgg:read.postAgg,hands:read.hands},
+    betCallBefore,heroCloses:false};
+}
+
 function fallbackRecommendation(){
   const p=S.players[S.hero],tc=Math.max(0,S.currentBet-p.streetBet),sc=strength(p),mw=live().length>=4;
   if(S.currentBet>=cap() && tc>0){
@@ -2473,6 +3105,12 @@ function act(seat,a,hero){
    const decisionMs=consumeHeroDecisionTimer();
    if(S.street==='preflop'&&!S.heroPreflopFacingRecorded){S.heroFirstFacing=preflopFacing();S.heroPreflopFacingRecorded=true}
    const risk=boardRisk();
+   // 포스트플랍 정본 문맥 스냅샷(신규 기록은 처음부터 재채점 가능).
+   const pfxDbg=(()=>{try{
+     const c=pfContext();const info=pfClassify(c.hole,c.board,c.street);const tex=pfxTexture(c.board,c.street);
+     const price=pfxPrice(S.street,S.cfg.label,S.pot,tc,{ways:live().length,read:c.read,playersBehind:Math.max(0,live().length-2)});
+     return {boardTexture:tex.code,tier2:info.tier,cleanDrawOuts:info.draws.clean,effNeed:price.effNeed,gHat:pfxGhat(c.read,{ways:c.ways,tex,nutBlocker:info.blockers.nutFlush})};
+   }catch(e){return {}}})();
    S.decisions.push({
      street:S.street,pos:pos(seat),actual:a,actualSemantic:semantic,
      publicActionHistory:deepClone(S.publicActionHistory||[]),heroCards:deepClone(p.hole),currentBet:S.currentBet,streetBet:p.streetBet,stack:p.stack,streetAggressionCount:S.streetAggressionCount,previousAggressor:S.prevStreetAggressorSeat,turnBettor:(S.publicActionHistory||[]).find(x=>x.street==='turn'&&x.semantic==='Bet')?.seat??null,draw:S.street==='preflop'?null:postflopDrawProfile(p),
@@ -2482,6 +3120,8 @@ function act(seat,a,hero){
      facing:S.street==='preflop'?preflopFacing():(tc>0?'Bet':'CheckedTo'),
      limpers:S.preflopLimpers,playersActive:live().length,board:S.board.map(c=>c.r+c.s).join(' '),pot:S.pot,toCall:tc,potOdds:potOddsPct(tc,S.pot),reviewEngine:REVIEW_ENGINE_VERSION,
      strategyVersion:STRATEGY_VERSION,suggestedAction:r.suggestedAction||null,
+     ...pfxDbg,ways:live().length,ip:['BTN','CO'].includes(pos(seat)),initiative:S.prevStreetAggressorSeat===S.hero,
+     capState:S.currentBet>=cap(),alt:r.alt||null,pfxRule:r.canonicalRule||null,
      resolution:r.resolution||null,engineVersion:r.source===FULL_DECISION_ENGINE_VERSION?FULL_DECISION_ENGINE_VERSION:null,
      estimatedEquity:Number.isFinite(r.estimatedEquity)?r.estimatedEquity:null,requiredEquity:Number.isFinite(r.requiredEquity)?r.requiredEquity:null,
      equityTrials:r.equityTrials||null,rangeSummary:r.rangeSummary||null,actionEV:r.actionEV||null,alternateAction:r.alternateAction||null,mix:r.mix||null,cleanOuts:r.cleanOuts??null,boardChange:r.boardChange||null,
@@ -2756,6 +3396,52 @@ function currentFocus(){
   return best;
 }
 const DRILL_BANK={
+ flop:[
+  {s:'플랍 · Hero 9♦9♥ · 보드 9♠ 6♣ 2♦ · 4way · 앞에서 전원 Check',o:['Check','Bet'],a:'Bet',r:'PFX-F01',w:'셋은 트랩보다 직접 밸류. 멀티웨이일수록 슬로우플레이하지 않습니다.'},
+  {s:'플랍 · Hero 9♠6♥ · 보드 9♦ 9♣ 6♠ · 3way · 앞에서 전원 Check',o:['Check','Bet'],a:'Bet',r:'PFX-F01',w:'풀하우스도 강한 완성패. 기존 P10-F01은 풀하우스를 목록에서 빼 review_only로 떨어뜨렸습니다.'},
+  {s:'플랍 · Hero K♠K♥ · 보드 T♦ 4♣ 3♠ rainbow · 3way · 내가 프리플랍 레이저 · 앞에서 Check',o:['Check','Bet'],a:'Bet',r:'PFX-F02',w:'드라이 보드 2~3way 오버페어는 주도권이 있으면 벳 80%.'},
+  {s:'플랍 · Hero Q♦Q♥ · 보드 K♦ 7♣ 2♠ rainbow · 4way · 앞에서 Check',o:['Check','Bet'],a:'Check',r:'PFX-F03',w:'4way 이상 원페어 선벳은 이긴 패만 받습니다. 체크 80%.'},
+  {s:'플랍 · Hero K♠J♦ · 보드 K♥ 7♣ 2♠ rainbow · 2way · 내가 레이저 · 앞에서 Check',o:['Check','Bet'],a:'Bet',r:'PFX-F04',w:'탑페어 약키커도 드라이·소수 인원에서는 보호벳 50%.'},
+  {s:'플랍 · Hero 8♦8♥ · 보드 J♠ 7♣ 2♦ rainbow · 5way · 앞에서 Check',o:['Check','Bet'],a:'Check',r:'PFX-F05',w:'4way 이상에서 마진·약패 선벳은 팟 컨트롤.'},
+  {s:'플랍 · Hero A♠Q♠ · 보드 9♠ 7♠ 4♦ · 2way · 앞에서 Check',o:['Check','Bet'],a:'Bet',r:'PFX-F06',w:'넛 플러시 드로우는 헤즈업에서 세미블러프 벳 70%.'},
+  {s:'플랍 · Hero J♠T♠ · 보드 9♠ 8♠ 2♦ · 3way · 상대 Bet 20,000 · 팟 60,000',o:['Fold','Call','Raise'],a:'Call',r:'PFX-F07',w:'15아웃 콤보 드로우. 플랍 가격은 거의 항상 맞으므로 콜이 정본(콤보+IP면 레이즈 40% 믹스).'},
+  {s:'플랍 · Hero A♠K♠ · 보드 9♠ 7♠ 4♦ · 3way · 상대 Bet 20,000 · 팟 60,000',o:['Fold','Call','Raise'],a:'Call',r:'PFX-F07',w:'넛 플러시 드로우 9아웃 35% vs 필요 5~11%. 드로우 폴드가 오히려 오류입니다.'},
+  {s:'플랍 · Hero Q♣J♦ · 보드 K♦ 9♣ 4♠ · 4way · 상대 Bet 5,000 · 팟 40,000 · 위험 1',o:['Fold','Call'],a:'Fold',r:'PFX-F08',w:'멀티웨이 위험 보드 원페어 이하는 필요 승률 8% 이하일 때만 콜.'},
+  {s:'플랍 · Hero A♣5♣ · 보드 K♦ 9♣ 4♠ · 2way · 앞에서 Check',o:['Check','Bet'],a:'Check',r:'PFX-F09',w:'에어는 넛 블로커·헤즈업·드라이에서만 35% 스틸. 기본은 체크(비채점 코칭).'},
+  {s:'플랍 · Hero K♠J♦ · 보드 K♦ 7♣ 2♠ · 3way · 내 Bet 후 상대 Raise',o:['Fold','Call','Raise'],a:'Fold',r:'PFX-F10',w:'벳+레이즈에 원페어 이하는 폴드. 리밋 3벳 팟은 밸류 헤비.'},
+  {s:'플랍 · Hero T♠T♥ · 보드 9♠ 8♠ 7♦ · 3way · 상대 Bet · 팟 60,000',o:['Fold','Call','Raise'],a:'Call',r:'PFX-F01',w:'오버페어+것샷. 상대 벳에는 레이즈보다 콜로 가격을 확인하고 턴에서 재계산합니다.'},
+  {s:'플랍 · Hero 6♣5♣ · 보드 8♦ 7♠ 2♥ · 2way · 앞에서 Check',o:['Check','Bet'],a:'Bet',r:'PFX-F06',w:'오픈엔드 8아웃(양방향) 드로우 세미블러프. 팟에 남는 인원이 적을수록 좋습니다.'},
+  {s:'플랍 · Hero 3♦3♥ · 보드 A♠ K♦ 9♣ · 5way · 상대 Bet',o:['Fold','Call','Raise'],a:'Fold',r:'PFX-F05',w:'5way A-K 보드의 언더페어는 콜 필요 승률이 낮아 보여도 이기는 패가 거의 없습니다.'},
+  {s:'플랍 · Hero A♥Q♥ · 보드 Q♦ 6♣ 3♠ rainbow · 4way · 앞에서 Check',o:['Check','Bet'],a:'Check',r:'PFX-F03',w:'4way TPTK도 선벳은 이긴 패만 받습니다. 체크 80% 믹스.'}
+ ],
+ turn_price:[
+  {s:'턴 · Hero K♠J♦ · 보드 9♠ 7♠ 4♠ 2♠ · 3way · 상대 Bet 30,000 · 팟 240,000',o:['Fold','Call'],a:'Fold',r:'PFX-T03',w:'턴에 플러시가 완성된 멀티웨이에서 원페어는 블러프캐처. 관찰된 어그로만 예외.'},
+  {s:'턴 · Hero Q♣Q♦ · 보드 9♠ 7♠ 4♠ 2♠ · 3way · 상대 Bet 30,000',o:['Fold','Call','Raise'],a:'Fold',r:'PFX-T03',w:'완성 보드 위 오버페어는 마진으로 강등됩니다. 레이즈 금지, 폴드가 정본.'},
+  {s:'턴 · Hero A♠K♠ · 보드 9♠ 7♠ 4♦ 2♥ · 2way · 상대 Bet 30,000 · 팟 120,000',o:['Fold','Call'],a:'Call',r:'PFX-T06',w:'9아웃 FD: 승률 19.6% vs effNeed 11% → 콜.'},
+  {s:'턴 · Hero J♠T♠ · 보드 9♠ 8♠ 2♦ K♥ · 3way · 상대 Bet · 팟 200,000',o:['Fold','Call','Raise'],a:'Call',r:'PFX-T06',w:'콤보 드로우 15아웃. IP 3way면 레이즈 35% 믹스도 정답.'},
+  {s:'턴 · Hero 6♣5♦ · 보드 8♦ 7♠ 2♥ A♣ · 2way · 상대 Bet 30,000 · 팟 60,000',o:['Fold','Call'],a:'Fold',r:'PFX-T06',w:'것샷 4아웃은 임플라이드 1.5BB를 넣어도 필요 팟 14BB. 5BB 팟에서는 폴드.'},
+  {s:'턴 · Hero K♦K♥ · 보드 2♣ 2♦ T♥ 5♠ · 6way · 플랍 레이저가 턴에도 Bet',o:['Fold','Call','Raise'],a:'Fold',r:'PFX-T04',w:'멀티웨이+페어드+연속 강한 액션. 패시브의 연속 액션은 밸류 헤비라 KK도 폴드.'},
+  {s:'턴 · Hero Q♠Q♥ · 보드 T♠ 6♦ 3♣ 2♥ · 3way · 내가 레이저 · 앞에서 Check',o:['Check','Bet'],a:'Bet',r:'PFX-T05',w:'블랭크 턴 + 주도권 + 오버페어 = 두 번째 배럴 75%.'},
+  {s:'턴 · Hero A♦A♣ · 보드 9♠ 7♠ 4♠ Q♠ · 4way · 앞에서 Check',o:['Check','Bet'],a:'Check',r:'PFX-T02',w:'턴에 네 번째 스페이드가 깔린 멀티웨이. 원페어 선벳은 이긴 패만 받습니다.'}
+ ],
+ river_gate:[
+  {s:'리버 · Hero Q♦J♣ · 보드 Q♠ 6♦ 2♣ 9♥ 3♣ · 2way · 패시브 관찰(PostAgg 20%) Bet 30,000 · 팟 240,000',o:['Fold','Call'],a:'Fold',r:'PFX-R04',w:'g*=10.5%, 문턱 12.5%, g_hat 4% → 폴드.'},
+  {s:'리버 · 같은 보드 · 관찰 PostAgg 55% 어그로 Bet 30,000 · 팟 240,000',o:['Fold','Call'],a:'Call',r:'PFX-R04',w:'g_hat 16% > 문턱 12.5% → 콜. 관찰된 공격성만 예외로 인정합니다.'},
+  {s:'리버 · Hero Q♦J♣ · 보드 Q♠ 6♦ 2♣ 9♥ 3♣ · Unknown(관찰 5핸드) Bet 30,000 · 팟 240,000',o:['Fold','Call'],a:'Fold',r:'PFX-R04',w:'관찰 10핸드 미만은 Unknown baseline g_hat 10% → 12.5% 문턱 미달로 폴드.'},
+  {s:'리버 · Hero Q♦J♣ · 보드 Q♠ 6♦ 2♣ 9♥ 3♣ · 2way · 패시브 Bet 30,000 · 팟 600,000(30BB)',o:['Fold','Call'],a:'Call',r:'PFX-R05',w:'거대 팟 예외: g*=4.7%로 내려가면 패시브 상대에게도 원페어 콜이 정본.'},
+  {s:'리버 · Hero Q♣J♦ · 보드 9♠ 7♠ 4♠ 2♠ Q♦ · 3way · 상대 Bet 30,000',o:['Fold','Call','Raise'],a:'Fold',r:'PFX-R03',w:'완성+멀티웨이 원페어는 하드 폴드. 이 게임 최대 EV 누수입니다.'},
+  {s:'리버 · Hero K♠J♦ · 보드 9♠ 7♠ 4♠ 2♠ Q♦ · 2way · 상대 Bet · 내 패는 K 하이(플러시 아님)',o:['Fold','Call'],a:'Fold',r:'PFX-R07',w:'리버에서 하이카드는 레이즈를 맞으면 폴드. 10만은 4벳 캡이라 비용이 더 큽니다.'},
+  {s:'리버 · Hero J♣T♣ · 보드 4♣ 2♦ 6♣ A♣ Q♣ · 3way · 상대 Bet 30,000 · 팟 200,000',o:['Fold','Call','Raise'],a:'Call',r:'PFX-R02',w:'넛이 아닌 플러시는 레이즈하지 않고 콜로 쇼다운 밸류. (실전에서 폴드해 1.5만 손실한 스팟)'},
+  {s:'리버 · Hero 8♦8♥ · 보드 K♠ 8♣ 3♦ 2♥ 5♣ · 2way · 앞에서 Check',o:['Check','Bet'],a:'Bet',r:'PFX-R01',w:'안전한 보드의 셋은 체크로 밸류를 놓치지 않습니다.'}
+ ],
+ river_thin:[
+  {s:'리버 · Hero Q♦J♣ · 보드 K♠ 6♦ 2♣ 9♥ 3♣ · 2way · 패시브 상대가 Check · 팟 240,000',o:['Check','Bet'],a:'Bet',r:'PFX-R06',w:'얇은 밸류벳. 12BB 팟·폴드 10%면 손익분기 승률 2.3%뿐입니다.'},
+  {s:'리버 · Hero T♥T♠ · 보드 J♦ 7♣ 3♠ 8♥ 2♣ · 2way · 콜링스테이션이 Check',o:['Check','Bet'],a:'Bet',r:'PFX-R06',w:'전원 체크로 쇼다운해 이겼지만 얇은 밸류를 놓친 실전 스팟. 블랭크 리버면 벳.'},
+  {s:'리버 · Hero A♦J♣ · 보드 A♠ 9♦ 4♣ 6♥ 2♠ · 2way · 어그로(PostAgg 58%)가 Check',o:['Check','Bet'],a:'Check',r:'PFX-R06',w:'어그로 상대는 레이즈 리스크로 e*가 올라가 체크 우선. 믹스는 Bet 85 / Check 15.'},
+  {s:'리버 · Hero K♠K♥ · 보드 Q♦ 8♣ 3♠ 5♥ 2♦ · 4way · 전원 Check',o:['Check','Bet'],a:'Check',r:'PFX-R06',w:'3way+ 얇은 밸류는 강한 패(strong)만. 오버페어 얇은 벳은 리버스 임플라이드로 손해.'},
+  {s:'리버 · Hero A♠A♥ · 보드 9♠ 7♠ 4♠ 2♠ Q♠ · 2way · 상대 Check',o:['Check','Bet'],a:'Bet',r:'PFX-R01',w:'넛 플러시는 보드가 무섭다는 이유로 체크백하지 않습니다.'},
+  {s:'리버 · Hero 7♣7♦ · 보드 K♠ 9♦ 4♣ 2♥ 3♠ · 2way · 콜링스테이션이 Check',o:['Check','Bet'],a:'Bet',r:'PFX-R06',w:'원페어라도 팟이 8BB를 넘고 상대가 잘 폴드하지 않으면 얇은 밸류벳이 이득.'}
+ ],
  river:[
   {s:'리버 · 4명 남음 · 보드 9♠ 5♠ 9♣ 6♥ 2♠ · Hero 88 · Unknown/Regular의 Bet 10,000 · 큰 멀티웨이 팟',o:['Fold','Call','Raise'],a:'Fold',r:'P10-R04 v1.1',w:'멀티웨이 + completion + bluff-catcher. 공격적 상대라는 충분한 관찰 근거가 없으면 마지막 한 베팅이 싸 보여도 Fold.'},
   {s:'리버 · Hero JJ · 보드 T♠-9♦-4♠-5♥-9♣ · 4way · Pot 140,000 · Unknown의 Bet 10,000',o:['Fold','Call'],a:'Fold',r:'P10-R04 v1.1',w:'가격이 약 6~7%로 싸 보여도 multiway completion + Unknown baseline에서는 마지막 한 베팅을 자동 지불하지 않는다.'},
@@ -2824,9 +3510,9 @@ function forcedDrillPlan(blockNo){
   // Patch 9 audit priorities: Turn coverage first, River cheap-call remains high,
   // Blind is 3/5, while Facing-Raise is 7/7 and is deprioritized.
   const cycle=[
-    ['turn','river','blind','preflop','strong_value'],
-    ['river','turn','preflop','blind','strong_value'],
-    ['blind','turn','river','preflop','strong_value']
+    ['flop','turn','river','river_gate','blind'],
+    ['river','turn_price','flop','blind','preflop'],
+    ['blind','flop','river','river_gate','turn']
   ];
   return cycle[(Math.max(1,blockNo)-1)%cycle.length];
 }
@@ -2910,10 +3596,10 @@ function checkOpponentRead(){
  S.pendingReadCheckpoint=0;S.readGateActive=false;persistSession();phaseDashboard();
 }
 function renderSessionDebrief(){
-  if(!S)return;const hist=loadHistory().filter(h=>h.sessionId===S.sessionId),dec=hist.flatMap(h=>h.decisions||[]);const canon=dec.filter(d=>d.gradeable===true&&d.tier==='canonical'),ok=canon.filter(d=>d.actualSemantic===d.rec),hi=canon.filter(d=>d.userConfidence==='high'&&d.actualSemantic!==d.rec),mix=tableSkillMix();
+  if(!S)return;const hist=loadHistory().filter(h=>h.sessionId===S.sessionId),dec=hist.flatMap(h=>h.decisions||[]);const canon=dec.filter(d=>d.gradeable===true&&d.tier==='canonical'),ok=canon.filter(d=>decisionMatches(d)),hi=canon.filter(d=>d.userConfidence==='high'&&!decisionMatches(d)),mix=tableSkillMix();
   const rate=canon.length?Math.round(100*ok.length/canon.length):null;const pl=S.players[S.hero].stack-(S.heroTotalBuyin||S.startStack),nat=sessionNaturalStats(S.sessionId);
   let sessionBB=0,sessionLeak=0;for(const h of hist){sessionBB+=(Number(h.handPL)||0)/Math.max(1,Number(h.bb)||bbForLimit(h.limit));for(const d of h.decisions||[])sessionLeak+=decisionLeakRiskBB(d,h)}
-  const bb100=hist.length?100*sessionBB/hist.length:null;const byStreet={preflop:[0,0],flop:[0,0],turn:[0,0],river:[0,0]};for(const d of canon){if(byStreet[d.street]){byStreet[d.street][1]++;if(d.actualSemantic===d.rec)byStreet[d.street][0]++}}
+  const bb100=hist.length?100*sessionBB/hist.length:null;const byStreet={preflop:[0,0],flop:[0,0],turn:[0,0],river:[0,0]};for(const d of canon){if(byStreet[d.street]){byStreet[d.street][1]++;if(decisionMatches(d))byStreet[d.street][0]++}}
   const cov=Object.entries(byStreet).map(([k,v])=>`${STREET_KO[k]} ${v[0]}/${v[1]}`).join(' · '),recentHeat=recentActionHeat(S.sessionId),heatWarn=recentHeat.seen>=ACTION_HEAT_MIN_HANDS&&recentHeat.rate>ACTION_HEAT_THRESHOLD?` · 최근 ${recentHeat.seen}핸드 action-heavy ${(recentHeat.rate*100).toFixed(0)}%`:'';
   const targetMix={};hist.forEach(h=>{const k=h.adaptiveTarget||h.heroFirstFacing||'Unknown';targetMix[k]=(targetMix[k]||0)+1});const biased=hist.filter(h=>h.adaptiveBiasedDeal).length;const targetText=Object.entries(targetMix).map(([k,v])=>`${k} ${v}`).join(' / ');
   const pressureTarget=hist.filter(h=>['turn','river','both'].includes(h.postflopPressureTarget)).length;
@@ -2996,7 +3682,7 @@ function saveCurrentHand(){
     heroWon:wins.includes(S.hero),
     winner:S.winnerText||'',
     performanceTelemetry,
-    decisions:S.decisions.map(d=>({...d,matched:d.gradeable?(d.actualSemantic===d.rec):null}))
+    decisions:S.decisions.map(d=>({...d,matched:d.gradeable?decisionMatches(d):null}))
   };
   for(const d of record.decisions){d.trainingBucket=recordBucket(d)}saveLeaks();phaseDashboard();
   updateCurriculumFromLive(record.decisions);
@@ -3068,32 +3754,11 @@ function legacySnapshotCanonicalRecommendation(d,hand){
     return null;
   }
 
-  if(limit==='10만'){
-    const hc=d.handClass||'',risk=d.boardRisk||{},rc=Number(risk.count)||0,players=Number(d.playersActive)||0;
-    if(st==='flop' && ['set','straight','strong_two_pair'].includes(hc) && rc<=1)
-      return canon(tc>0?'Raise':'Bet','P10-F01 | Flop Strong Made Value','플랍 strong made hand direct value.');
-    if(st==='turn'&&Array.isArray(d.publicActionHistory)&&typeof d.board==='string'){
-      const cards=d.board.trim().split(/\s+/).filter(Boolean).map(x=>({r:x[0],s:x.slice(1),v:RV[x[0]]}));
-      if(cards.length>=4&&cards.every(c=>Number.isFinite(c.v))){
-        const tr=p10TurnRule({street:'turn',tc,hc,risk:{...risk,paired:!!risk.paired,flushComplete:!!risk.flushComplete,straightRisk:!!risk.straightRisk},players,history:d.publicActionHistory,heroPos:ps,board:cards,heroCards:d.heroCards,aggressive:!!d.opponentReadSnapshot?.aggressive});
-        if(tr)return tr;
-      }
-    }
-    if(st==='river'){
-      if(tc===0 && ['straight','set','strong_two_pair','nut_flush','near_nut'].includes(hc) && rc<=1)
-        return canon('Bet','P10-R03 | River Safe Strong Value','안전한 강한 리버 made hand는 value bet.');
-      if(tc>0 && hc==='flush' && !!risk.flushComplete)
-        return canon('Call','P10-R02 | Non-nut Flush No-Raise','non-nut flush는 bet을 받으면 Call 우선.','Medium');
-      if(tc>0 && players>=3 && rc>=1 && ['one_pair','overpair','TPTK','weak_two_pair'].includes(hc)){
-        if(d.opponentReadSnapshot?.aggressive)return hold('P10-R04 | Aggressive Opponent Override Review','관찰 기반 aggressive read가 있어 자동 Fold하지 않습니다.');
-        return canon('Fold','P10-R04 | Completion+Multiway Bluff-catcher Fold','Unknown/passive baseline의 completion+multiway bluff-catcher는 Fold.');
-      }
-      if(tc>0 && ['one_pair','overpair','TPTK'].includes(hc) && rc>=1){
-        if(d.opponentReadSnapshot?.aggressive)return hold('P10-R01 | Aggressive Opponent Review','관찰 기반 aggressive read가 있어 자동 Fold하지 않습니다.');
-        return canon('Fold','P10-R01 | River One-pair vs Strong Bet Fold','위험한 river one-pair vs bet은 Unknown baseline Fold.');
-      }
-    }
-  }
+  // 포스트플랍 재채점도 live와 같은 순수 함수(pfxMatch)를 쓴다.
+  // 문맥(보드·웨이·facing)이 없으면 PFX-UNK로 Review Only — 과거 기록을 가짜 교정하지 않는다.
+  let pfx=null;
+  try{pfx=pfxMatch(pfxContextFromSnapshot(d,limit));}catch(e){pfx=null}
+  if(pfx)return pfx;
   return null;
 }
 
@@ -3105,7 +3770,8 @@ function classifySnapshotRegrade(d,hand,current){
   if(is10 && d.street==='preflop' && sem==='3-bet')return {cls:'legacy_invalid',label:'구버전 무효',reason:'10만 프리플랍은 Raise→Cap 구조라 3-bet 단계가 없음'};
   if(!current)return {cls:'review_only',label:'Review Only',reason:'현재 Strategy v1.1 정본으로 재구성할 정보/규칙이 없음'};
   if(!current.gradeable)return {cls:'review_only',label:'Review Only',reason:current.why||'현재 전략에서 경계 구간'};
-  return sem===current.action
+  const ok=sem===current.action||(!!current.alt&&sem===current.alt);
+  return ok
     ? {cls:'good',label:'정상',reason:'현재 Strategy v1.1 정본과 일치'}
     : {cls:'correction',label:'실제 교정',reason:'현재 Strategy v1.1 정본과 불일치'};
 }
@@ -3135,7 +3801,7 @@ function historyRegrade(hand){
       source:current?.source||'Poker OS Engine v3',
       tier:current?.tier||'hold',
       gradeable:!!current?.gradeable,
-      matched:current?.gradeable?(sem===currentAction):null,
+      matched:current?.gradeable?decisionMatches({actualSemantic:sem,rec:currentAction,alt:current?.alt}):null,
       regrade
     };
   });
@@ -3473,23 +4139,29 @@ const FIELD_PROFILES={
  'Kangwon Live':{skills:['Recreational','Recreational','Recreational','Recreational','Average','Average','Regular','Regular'],styles:{'Calling Station':.14,'Loose-Passive':.36,'Tight-Passive':.12,Regular:.24,'Tight-Aggressive':.00,'Loose-Aggressive':.12,'Tricky-Aggressive':.00,Maniac:.02}},
  'Reg Heavy':{skills:['Average','Average','Regular','Regular','Regular','Regular','Strong','Strong'],styles:{'Calling Station':.10,'Loose-Passive':.10,'Tight-Passive':.12,Regular:.25,'Tight-Aggressive':.23,'Loose-Aggressive':.12,'Tricky-Aggressive':.06,Maniac:.02}}
 };
-const BUCKETS=['PF_EP_BOUNDARY','PF_MP_SMALL_PAIR','PF_BTN_SMALL_PAIR','PF_BLIND_DEFENSE','PF_OTHER','FLOP_VALUE','TURN_OVERPAIR_SAFE','TURN_OVERPAIR_COMPLETION','TURN_TPTK_RAISED','TURN_DRAW_ODDS','TURN_MULTI_BET_EXIT','TURN_OTHER','RIVER_BLUFF_CATCH','RIVER_STRONG_VALUE','RIVER_NON_NUT','OPPONENT_READ'];
+const BUCKETS=['PF_EP_BOUNDARY','PF_MP_SMALL_PAIR','PF_BTN_SMALL_PAIR','PF_BLIND_DEFENSE','PF_OTHER','FLOP_VALUE','FLOP_CBET','FLOP_DRAW_CALL','TURN_OVERPAIR_SAFE','TURN_OVERPAIR_COMPLETION','TURN_TPTK_RAISED','TURN_DRAW_ODDS','TURN_MULTI_BET_EXIT','TURN_COMPLETION_EXIT','TURN_OTHER','RIVER_BLUFF_CATCH','RIVER_BLUFF_CATCH_HU','RIVER_THIN_VALUE','RIVER_STRONG_VALUE','RIVER_NON_NUT','OPPONENT_READ'];
 const LEAK_KEY='poker_os_leaks_v1';
 let leakProfile=(()=>{try{return JSON.parse(localStorage.getItem(LEAK_KEY)||'{}')}catch{return {}}})();
 let rangeCache=new Map(),solverCache=new Map();
 function emptyBucket(){return {attempts:0,canonicalAttempts:0,correct:0,highConfidenceWrong:0,lowConfidenceCorrect:0,responseMs:[],recent:[],repeatError:0,lastSeen:null,streak:0,due:0,interval:0,conceptualAttempts:0}}
 function bucketFor(d){
  if(d.street==='preflop'){if(['SB','BB'].includes(d.pos))return 'PF_BLIND_DEFENSE';if(['UTG','UTG+1'].includes(d.pos))return 'PF_EP_BOUNDARY';if(d.pos==='MP'&&isPairCode(d.hole||'')&&RV[d.hole[0]]<=6)return 'PF_MP_SMALL_PAIR';if(d.pos==='BTN'&&isPairCode(d.hole||'')&&RV[d.hole[0]]<=6)return 'PF_BTN_SMALL_PAIR';return 'PF_OTHER'}
- if(d.street==='flop')return 'FLOP_VALUE';
- if(d.street==='turn'){if((d.publicActionHistory||[]).filter(x=>x.street==='turn'&&['Raise','Cap'].includes(x.semantic)).length)return d.handClass==='TPTK'?'TURN_TPTK_RAISED':'TURN_MULTI_BET_EXIT';if(d.handClass==='overpair')return d.boardRisk?.count?'TURN_OVERPAIR_COMPLETION':'TURN_OVERPAIR_SAFE';if(d.draw?.flushDraw||d.draw?.straightDraw||d.cleanOuts>0)return 'TURN_DRAW_ODDS';return 'TURN_OTHER'}
- if(d.street==='river'){if(['nut_flush','near_nut','set','straight','strong_two_pair','full_house','quads','straight_flush'].includes(d.handClass))return 'RIVER_STRONG_VALUE';if(d.handClass==='flush')return 'RIVER_NON_NUT';return 'RIVER_BLUFF_CATCH'}
+ if(d.street==='flop'){
+   const tex=d.boardTexture||'';const facingBet=d.facing==='Bet'||Number(d.toCall)>0;
+   if(facingBet&&['twoTone_connected','monotone','completion'].includes(tex))return 'FLOP_DRAW_CALL';
+   if(facingBet)return 'FLOP_VALUE';
+   if(['dry_high','dry_low'].includes(tex))return 'FLOP_CBET';
+   return 'FLOP_VALUE';
+ }
+ if(d.street==='turn'){if(d.boardTexture==='completion'&&['marginal','weak'].includes(d.tier2||''))return 'TURN_COMPLETION_EXIT';if((d.publicActionHistory||[]).filter(x=>x.street==='turn'&&['Raise','Cap'].includes(x.semantic)).length)return d.handClass==='TPTK'?'TURN_TPTK_RAISED':'TURN_MULTI_BET_EXIT';if(d.handClass==='overpair')return d.boardRisk?.count?'TURN_OVERPAIR_COMPLETION':'TURN_OVERPAIR_SAFE';if(d.draw?.flushDraw||d.draw?.straightDraw||d.cleanOuts>0)return 'TURN_DRAW_ODDS';return 'TURN_OTHER'}
+ if(d.street==='river'){if(['nut_flush','near_nut','set','straight','strong_two_pair','full_house','quads','straight_flush'].includes(d.handClass))return 'RIVER_STRONG_VALUE';if(d.handClass==='flush')return 'RIVER_NON_NUT';if(d.pfxRule==='PFX-R06'||(d.mix&&/Check/.test(d.mix)))return 'RIVER_THIN_VALUE';const t2=d.tier2||'';const n=Number(d.ways||d.playersActive||9);if(['good','marginal','weak'].includes(t2)&&n<=3)return 'RIVER_BLUFF_CATCH_HU';return 'RIVER_BLUFF_CATCH'}
  return 'OPPONENT_READ';
 }
 function recordBucket(d,now=Date.now()){
  const key=d.trainingBucket||bucketFor(d),v=leakProfile[key]||(leakProfile[key]=emptyBucket());v.attempts++;v.lastSeen=now;
  if(Number.isFinite(d.decisionMs))v.responseMs.push(d.decisionMs);v.responseMs=v.responseMs.slice(-50);
  if(d.gradeable!==true||d.tier!=='canonical'){v.conceptualAttempts++;return key}
- const ok=d.actualSemantic===d.rec;v.canonicalAttempts++;if(ok)v.correct++;
+ const ok=decisionMatches(d);v.canonicalAttempts++;if(ok)v.correct++;
  const signature=[d.street,d.pos,d.hole,d.facing,d.rec].join('|');v.recent.push({ok,signature,confidence:d.userConfidence,at:now});v.recent=v.recent.slice(-10);
  v.repeatError=v.recent.filter(x=>!x.ok&&x.signature===signature).length;
  if(!ok&&d.userConfidence==='high')v.highConfidenceWrong++;
@@ -3498,7 +4170,7 @@ function recordBucket(d,now=Date.now()){
  return key;
 }
 function bucketWeight(key,now=Date.now()){
- const v=leakProfile[key]||emptyBucket(),importance=key.startsWith('TURN')?1.5:key==='RIVER_STRONG_VALUE'?1.4:1;
+ const importance=key.startsWith('TURN')||key==='RIVER_BLUFF_CATCH_HU'?1.5:key==='RIVER_STRONG_VALUE'||key==='RIVER_THIN_VALUE'?1.4:1;
  const error=(v.canonicalAttempts-v.correct+1)/(v.canonicalAttempts+2),coverage=1+3/(1+v.canonicalAttempts),recent=1+(v.recent.filter(x=>!x.ok).length/5),confidence=1+(v.recent.filter(x=>!x.ok&&x.confidence==='high').length/3),due=v.due&&now>=v.due?1.5:1;
  const slow=median(v.responseMs),speed=1+(v.lowConfidenceCorrect?Math.min(.3,v.lowConfidenceCorrect/Math.max(1,v.correct)*.3):0)+(slow>10000?Math.min(.3,(slow-10000)/60000):0),repeat=1+Math.min(.6,v.repeatError*.1);
  return Math.max(.15,importance*error*coverage*recent*confidence*speed*repeat/(1+v.streak*.25))*due;
@@ -3519,6 +4191,11 @@ function chooseAdaptiveHeroHoleCode(){
  else if(b.includes('TPTK'))codes=['AK','AQs','AJs'];
  else if(b.includes('DRAW'))codes=['AKs','QJs','JTs','T9s'];
  else if(b==='RIVER_STRONG_VALUE')codes=['AA','KK','QQ','99','88','AKs'];
+ else if(b==='FLOP_CBET')codes=['KK','99','AKs','AQ','KQs','JJ'];
+ else if(b==='FLOP_DRAW_CALL')codes=['AKs','JTs','QJs','T9s'];
+ else if(b==='TURN_COMPLETION_EXIT')codes=['KQ','QJ','KJ','88','77'];
+ else if(b==='RIVER_BLUFF_CATCH_HU')codes=['KQ','QJ','AJ','99'];
+ else if(b==='RIVER_THIN_VALUE')codes=['TT','99','KJ','A9s'];
  else return legacyAdaptiveHeroHoleCode();
  const recent=S.adaptiveRecentCodes||[];const chosen=codes[Math.floor(Math.random()*codes.length)];S.adaptiveRecentCodes=[...recent,chosen].slice(-20);return chosen;
 }
@@ -3623,9 +4300,9 @@ function recordPublicAction(p,a,tc){
  if(S.street!=='preflop'){const intent=p.auditIntent||{tag:'unknown',reason:'unknown'};if(a==='raise'){v.tags[intent.tag]=(v.tags[intent.tag]||0)+1;v.reasons[intent.reason]=(v.reasons[intent.reason]||0)+1}delete p.auditIntent}
 }
 function strictSnapshot(d,hand,legacy){
- const required=d.street==='preflop'?['toCall','pos','hole','facing','limpers']:['toCall','handClass','boardRisk','playersActive'];
+ const required=d.street==='preflop'?['toCall','pos','hole','facing','limpers']:['toCall','playersActive'];
  const missing=required.filter(k=>d[k]===null||d[k]===undefined||d[k]===''||(typeof d[k]==='number'&&!Number.isFinite(d[k])));
- if(d.street!=='preflop'&&(!d.boardRisk||!Number.isFinite(d.boardRisk.count)))missing.push('boardRisk.count');
+ if(d.street!=='preflop'&&d.boardRisk&&!Number.isFinite(d.boardRisk.count))missing.push('boardRisk.count');
  if(missing.length)return {action:'Review',gradeable:false,tier:'hold',resolution:'Review Only',rule:'Insufficient historical state',why:'Missing/Unknown: '+missing.join(', ')};
  const r=legacy(d,hand);if(r&&['Raise','3-bet','Cap'].includes(r.action)){
   if(!Number.isFinite(d.currentBet)||!Number.isFinite(d.streetAggressionCount)||!Number.isFinite(d.stack))return {action:'Review',gradeable:false,tier:'hold',resolution:'Review Only',rule:r.rule,why:'Unknown historical raise legality/betting level'};
@@ -3643,7 +4320,7 @@ function legalRecommendation(r){
 }
 function phaseDashboard(){
  if(!$('phaseDashboard'))return;
- const groups={Preflop:['PF_EP_BOUNDARY','PF_MP_SMALL_PAIR','PF_BTN_SMALL_PAIR','PF_OTHER'],Flop:['FLOP_VALUE'],Turn:BUCKETS.filter(k=>k.startsWith('TURN')),River:BUCKETS.filter(k=>k.startsWith('RIVER')),Blind:['PF_BLIND_DEFENSE'],'Opponent Read':['OPPONENT_READ'],'Value Extraction':['FLOP_VALUE','RIVER_STRONG_VALUE'],Discipline:['PF_OTHER','RIVER_BLUFF_CATCH']};
+ const groups={Preflop:['PF_EP_BOUNDARY','PF_MP_SMALL_PAIR','PF_BTN_SMALL_PAIR','PF_OTHER'],Flop:['FLOP_VALUE','FLOP_CBET','FLOP_DRAW_CALL'],Turn:BUCKETS.filter(k=>k.startsWith('TURN')),River:BUCKETS.filter(k=>k.startsWith('RIVER')),Blind:['PF_BLIND_DEFENSE'],'Opponent Read':['OPPONENT_READ'],'Value Extraction':['FLOP_VALUE','FLOP_CBET','RIVER_STRONG_VALUE','RIVER_THIN_VALUE'],Discipline:['PF_OTHER','RIVER_BLUFF_CATCH','RIVER_BLUFF_CATCH_HU','TURN_COMPLETION_EXIT']};
  const rows=Object.entries(groups).map(([name,keys])=>{const vs=keys.map(k=>leakProfile[k]||emptyBucket()),n=vs.reduce((s,v)=>s+v.canonicalAttempts,0),ok=vs.reduce((s,v)=>s+v.correct,0),evidence=vs.reduce((s,v)=>s+v.attempts,0);return `<tr><td>${name}</td><td>${evidence}</td><td>${n>=20?Math.round(ok/n*100)+'%':`표본 부족 (${ok}/${n})`}</td><td>${vs.reduce((s,v)=>s+v.highConfidenceWrong,0)}</td><td>${median(vs.flatMap(v=>v.responseMs))===null?'-':(median(vs.flatMap(v=>v.responseMs))/1000).toFixed(1)+'s'}</td></tr>`}).join('');
  const priorities=BUCKETS.map(k=>({k,w:bucketWeight(k)})).sort((a,b)=>b.w-a.w).slice(0,3);
  $('phaseDashboard').innerHTML=`<table class="edgeTable"><tr><th>영역</th><th>표본</th><th>Canonical</th><th>고확신 오류</th><th>중앙 시간</th></tr>${rows}</table><p class="note">우선 훈련: ${priorities.map(x=>x.k).join(' · ')}<br>Historical KPI 123/141 (87.2%)는 원본 export에 보존. 현재 Strict Regrade는 별도 집계. 훈련 손익은 실전 EV가 아닙니다.</p>`;
@@ -3679,7 +4356,13 @@ function solverDecisionLookup(){ // Solves are never matched by board alone. Onl
  return legalRecommendation({action:p.actions[p.probabilities.indexOf(Math.max(...p.probabilities))],mix:p,gradeable:false,tier:'solver',resolution:'Solver Approx',confidence:'Low',rule:'Conditional HU CFR v0.1',why:'명시 범위 조건부 CFR · 완전 게임 GTO/실전 EV 아님',source:'Solver Core v0.1'});
 }
 
-function drillIsCanonical(d){return /^P10-(PF0[1-589]|PF1[234]|R0[1-4]|F01|T0[45])(?: |$| v)/.test(d.r)&&!/Test|Review|Override|Candidate|재평가/.test(d.r+' '+d.w)}
+function drillIsCanonical(d){
+ const r=String(d&&d.r||''),w=String(d&&d.w||'');
+ if(/Test|Review|Override|Candidate|재평가|비채점/.test(r+' '+w))return false;
+ const m=r.match(/PFX-[A-Z0-9]+/);
+ if(m)return PFX_CANON_IDS.has(m[0]);
+ return /^P10-(PF0[1-589]|PF1[234]|R0[1-4]|F01|T0[45])(?: |$| v)/.test(r);
+}
 
 const V3_SELF_TEST=runV3SelfTests();if(initialSkillBag('exam').filter(x=>x==='Strong').length<1)V3_SELF_TEST.bad.push('exam-strong');
 if(initialSkillBag('simulation').filter(x=>['Regular','Strong'].includes(x)).length!==4)V3_SELF_TEST.bad.push('simulation-skillmix');
@@ -4139,6 +4822,7 @@ if(!restored){
   $('status').textContent='새 세션을 시작하세요.';
 }
 // Patch 2026-11-13: rake cap 확정 · EP raise call/fold 보강 · 림프 팟 오프수트 폴드 · 턴 T04/T05/T06 · 현장 field profile
+Object.assign(PokerOSDebug,{patch:'6.19-candidate-20261126-postflop-canon',POSTFLOP_CANON,PFX_CANON_IDS,pfClassify,pfxTexture,pfxPrice,pfxOuts,pfxGhat,pfxMatch,pfxContextFromSnapshot,pfContext,decisionMatches,canonicalRecommendation});
 Object.assign(PokerOSDebug,{patch:'5.2-candidate-20261113-field-corrections',p10TurnRule,canonicalRecommendation,CANON,RAKE_CAP,calcRake});
 // ===== Patch 2026-11-15 v5.3: 강원랜드 현장형 업데이트 =====
 // 1) 10만/30만 필드 분리(30만은 레귤러·공격형 비중↑)  2) 단골 레귤러(이름 고정, 관찰 기록이 세션 간 누적)

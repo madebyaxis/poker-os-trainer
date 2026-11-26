@@ -298,3 +298,89 @@ function runPokerOSRegressionV613(D,doc){
   ok('상태 조회 가능 (자동화/localhost 에선 동기화 차단이 정상)',st&&typeof st.enabled==='boolean'&&(st.enabled===true||/^(localhost|127\.0\.0\.1)$/.test(location.hostname)||navigator.webdriver),st);
   return out;
 }
+
+// v6.19 (2026-11-26) 포스트플랍 정본(Postflop Canon v1) 검사 — 순수 함수만 호출한다.
+// 설계 문서 4-6의 26검사 + 규칙 ID/믹스/문맥결손 검사.
+function runPostflopCanonRegression(D){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const card=x=>({r:x[0],s:x.slice(1),v:'23456789TJQKA'.indexOf(x[0])+2});
+  const B=s=>s.trim().split(/\s+/).map(card);
+  const H=s=>s.trim().split(/\s+/).map(card);
+  const near=(a,b,tol=.001)=>Math.abs(a-b)<=tol;
+  const hand={limit:'10만'};
+
+  // ── 가격·수학 (8)
+  let p=D.pfxPrice('river','30만',240000,30000,{ways:2,playersBehind:0});
+  ok('30만 12BB 1벳 need=10.5%',near(p.rawNeed,.10526),p.rawNeed);
+  p=D.pfxPrice('turn','10만',60000,10000,{ways:2,playersBehind:0});
+  ok('10만 12BB 1벳 need=13.2%',near(p.rawNeed,.13158),p.rawNeed);
+  ok('레이크 반영(무레이크 30만 12BB=10.0%)',near(30000/300000,.1)&&p.rawNeed>.131,p.rawNeed);
+  p=D.pfxPrice('turn','30만',240000,30000,{ways:3,playersBehind:1});
+  ok('needRaised1 30만 12BB=15.0%',near(p.raisedNeed,.15038),p.raisedNeed);
+  p=D.pfxPrice('river','10만',60000,10000,{ways:3,playersBehind:2});
+  ok('10만 리버 4벳 캡 12BB=23.4%',near(p.cappedNeed,.23392),p.cappedNeed);
+  p=D.pfxPrice('river','30만',240000,30000,{ways:2,playersBehind:0});
+  ok('MDF HU 12BB=88.9%',near(p.mdf,.88889),p.mdf);
+  p=D.pfxPrice('river','30만',240000,30000,{ways:3,playersBehind:1});
+  ok('멀티웨이 MDF 3명=51.9%',near(p.mdfMultiway,.51942),p.mdfMultiway);
+  const e0=D.pfxPrice('river','30만',240000,30000,{ways:2,playersBehind:0}).effNeed;
+  const e1=D.pfxPrice('river','30만',240000,30000,{ways:3,playersBehind:1}).effNeed;
+  const e2=D.pfxPrice('river','30만',240000,30000,{ways:4,playersBehind:2}).effNeed;
+  ok('effNeed 단조성(뒤 인원↑ → need↑)',e0<e1&&e1<e2,[e0,e1,e2]);
+
+  // ── 아웃츠 (6)
+  let o=D.pfxOuts(H('A♠ K♠'),B('9♠ 7♠ 4♦ 2♥'),'turn',30000,'30만');
+  ok('9아웃 턴=19.6%',o.raw===9&&near(o.equity1,9/46),o);
+  o=D.pfxOuts(H('J♠ T♠'),B('9♠ 8♠ 2♦'),'flop',20000,'30만');
+  ok('15아웃 플랍=54.1%',o.raw===15&&near(o.equity2,.5412,.002),o);
+  o=D.pfxOuts(H('A♠ K♦'),B('9♠ 9♣ 7♠ 4♠'),'turn',30000,'30만');
+  ok('dirty outs 할인(위험 2 → ×0.65)',o.raw===9&&o.clean===6,[o.raw,o.clean]);
+  o=D.pfxOuts(H('A♠ K♠'),B('9♠ 7♠ 4♦ 2♥'),'turn',30000,'30만');
+  ok('callReqPot 9아웃 턴 30만=4.7BB',near(o.callReqPotBB,4.667,.05),o.callReqPotBB);
+  ok('임플라이드 1.5BB 차감',near(o.impliedReqPotBB,o.callReqPotBB-1.5),o.impliedReqPotBB);
+  o=D.pfxOuts(H('A♠ K♠'),B('9♠ 7♠ 4♦ 2♥ Q♣'),'river',30000,'30만');
+  ok('리버 아웃츠 0',o.raw===0&&o.equity1===0,o);
+
+  // ── 분류·보드 (6)
+  let c=D.pfClassify(H('K♠ K♥'),B('2♣ 2♦ T♥ 5♠'),'turn');
+  ok('KK 2-2-T → overpair/good',c.hc==='overpair'&&c.tier==='good',c);
+  c=D.pfClassify(H('7♠ 8♥'),B('T♠ T♥ T♦ 2♣ 3♠'),'river');
+  ok('보드 트립스(홀 기여 없음) → weak',c.hc==='board_trips'&&c.tier==='weak',c);
+  c=D.pfClassify(H('K♠ J♦'),B('K♥ 8♣ 3♦ 2♠'),'turn');
+  ok('탑페어 약키커 → marginal',c.hc==='top_pair_weak'&&c.tier==='marginal',c);
+  let t=D.pfxTexture(B('9♠ 7♠ 4♦'),'flop');
+  ok('twoTone_connected 판정',t.code==='twoTone_connected',t.code);
+  t=D.pfxTexture(B('9♠ 7♠ 4♦ 2♠'),'turn');
+  ok('completion 판정(턴 플러시 완성)',t.code==='completion',t.code);
+  c=D.pfClassify(H('A♠ K♦'),B('9♠ 7♠ 4♦ 2♠'),'turn');
+  ok('넛 플러시 블로커 검출',c.blockers.nutFlush===true,c.blockers);
+
+  // ── 규칙 (6)
+  let r=D.pfxMatch({limit:'30만',street:'flop',hole:H('9♠ 6♥'),board:B('9♦ 9♣ 6♠'),ways:3,facing:'checked_to',toCall:0,pot:60000,ip:true,initiative:true,read:{enough:false}});
+  ok('PFX-F01 플랍 풀하우스 → Bet(현행은 Review였음)',r&&r.action==='Bet'&&r.canonicalRule==='PFX-F01',r);
+  r=D.pfxMatch({limit:'30만',street:'river',hole:H('Q♣ J♦'),board:B('9♠ 7♠ 4♠ 2♠ Q♦'),ways:3,facing:'bet',toCall:30000,pot:240000,read:{enough:false}});
+  ok('PFX-R03 3웨이+완성+원페어 → Fold',r&&r.action==='Fold'&&r.canonicalRule==='PFX-R03',r);
+  const rv={limit:'30만',street:'river',hole:H('Q♦ J♣'),board:B('Q♠ 6♦ 2♣ 9♥ 3♣'),ways:2,facing:'bet',toCall:30000,pot:240000};
+  const pas=D.pfxMatch({...rv,read:{enough:true,hands:20,pfr:.05,postAgg:.2}});
+  const lag=D.pfxMatch({...rv,read:{enough:true,hands:20,pfr:.3,postAgg:.55}});
+  ok('PFX-R04 패시브 12BB → Fold / LAG → Call',pas&&lag&&pas.action==='Fold'&&lag.action==='Call',{pas,lag});
+  r=D.pfxMatch({limit:'30만',street:'river',hole:H('Q♦ J♣'),board:B('Q♠ 6♦ 2♣ 9♥ 3♣'),ways:2,facing:'bet',toCall:30000,pot:600000,read:{enough:false}});
+  ok('PFX-R05 30BB 팟 HU → Call',r&&r.action==='Call'&&r.canonicalRule==='PFX-R05',r);
+  r=D.pfxMatch({limit:'30만',street:'turn',hole:H('Q♣ Q♦'),board:B('9♠ 7♠ 4♠ 2♠'),ways:3,facing:'bet',toCall:30000,pot:240000,read:{enough:false}});
+  ok('PFX-T03 완성보드 단일 벳 → Fold',r&&r.action==='Fold'&&r.canonicalRule==='PFX-T03',r);
+  r=D.pfxMatch({limit:'30만',street:'turn',hole:H('K♦ J♣'),board:[],ways:3,facing:'bet',toCall:30000,pot:240000,read:{enough:false}});
+  ok('PFX-UNK board 없음 → Review',r&&r.action==='Review'&&r.gradeable===false,r);
+
+  // ── 통합 (추가)
+  ok('POSTFLOP_CANON 규칙 27개',D.POSTFLOP_CANON.rules.length===27,D.POSTFLOP_CANON.rules.length);
+  ok('정본 ID 화이트리스트에 PFX 포함',D.PFX_CANON_IDS.has('PFX-R04')&&!D.PFX_CANON_IDS.has('PFX-UNK'),[...D.PFX_CANON_IDS].length);
+  const mixed=D.pfxMatch({limit:'30만',street:'river',hole:H('Q♦ J♣'),board:B('Q♠ 6♦ 2♣ 9♥ 3♣'),ways:2,facing:'checked_to',toCall:0,pot:240000,read:{enough:true,hands:20,pfr:.05,postAgg:.2}});
+  ok('믹스 규칙은 alt(체크)도 정답 처리',mixed&&mixed.action==='Bet'&&mixed.alt==='Check'&&D.decisionMatches({actualSemantic:'Check',rec:mixed.action,alt:mixed.alt}),mixed);
+  const noBoard=D.snapshotCanonicalRecommendation({street:'turn',toCall:10000,handClass:'one_pair',boardRisk:{count:0,paired:false,flushComplete:false,straightRisk:false},playersActive:2,pos:'MP',currentBet:10000,streetAggressionCount:1,stack:400000},hand);
+  ok('보드 없는 과거 기록은 review_only(PFX-UNK)',noBoard&&noBoard.action==='Review'&&noBoard.gradeable===false,noBoard);
+  const drill=D.DRILL_BANK.flop&&D.DRILL_BANK.flop.length>=10&&D.DRILL_BANK.river_gate&&D.DRILL_BANK.river_gate.length>=6;
+  ok('플랍·리버게이트 드릴 뱅크 존재',drill,{flop:D.DRILL_BANK.flop?.length,river_gate:D.DRILL_BANK.river_gate?.length});
+  ok('PFX 드릴만 정본 채점',D.drillIsCanonical({r:'PFX-R04',w:'g*'})&&!D.drillIsCanonical({r:'PFX-R04 | Override',w:''})&&!D.drillIsCanonical({r:'PFX-F09',w:'비채점'}),null);
+  return out;
+}
+if(typeof module!=='undefined')module.exports={runPostflopCanonRegression};

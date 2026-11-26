@@ -2,12 +2,24 @@
 
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
-## Current build (2026-11-16 기준)
-- Trainer: **v6.8 Candidate** (2026-11-17 일어나기·캐시아웃) — v6.7 기반
+## Current build (2026-11-26 기준)
+- Trainer: **v6.19 Candidate** (2026-11-26 포스트플랍 정본) — v6.18 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.19 변경점 (2026-11-26) · 포스트플랍 정본(Postflop Canon v1)
+- **`POSTFLOP_CANON` 27규칙**을 프리플랍 `CANON`과 같은 자리에 추가했습니다(10만·30만 공통). 리밋 래더·캡·레이크(5%/2만)·g_hat 표를 데이터에 함께 둡니다.
+- 순수 판정 함수 `pfClassify`(핸드 티어+드로우+블로커), `pfxTexture`(보드군), `pfxPrice`(레이크·레이즈 리스크·MDF), `pfxOuts`(아웃츠·필요 팟·임플라이드), `pfxGhat`(관찰 기반 블러프 추정), `pfxMatch`(규칙 표 판정)를 추가했습니다. **live 추천과 기록 재채점이 같은 함수를 호출**합니다(기존 이중 구현 제거).
+- **30만 포스트플랍 정본 0개 → 개방.** 노션 Active였지만 앱에 없던 `P30-F01·T01·T02·R01·R02·R03`이 `PFX-F01·T01/T03/T04·R03/R02`로 반영됐습니다.
+- **기존 10만 정본 버그 3건 수정**: ①`P10-F01`이 풀하우스·쿼즈·플러시를 채점하지 않던 구멍(→ `PFX-F01`은 `nuts`/`strong` 전체) ②`P10-R01`이 웨이 수·가격을 무시하고 헤즈업까지 폴드시키던 문제(→ 완성+멀티웨이 하드폴드 `R03`, 가격형 `R04`, 거대 팟 예외 `R05`로 분리) ③`R04`가 "마지막 어그레서"만 보던 예외(→ 관찰 `PostAgg`/`PFR` 기반 `g_hat`으로 통일).
+- **리버 판정은 MDF가 아니라 `g_hat ≥ g* + 2%p`**입니다. MDF는 리포트 설명 지표로만 씁니다. 30만 12BB 1벳 `g*`=10.5%인데 필드 리버 벳 블러프는 2~12%라, "싸 보이는 마지막 1벳"을 기계적으로 지불하지 않게 만드는 장치입니다.
+- **문맥이 없으면 채점하지 않습니다.** 보드·남은 인원·facing·가격 중 하나라도 없으면 `PFX-UNK`로 Review Only. 과거 스냅샷 221건 중 보드 보유 73건만 채점 후보이고, 나머지 148건은 가짜 교정 없이 Review로 남습니다.
+- 새 결정 기록에 `boardTexture·ways·ip·initiative·capState·effNeed·gHat·tier2·cleanDrawOuts·alt`를 저장합니다. 다음 기록부터는 처음부터 재채점할 수 있습니다.
+- 드릴 뱅크 **`flop`(16) · `turn_price`(8) · `river_gate`(8) · `river_thin`(6)** 신설, `drillIsCanonical`을 정규식에서 **화이트리스트(`PFX_CANON_IDS`)** 로 교체했습니다(새 규칙 ID가 자동으로 채점에서 빠지던 문제 방지).
+- 약점 버킷 `FLOP_CBET·FLOP_DRAW_CALL·TURN_COMPLETION_EXIT·RIVER_BLUFF_CATCH_HU·RIVER_THIN_VALUE` 추가, 리포트에 **정본 커버리지(스트리트·리밋)** 카드 추가.
+- 회귀: `tests/regression.js`의 `runPostflopCanonRegression`(가격·아웃츠·분류·규칙 28검사). 프리플랍 312결정 재채점 결과는 **변경 0건**입니다.
 
 ## v6.18 변경점 (2026-11-26) · 휴대폰 좌석 축소 + 타원 배치
 - v6.17의 2열 큰 좌석이 크고 순서가 헷갈린다는 피드백 → 좌석을 폭 25vw(최대 96px)·높이 54px로 축소, 타원형(위 2 → 양옆 → 보드 띠 → 양옆 → 아래 2 → 나)으로 재배치. 시계방향 안내 표시.
