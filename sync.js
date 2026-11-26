@@ -21,6 +21,18 @@
     reloadTag: 'pokerSyncReload'
   };
 
+  // 2026-11-26: 자동화 테스트(헤드리스 브라우저·localhost)가 실제 클라우드 원장에 시뮬레이션 핸드를 올린 사고 → 자동화 환경에서는 동기화 완전 차단.
+  function isAutomated() {
+    try {
+      var h = location.hostname;
+      return !!(navigator.webdriver || /HeadlessChrome/i.test(navigator.userAgent || '') ||
+        h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || location.protocol === 'file:');
+    } catch (e) { return false; }
+  }
+  // 그 사고로 들어간 가짜 세션 ID — 로컬 원장에서 제거하고 pull/push 모두에서 무시한다.
+  var BAD_SIDS = {"S-1795668281901":1,"S-1795668338824":1,"S-1795668485535":1,"S-1795669180748":1,"S-1795670625753":1,"S-1795670668963":1,"S-1795670669523":1,"S-1795670672345":1,"S-1795670672448":1,"S-1795670674127":1,"S-1795670675064":1,"S-1795670675288":1,"S-1795670675466":1,"S-1795670676995":1,"S-1795670677043":1,"S-1795670678507":1,"S-1795670679607":1,"S-1795670679767":1,"S-1795670679794":1,"S-1795670680514":1,"S-1795670680832":1,"S-1795671601608":1,"S-1795671601844":1,"S-1795671734809":1,"S-1795672131541":1};
+  function notBad(r) { return !(r && BAD_SIDS[r.sid]); }
+
   var K = {
     session: 'kangwon_limit_holdem_trainer_active_session_v30',
     historyLegacy: 'kangwon_limit_holdem_trainer_history_v30',
@@ -203,7 +215,7 @@
   function idbCount() { return idbAll().then(function (a) { return a.length; }); }
 
   // ---------- 네트워크 ----------
-  function enabled() { return !!(CFG.endpoint && CFG.token); }
+  function enabled() { return !!(CFG.endpoint && CFG.token) && !isAutomated(); }
   function url(params) {
     var q = Object.keys(params).map(function (k) {
       return encodeURIComponent(k) + '=' + encodeURIComponent(params[k] == null ? '' : params[k]);
@@ -250,8 +262,17 @@
     idbPut(merged);
   }
 
+  function purgeBadLedger() {
+    var cur = readJSON(K.ledger);
+    if (!Array.isArray(cur)) return 0;
+    var clean = cur.filter(notBad);
+    if (clean.length !== cur.length) writeRaw(K.ledger, JSON.stringify(clean));
+    return cur.length - clean.length;
+  }
   function mergeLedgerIntoLocal(cloudRows, stats) {
-    if (!cloudRows || !cloudRows.length) return;
+    purgeBadLedger();
+    cloudRows = (cloudRows || []).filter(notBad);
+    if (!cloudRows.length) return;
     var local = readJSON(K.ledger);
     if (!Array.isArray(local)) local = [];
     var merged = unionBy(local, cloudRows, ledgerKey, byT, CFG.ledgerCap);
@@ -357,6 +378,7 @@
 
     var ledger = readJSON(K.ledger);
     if (!Array.isArray(ledger)) ledger = [];
+    ledger = ledger.filter(notBad);
     if (since) ledger = ledger.filter(function (r) { return String(r.t || '') > since; });
 
     var keys = {};
@@ -737,6 +759,7 @@
     }, CFG.pollMs);
   }
 
+  if (!isAutomated()) purgeBadLedger();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
 
