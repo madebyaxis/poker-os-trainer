@@ -4378,7 +4378,7 @@ function kangwonRangePreflop(p,tc,k){
  // 실력이 낮을수록 경계 패에서 한 등급씩 흔들린다(그래도 정크로는 거의 안 간다).
  const t=tier<6&&Math.random()<noise*.35?Math.max(1,tier+(Math.random()<.5?-1:1)):tier;
  const limpedIn=inv&&!['SB','BB'].includes(ps); // 스스로 림프한 사람은 레이즈가 와도 웬만하면 따라온다
- const playable=(max)=>t<=Math.min(4,max)||(max>=5&&t===5&&Math.random()<(limpedIn?.92:cfgS.t5))||(t===6&&Math.random()<(limpedIn?.6:cfgS.junk));
+ const playable=(max)=>t<=Math.min(4,max)||(max>=5&&t===5&&Math.random()<(limpedIn?.95:cfgS.t5))||(t===6&&Math.random()<(limpedIn?.68:cfgS.junk));
  p.auditIntent={tag:'kangwon-range',reason:`${p.type}:T${tier}:${facing}`};
  if(facing==='Unopened'||facing==='Limpers'){
   if(ps==='BB'&&tc<=0){if(t<=Math.max(1,cfgS.rais[2]-1)&&canRaise&&Math.random()<.35+.5*p.agg)return 'raise';return 'check'}
@@ -4396,7 +4396,8 @@ function kangwonRangePreflop(p,tc,k){
   let max=inv?cfgS.inv:cfgS.vs;
   if(ps==='BB'||ps==='SB')max=Math.max(max,inv?cfgS.inv:cfgS.vs);
   if(callers>=3)max=Math.min(5,max+(inv?1:0)); // 이미 여럿 들어간 팟은 싸 보여서 더 따라간다
-  if(callers>=2&&(S.cfg.label==='10만'?!['Nit','Tight-Aggressive'].includes(p.type):['Loose-Passive','Calling Station','Loose-Aggressive','Maniac'].includes(p.type)))max=Math.min(5,max+1); // 10만은 추가 5천이라 현장에서 레이즈에도 4~5명이 따라온다
+  if(S.cfg.label==='30만'&&callers>=2&&p.type!=='Nit')max=Math.min(5,max+1); // 30만 현장: 레이즈해도 4~5명 콜(2026-11-26 보정)
+  if(callers>=2&&(S.cfg.label==='10만'||S.cfg.label==='30만'?!['Nit','Tight-Aggressive'].includes(p.type):['Loose-Passive','Calling Station','Loose-Aggressive','Maniac'].includes(p.type)))max=Math.min(5,max+1); // 10만은 추가 5천이라 현장에서 레이즈에도 4~5명이 따라온다
   return playable(max)?'call':'fold';
  }
  // Capped: 이미 넣은 사람은 대부분 따라오고, 새로 들어오는 사람은 좁게.
@@ -4456,6 +4457,8 @@ function kwMadeTier(p){
  }
  return 'air';
 }
+// 탑페어인데 키커가 약한 패(marginal): 현장은 벳 대신 체크콜 — kwMadeTier의 키커 절벽(J 미만)을 유지한다.
+function kwTopPairWeak(p){const {bu,h,pp,hits}=kwHoleContrib(p);if(pp||!hits.length)return false;const r=Math.max(...hits);return bu.indexOf(r)===0&&!(((h.find(v=>v!==r)??r)>=11)||((h.find(v=>v!==r)??r)===14))}
 const KW_LOOSE=['Calling Station','Loose-Passive'],KW_AGGRO=['Loose-Aggressive','Tricky-Aggressive','Maniac','Tight-Aggressive','Regular'];
 function kangwonPostflop(p,tc,sc,k){
  const tier=kwMadeTier(p),dr=kwDraws(p),risk=boardRisk(),n=live().length,st=S.street,canRaise=S.currentBet<cap()&&p.stack>tc;
@@ -4479,13 +4482,14 @@ function kangwonPostflop(p,tc,sc,k){
   }
   if(dr.outs>=8&&canRaise&&aggro&&!raisedStreet&&n<=3&&st==='flop'&&R()<(dr.label==='combo'?.35:dr.label==='nfd'?.2:.1)*(.5+p.agg))return ret('raise','semi-bluff','kw_semi_raise');
   if(tier==='marginal'){
-   const base=st==='flop'?(raisedStreet?(loose?.5:.12):(loose?.92:n<=4?.72:.5)):st==='turn'?(raisedStreet?(loose?.18:.04):(loose?.62:tight?.25:.42)):(raisedStreet?(station?.15:.03):(price<=.2?(loose?.6:.33):(loose?.35:.15)));
+   let base=st==='flop'?(raisedStreet?(loose?.5:.12):(loose?.92:n<=4?.72:.5)):st==='turn'?(raisedStreet?(loose?.18:.04):(loose?.62:tight?.25:.42)):(raisedStreet?(station?.15:.03):(price<=.2?(loose?.75:.5):price<=.33?(loose?.5:.3):(loose?.35:.15)));
+   if(kwTopPairWeak(p)&&!raisedStreet)base=Math.min(.97,base+(st==='flop'?.12:st==='turn'?.22:.2)); // 약키커 탑페어 = 체크콜 핸드
    if(R()<base||drawCall)return ret('call','showdown','kw_marginal_call');
    return ret('fold','showdown','kw_marginal_fold');
   }
   if(drawCall)return ret('call','draw','kw_draw_price');
   if(tier==='weak'){
-   const q=st==='flop'?(raisedStreet?0:(loose&&price<.2?.3:p.type==='Regular'?.08:0)):st==='turn'?(raisedStreet?0:(station?.10:p.type==='Loose-Passive'?.05:0)):(raisedStreet?0:(station?.06:0));
+   const q=st==='flop'?(raisedStreet?0:(loose&&price<.2?.45:loose?.15:p.type==='Regular'?.08:.03)):st==='turn'?(raisedStreet?0:(station?.14:loose?.07:0)):(raisedStreet?0:(station?.12:loose?.04:0));
    return R()<q?ret('call','sticky','kw_weak_sticky'):ret('fold','weak','kw_weak_fold');
   }
   // air
@@ -4494,9 +4498,9 @@ function kangwonPostflop(p,tc,sc,k){
   return ret('fold','air','kw_air_fold');
  }
  // 먼저 액션 또는 모두 체크
- if(tier==='strong'&&canRaise){const q=Math.min(.97,sty.value*(.9+.1*k.value)*(risk.count>=2?.85:1));if(R()<q)return ret('raise','value','kw_strong_bet')}
+ if(tier==='strong'&&canRaise){const q=Math.min(.97,Math.max(.90,sty.value*(.9+.1*k.value)*(risk.count>=2?.85:1)));if(R()<q)return ret('raise','value','kw_strong_bet')}
  if(tier==='good'&&canRaise){const q=(n<=3?.82:.68)*(risk.count>=2?.7:1)*(loose||tight&&!aggro?.75:1);if(R()<q)return ret('raise','value','kw_good_bet')}
- if(tier==='marginal'&&canRaise){const q=st==='flop'?(initiative&&n<=3?.45*(.6+p.agg):.12):(n<=2&&risk.count===0?(aggro?.3:.1):.04);if(R()<q)return ret('raise','thin-value','kw_thin_bet')}
+ if(tier==='marginal'&&canRaise){const topWk=kwTopPairWeak(p),b=st==='flop'?.25:st==='turn'?.12:.05,q=b*(topWk?.55:1)*(n<=2&&risk.count===0&&aggro?1.6:1)*(n>=4?.6:1);if(R()<q)return ret('raise','thin-value',topWk?'kw_thin_bet_topwk':'kw_thin_bet')}
  if(dr.outs>=8&&canRaise&&st!=='river'){const q=(aggro?.42:.12)*(dr.label==='combo'?1.4:1)*(n<=3?1:.45);if(R()<q)return ret('raise','semi-bluff','kw_semi_bet')}
  if(canRaise&&(tier==='weak'||tier==='air'||(dr.outs>0&&dr.outs<8))){
   let q=0,why='';
