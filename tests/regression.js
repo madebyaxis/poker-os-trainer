@@ -384,3 +384,70 @@ function runPostflopCanonRegression(D){
   return out;
 }
 if(typeof module!=='undefined')module.exports={runPostflopCanonRegression};
+
+// v6.21 (2026-11-27) 30만 프리플랍 정본 보강(P30-PF05·PF10~PF16) — live와 같은 snapshot 경로를 호출한다.
+// 근거: reports/30만-프리플랍-정본-보강-2026-11-27.md (표 A 림프 팟, 표 B 레이즈 대응).
+function runP30PreflopCanonRegression(D){
+  const out=[];const ok=(name,cond,got)=>out.push({name,pass:!!cond,got});
+  const h30={limit:'30만'},h10={limit:'10만'};
+  const hist=n=>[{street:'preflop',semantic:'Raise'}].concat(Array.from({length:n},()=>({street:'preflop',semantic:'Call'})));
+  const limp30=(pos,hole,n,extra)=>D.snapshotCanonicalRecommendation(Object.assign({street:'preflop',pos,hole,facing:'Limpers',limpers:n,toCall:20000,currentBet:20000,streetAggressionCount:0,stack:400000},extra||{}),h30);
+  const vs30=(pos,hole,raiser,callers)=>D.snapshotCanonicalRecommendation({street:'preflop',pos,hole,facing:'Raised',limpers:0,toCall:40000,currentBet:40000,streetAggressionCount:1,stack:400000,preflopRaiserPos:raiser,publicActionHistory:hist(callers||0)},h30);
+  let r;
+
+  // 표 A — 1림퍼 포지션 분리(P30-PF05)
+  r=limp30('BTN','88',1);ok('30만 BTN 88 1림퍼 → Raise PF05',r&&r.action==='Raise'&&/PF05/.test(r.rule),r);
+  r=limp30('UTG','88',1);ok('30만 UTG 88 1림퍼 → Fold PF10',r&&r.action==='Fold'&&/PF10/.test(r.rule),r);
+  r=limp30('CO','99',1);ok('30만 CO 99 1림퍼 → Raise PF05',r&&r.action==='Raise',r);
+  r=limp30('CO','88',1);ok('30만 CO 88 1림퍼 → Call',r&&r.action==='Call',r);
+  r=limp30('MP','AKo',1);ok('30만 MP AKo 1림퍼 → Raise PF05',r&&r.action==='Raise',r);
+  r=limp30('UTG','AQo',1);ok('30만 UTG AQo 1림퍼 → Raise(정본 유지)',r&&r.action==='Raise'&&/PF05/.test(r.rule),r);
+
+  // 표 A — 오버림프 콜/폴드 경계(P30-PF10·PF14)
+  r=limp30('BTN','A8s',1);ok('30만 BTN A8s 1림퍼 → Call PF10',r&&r.action==='Call'&&/PF10/.test(r.rule),r);
+  r=limp30('BTN','A7s',1);ok('30만 BTN A7s 1림퍼 → Fold PF14',r&&r.action==='Fold'&&/PF14/.test(r.rule),r);
+  r=limp30('BTN','K5s',1);ok('30만 BTN K5s 1림퍼 → Fold PF14',r&&r.action==='Fold'&&/PF14/.test(r.rule),r);
+  r=limp30('BTN','44',2);ok('30만 BTN 44 2림퍼 → Fold PF14',r&&r.action==='Fold'&&/PF14/.test(r.rule),r);
+  r=limp30('BTN','A9s',2);ok('30만 BTN A9s 2림퍼 → Call',r&&r.action==='Call',r);
+  r=limp30('BTN','77',3);ok('30만 BTN 77 3림퍼 → Call',r&&r.action==='Call',r);
+  r=limp30('BTN','AKo',4);ok('30만 BTN AKo 4림퍼 → Call',r&&r.action==='Call',r);
+
+  // 표 A — 2~4+ 림퍼 단계(P30-PF16·PF13)와 BB
+  r=limp30('BB','AA',2,{toCall:0});ok('30만 BB AA 2림퍼 → Raise PF16',r&&r.action==='Raise'&&/PF16/.test(r.rule),r);
+  r=limp30('BB','99',1,{toCall:0});ok('30만 BB 99 1림퍼 → Raise PF05',r&&r.action==='Raise'&&/PF05/.test(r.rule),r);
+  r=limp30('BB','88',1,{toCall:0});ok('30만 BB 88 1림퍼 → Check PF12',r&&r.action==='Check'&&/PF12/.test(r.rule),r);
+  r=limp30('BB','AQo',2,{toCall:0});ok('30만 BB AQo 2림퍼 → Check(구 PF06 축소)',r&&r.action==='Check',r);
+  r=limp30('BB','AQs',4,{toCall:0});ok('30만 BB AQs 4림퍼 → Check',r&&r.action==='Check',r);
+  r=limp30('BB','AA',4,{toCall:0});ok('30만 BB AA 4림퍼 → Raise PF13',r&&r.action==='Raise'&&/PF13/.test(r.rule),r);
+
+  // 표 A — SB 컴플리트(P30-PF12)
+  r=limp30('SB','72o',1,{toCall:10000,currentBet:20000});ok('30만 SB 72o 1림퍼 → Call(예외 없음)',r&&r.action==='Call',r);
+  r=limp30('SB','72o',2,{toCall:10000,currentBet:20000});ok('30만 SB 72o 2림퍼 → Fold',r&&r.action==='Fold',r);
+  r=limp30('SB','65s',3,{toCall:10000,currentBet:20000});ok('30만 SB 65s 3림퍼 → Call',r&&r.action==='Call',r);
+  r=limp30('SB','AKs',1,{toCall:10000,currentBet:20000});ok('30만 SB AKs 1림퍼 → Raise',r&&r.action==='Raise',r);
+
+  // 표 B — 레이즈 대응(P30-PF11)과 블라인드 캡 게이트(P30-PF15·PF12)
+  r=vs30('BTN','AQs','CO',0);ok('30만 BTN AQs vs CO → 3-bet PF11',r&&r.action==='3-bet'&&/PF11/.test(r.rule),r);
+  r=vs30('BTN','88','CO',0);ok('30만 BTN 88 vs CO → Call(△ 캡 경계)',r&&r.action==='Call'&&r.alt==='3-bet',r);
+  r=vs30('BTN','72o','CO',0);ok('30만 BTN 72o vs CO → Fold',r&&r.action==='Fold',r);
+  r=vs30('CO','55','MP',0);ok('30만 CO 55 vs MP → Fold',r&&r.action==='Fold',r);
+  r=vs30('CO','TT','MP',0);ok('30만 CO TT vs MP → Call',r&&r.action==='Call',r);
+  r=vs30('SB','KK','BTN',1);ok('30만 SB KK vs BTN → 3-bet',r&&r.action==='3-bet',r);
+  r=vs30('BB','QQ','BTN',0);ok('30만 BB QQ vs BTN → Call(PF15 캡 금지)',r&&r.action==='Call'&&/PF15/.test(r.rule),r);
+  r=vs30('BB','AA','BTN',0);ok('30만 BB AA vs BTN → 3-bet',r&&r.action==='3-bet',r);
+  r=vs30('SB','AKs','BTN',0);ok('30만 SB AKs vs BTN → Call(캡 손익분기 60%)',r&&r.action==='Call',r);
+  r=vs30('UTG+1','AKs','UTG',0);ok('30만 UTG+1 AKs vs UTG → 3-bet PF07 유지',r&&r.action==='3-bet'&&/PF07/.test(r.rule),r);
+  r=vs30('UTG+1','JJ','UTG',0);ok('30만 UTG+1 JJ vs UTG → Call',r&&r.action==='Call',r);
+  r=vs30('BB','QQ','UTG',0);ok('30만 BB QQ vs UTG → PF07 캡 차단(기존 엔진)',r===null,r);
+
+  // 10만 회귀 — 같은 경로가 10만 동작을 바꾸지 않았다
+  const limp10=(pos,hole,n,extra)=>D.snapshotCanonicalRecommendation(Object.assign({street:'preflop',pos,hole,facing:'Limpers',limpers:n,toCall:5000,currentBet:5000,streetAggressionCount:0,stack:400000},extra||{}),h10);
+  r=limp10('BTN','44',1);ok('10만 BTN 44 1림퍼 → Review(불변)',r&&r.action==='Review',r);
+  r=limp10('CO','KJo',1);ok('10만 CO KJo 1림퍼 → Fold PF14(불변)',r&&r.action==='Fold'&&/PF14/.test(r.rule),r);
+  r=limp10('HJ','KQo',1);ok('10만 HJ KQo 1림퍼 → Raise PF05(불변)',r&&r.action==='Raise'&&/PF05/.test(r.rule),r);
+  r=D.snapshotCanonicalRecommendation({street:'preflop',pos:'BB',hole:'AQo',facing:'Limpers',limpers:2,toCall:0,currentBet:5000,streetAggressionCount:0,stack:400000},h10);
+  ok('10만 BB AQo 2림퍼 → Raise PF06(불변)',r&&r.action==='Raise'&&/PF06/.test(r.rule),r);
+  r=D.snapshotCanonicalRecommendation({street:'preflop',pos:'BB',hole:'AKo',facing:'Raised',limpers:0,toCall:10000,currentBet:10000,streetAggressionCount:1,stack:400000,preflopRaiserPos:'UTG'},h10);
+  ok('10만 BB AKo vs UTG → Cap PF08(불변)',r&&r.action==='Cap',r);
+  return out;
+}

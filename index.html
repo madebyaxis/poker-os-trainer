@@ -834,17 +834,193 @@ const CANON={
       BTN:{positions:['BTN'],range:['33+','A2s+','A9o+','K8s+','KTo+','Q9s+','QTo+','J9s+','JTo','T8s+','98s','87s'],rule:'P30-PF04 | BTN Open',action:'Raise',
           explain:'BTN은 넓게 오픈하되 30만에서는 약한 오프수트 하단을 줄입니다.'}
     },
-    limp1:{base:['TT+','AQs+','AQo+','KQs'],late:[],rule:'P30-PF05 | 1 Limper Value Raise',
-      explain:'30만에서는 한 명의 림퍼 뒤에서도 좋은 패 위주로 레이즈합니다.'},
-    // 2026-11-16: 30만에 2~3명·4명+ 림퍼 규칙이 없어 BB AA가 'Free Check'로 채점되던 오류 수정. 10만 v1.1 범위를 준용한다.
-    limp23:{range:['TT+','AQs+','AQo+','AK','KQs'],rule:'P30-PF06 | 2-3 Limpers Value Raise (10만 v1.1 준용)',
-      explain:'림퍼 2~3명 팟에서 TT+, AQ+, AK, KQs는 밸류 레이즈합니다. BB에서 추가금이 0원이어도 프리미엄은 체크가 아니라 레이즈입니다.'},
-    limp4:{range:['JJ+','AK','AQs+'],rule:'P30-PF07b | 4+ Limpers Value Raise (10만 v1.1 준용)',
-      explain:'림퍼 4명 이상이면 JJ+, AK, AQs만 밸류 레이즈합니다.'},
+    // 2026-11-27: 림프 팟 정본(구 limp1=P30-PF05, limp23=P30-PF06, limp4=P30-PF07b)은 아래 P30_PREFLOP(표 A)로
+    // 옮겼다. 포지션 분리·2~4+ 림퍼 단계·오버림프 콜/폴드 경계는 p30LimpedPot()이 판정하고,
+    // 앱 P30-PF06은 노션의 P30-PF06(Multiway Speculative Trim)과 ID가 겹쳐 2~3 림퍼 밸류 레이즈를 P30-PF16으로 옮겼다.
     vsEP3bet:{range:['QQ+','AK'],rule:'P30-PF07 | vs EP Premium Aggression',action:'3-bet',
-      explain:'앞자리 레이즈 상대 QQ+와 AK는 프리미엄 밸류 재공격 구간입니다.'}
+      explain:'앞자리 레이즈 상대 QQ+와 AK는 프리미엄 밸류 재공격 구간입니다. AK는 캡 손익분기 50.0%에 AKs 49.7%·AKo 47.6%로 0.3~2.4%p 못 미치는 경계값이지만 폴드 에퀴티·블로커로 캡을 유지합니다(2026-11-27 확률 보강, 정본 유지).'}
   }
 };
+
+/* --- P30 PREFLOP CANON v3 : 림프 팟 · 레이즈 대응 (2026-11-27) ---
+   근거 문서 reports/30만-프리플랍-정본-보강-2026-11-27.md
+   (몬테카를로 7만회/칸, 7장 평가기 vs 5장 오라클 불일치 0/20,000, 실현율 보정 = 가정).
+   표 A = 림프 팟(포지션 × 림퍼 수), 표 B = 앞에 레이즈가 나왔을 때(포지션 × 콜러 수).
+   이 블록은 DOM·전역 S를 참조하지 않는 데이터·순수 함수다. live 추천과 기록 재채점이 같은 함수를 쓴다.
+
+   왜 30만이 10만보다 타이트한가 — 레이크도 가격도 아니다.
+   레이크는 두 리밋 모두 5%·상한 2만으로 BB 단위가 같고(30만 1BB = 10만 4BB, 20BB 초과 팟은 오히려 30만이 4배 싸다),
+   오픈 콜 필요승률도 30만 38.3% vs 10만 38.9%다. 차이는 상대 레인지 강도(Kangwon 30: Regular 20%·TAG 11%)와
+   실현율, 그리고 같은 실수 1건의 원화 비용(세션 SD 35BB vs 31BB)이다.
+   → P30-PF09(Cap-heavy Trim)의 근거 문구를 'cap 노출 비용'에서 '상대 레인지 강도'로 고친 이유.
+   ※ 표 A의 '림퍼 0(오픈)' 열(SB 스틸·BB 레이즈)은 이번 반영 범위 밖이다. SB 오픈 스틸은 기존 로직을 유지한다. */
+const P30_PREFLOP={
+  version:'P30 Preflop v3 (2026-11-27)',
+  buckets:{EP:['UTG','UTG+1'],MPHJ:['UTG+2','MP','HJ'],CO:['CO'],BTN:['BTN'],SB:['SB'],BB:['BB']},
+  raiseRule:{1:'P30-PF05 | 1 Limper Value Raise',2:'P30-PF16 | 2-3 Limpers Value Raise',3:'P30-PF16 | 2-3 Limpers Value Raise',4:'P30-PF13 | 4+ Limpers Value Raise'},
+  overlimpRule:'P30-PF10 | Overlimp Range by Position',
+  blindRule:'P30-PF12 | Blind Defense',
+  forbiddenRule:'P30-PF14 | Overlimp Forbidden',
+  facingRule:'P30-PF11 | Facing Raise Matrix',
+  gateRule:'P30-PF15 | Cap Break-even Gate',
+  vsEPRule:'P30-PF07 | vs EP Premium Aggression',
+  // 표 A — facing=Limpers. raise=▲(밸류 레이즈) / call=●(오버림프) / callAllExcept=거의 전부 콜(예외만 폴드) / BB는 체크
+  // 필요 승률(레이크 5% 반영): EP·MP 17.5/15.0/13.2/11.7 · CO 21.1/17.5/15.0/13.2 · BTN 26.3/21.1/17.5/15.0 · SB 17.5/13.2/10.5/8.8
+  limp:{
+    EP:{
+      1:{raise:['TT+','AQs+','AQo+','KQs'],call:['99','AJs','KJs']},
+      2:{raise:['JJ+','AKs'],call:['99-TT','AJs-AQs','KJs+','AKo']},
+      3:{raise:['JJ+'],call:['99-TT','AQs+','KJs+','AKo']},
+      4:{raise:['QQ+'],call:['99-JJ','AQs+','KQs','AKo']}},
+    MPHJ:{
+      1:{raise:['TT+','AQs+','AQo+','KQs'],call:['99','AJs','KJs','QJs']},
+      2:{raise:['JJ+','AKs'],call:['99-TT','AJs-AQs','KJs+','AKo']},
+      3:{raise:['JJ+'],call:['99-TT','AQs+','KJs+','AKo']},
+      4:{raise:['JJ+'],call:['99-TT','AJs+','KQs','AKo']}},
+    CO:{
+      1:{raise:['99+','AJs+','AQo+','KQs'],call:['88','ATs','KTs-KJs','QTs+']},
+      2:{raise:['TT+','AQs+'],call:['88-99','ATs-AJs','KTs+','QJs','AKo']},
+      3:{raise:['TT+','AQs+'],call:['99','AJs','KJs+','QJs','AKo']},
+      4:{raise:['JJ+','AKs'],call:['99-TT','AJs-AQs','KJs+','QJs','AKo']}},
+    BTN:{
+      1:{raise:['88+','ATs+','KTs+','QJs','AQo+'],call:['66-77','A8s-A9s','K9s','QTs','JTs','AJo','KQo']},
+      2:{raise:['88+','ATs+','KJs+','QJs','AKo'],call:['77','A9s','K9s-KTs','QTs','JTs','AQo']},
+      3:{raise:['99+','AJs+','KJs+'],call:['77-88','ATs','KTs','QTs+','JTs','AKo']},
+      4:{raise:['TT+','AQs+','KQs'],call:['77-99','ATs-AJs','KTs-KJs','QTs+','JTs','AKo']}},
+    SB:{
+      1:{raise:['99+','AKs'],callAllExcept:[]},
+      2:{raise:['TT+','AKs'],callAllExcept:['72o']},
+      3:{raise:['JJ+'],callAllExcept:['72o']},
+      4:{raise:['JJ+'],callAllExcept:['A5o','A8o','98o','87o','72o']}},
+    BB:{
+      1:{raise:['99+','AQs+']},
+      2:{raise:['TT+','AQs+']},
+      3:{raise:['TT+','AKs']},
+      4:{raise:['JJ+','AKs']}}
+  },
+  // P30-PF14 — 실전 8건 오버림프 교차에서 −0.4~−4.8%p로 확인된 금지 목록
+  forbidden:['K2s-K7s','A7s','22','33','44','A8o-A9o','KTo-KJo','QJo','QTo','JTo','T9o','98o','87o'],
+  // 표 B — facing=Raised. cap=▲캡(3벳) / edge=△캡 손익분기 직상(캡·콜 모두 정답) / call=●콜 / callAllExcept=거의 전부 콜
+  // 필요 승률: 비블라인드 38.3/28.1/22.2/18.3 · SB 31.6/22.6/17.5/14.4 · BB 23.4/16.2/12.4/10.0
+  // 캡 손익분기: 비블라인드 50/33.3/25/20 · SB 60/42.9/33.3/27.3 · BB 66.7/50/40/33.3 (+5%p 마진)
+  facing:{
+    'EP|EP':{
+      0:{cap:['QQ+'],edge:['JJ'],call:['TT','AQs+','AKo']},
+      1:{cap:['JJ+'],edge:['TT','AKs'],call:['99','AKo']},
+      2:{cap:['JJ+'],edge:['99-TT','AKs'],call:['88']},
+      3:{cap:['JJ+'],edge:['88-TT','AKs'],call:[]}},
+    'MPHJ|EP':{
+      0:{cap:['QQ+'],edge:['JJ','AKs'],call:['99-TT','AQs','AKo']},
+      1:{cap:['JJ+'],edge:['TT','AKs'],call:['99','AKo']},
+      2:{cap:['JJ+'],edge:['99-TT','AKs'],call:['88']},
+      3:{cap:['JJ+'],edge:['88-TT','AKs'],call:[]}},
+    'CO|MPHJ':{
+      0:{cap:['JJ+','AKs','AKo'],edge:['TT','AQs'],call:['66-99','ATs-AJs','KQs','AJo-AQo']},
+      1:{cap:['TT+','AKs'],edge:['88-99','AQs','AKo'],call:['66-77','AJs','KQs','AQo']},
+      2:{cap:['99+'],edge:['77-88','AQs+'],call:['66','AKo']},
+      3:{cap:['TT+'],edge:['77-99','AKs'],call:[]}},
+    'BTN|CO':{
+      0:{cap:['99+','AJs+','AQo+'],edge:['88','ATs','KQs','AJo'],callAllExcept:['J9s','T8s+','97s+','86s+','75s+','64s+','54s','K9o','Q9o-QTo','JTo','T9o','98o','87o','72o']},
+      1:{cap:['99+','AQs+','AKo'],edge:['77-88','AJs','AQo'],call:['55-66','A9s-ATs','KTs+','QTs+','JTs','T9s','AJo','KQo']},
+      2:{cap:['99+','AKs'],edge:['66-88','AJs-AQs','KQs','AKo'],call:['55','ATs','JTs','T9s','98s','87s']},
+      3:{cap:['99+'],edge:['66-88','AQs+'],call:['55']}},
+    'SB|BTN':{
+      0:{cap:['KK+'],edge:['QQ'],callAllExcept:['T8s','97s','86s','75s+','64s+','54s','Q9o','T9o','98o','87o','72o']},
+      1:{cap:['QQ+'],edge:['JJ'],callAllExcept:['22','A2s-A3s','K5s','K7s','75s','64s','54s','A5o','A8o-A9o','K9o-KTo','Q9o+','JTo','T9o','98o','87o','72o']},
+      2:{cap:['QQ+'],edge:['JJ'],callAllExcept:['22-33','A2s-A3s','A7s','K5s','K7s-K8s','64s','A5o','A8o-AJo','K9o+','Q9o+','JTo','T9o','98o','87o','72o']},
+      3:{cap:['KK+'],edge:['QQ'],call:['55-JJ','ATs+','KTs+','J9s+','T8s+','97s+','86s+','76s','65s','54s','AKo']}},
+    'BB|BTN':{
+      0:{cap:['KK+'],edge:['QQ'],callAllExcept:[]},
+      1:{cap:['KK+'],edge:['QQ'],callAllExcept:['72o']},
+      2:{cap:['KK+'],edge:['QQ'],callAllExcept:['72o']},
+      3:{cap:['KK+'],callAllExcept:['A5o','A8o-A9o','72o']}}
+  }
+};
+function p30Bucket(ps){
+  const bs=P30_PREFLOP.buckets;
+  for(const k of Object.keys(bs))if(bs[k].includes(ps))return k;
+  return null;
+}
+function p30InList(code,list){return Array.isArray(list)&&rangeMatch(code,list)}
+function p30RuleResult(action,rule,why,confidence,alt){
+  const r=friendlyRuleResult(action,rule,why,confidence||'Medium',true,'Poker Decision Rule DB','canonical');
+  if(alt)r.alt=alt;
+  return r;
+}
+// 레이즈 사이에 끼어든 콜러 수(히어로 앞) — 표 B의 '콜러 0~3'
+function p30CallersBefore(history){
+  let n=0;
+  for(const a of (history||[])){
+    if(!a||a.street!=='preflop')continue;
+    const sem=a.semantic||a.actualSemantic||'';
+    if(['Raise','3-bet','Cap','Re-raise'].includes(sem))n=0;
+    else if(sem==='Call')n++;
+  }
+  return n;
+}
+// P30-PF15: 블라인드(SB·BB)는 AA·KK만 캡할 수 있다. 캡 손익분기 BB 66.7%·SB 60% + 마진 5%p.
+function p30BlindNoCap(code,ps){
+  return ['SB','BB'].includes(ps||'') && !rangeMatch(code,['AA','KK']);
+}
+function p30LimpedPot(code,ps,n){
+  const b=p30Bucket(ps);if(!b)return null;
+  const lvl=Math.max(1,Math.min(4,Number(n)||1));
+  const row=(P30_PREFLOP.limp[b]||{})[lvl];if(!row)return null;
+  const raiseRule=P30_PREFLOP.raiseRule[lvl]||P30_PREFLOP.overlimpRule;
+  const canRaise=p30InList(code,row.raise);
+  const inForbidden=p30InList(code,P30_PREFLOP.forbidden);
+  const canCall=row.callAllExcept?(!rangeMatch(code,row.callAllExcept)):p30InList(code,row.call);
+  if(b==='BB'){
+    if(canRaise)return p30RuleResult('Raise',raiseRule,`표 A · BB·림퍼 ${lvl}명: ${code}는 밸류 레이즈 구간입니다. 추가금액이 0원이어도 프리미엄은 체크가 아니라 레이즈입니다.`,'High');
+    return p30RuleResult('Check',P30_PREFLOP.blindRule,`표 A · BB는 추가금액이 0원이라 폴드가 없습니다. ${code}는 레이즈 기준(팟 에퀴티 우위 +5%p)에 못 미쳐 체크가 정답입니다.`,'High');
+  }
+  if(canRaise)return p30RuleResult('Raise',raiseRule,`표 A · ${b}·림퍼 ${lvl}명: ${code}는 밸류 레이즈 구간입니다(실현보정 에퀴티가 1/참가인원+5%p 이상).`,'Medium');
+  if(canCall){
+    if(b==='SB')return p30RuleResult('Call',P30_PREFLOP.blindRule,`SB는 반값(10,000)으로 팟에 들어갑니다. ${code}는 컴플리트(콜) 범위입니다.`,'High');
+    return p30RuleResult('Call',P30_PREFLOP.overlimpRule,`표 A · ${b}·림퍼 ${lvl}명: ${code}는 콜(오버림프)이 기준입니다(실현보정 에퀴티가 필요 승률+1.5%p 이상, 표의 ●).`,'Medium');
+  }
+  if(b==='SB')return p30RuleResult('Fold',P30_PREFLOP.blindRule,`SB 컴플리트 예외: ${code}는 실현율 0.85를 적용하면 반값 콜 기준(필요 승률+1.5%p)에 못 미칩니다.`,'Medium');
+  if(inForbidden)return p30RuleResult('Fold',P30_PREFLOP.forbiddenRule,`표 A·실전 8건 교차: ${code}는 오버림프 금지 목록입니다(실현보정 에퀴티가 필요 승률에 −0.4~−4.8%p).`,'High');
+  return p30RuleResult('Fold',P30_PREFLOP.overlimpRule,`표 A · ${b}·림퍼 ${lvl}명: ${code}는 콜 기준(필요 승률+1.5%p)에 못 미쳐 폴드입니다.`,'Medium');
+}
+function p30FacingRaise(code,ps,raiserPos,callers,facing){
+  const b=p30Bucket(ps),ob=p30Bucket(raiserPos);
+  if(!b||!ob)return null;
+  const blind=(b==='SB'||b==='BB');
+  const premium=rangeMatch(code,['AA','KK']);
+  const capNow=facing==='Capped';
+  if(blind&&premium){
+    if(capNow)return p30RuleResult('Call',P30_PREFLOP.blindRule,`이미 캡(60,000)까지 올라와 더 올릴 수 없습니다. ${code}는 콜로 계속합니다.`,'High');
+    return p30RuleResult('3-bet',P30_PREFLOP.blindRule,`블라인드 캡은 AA·KK만입니다(BB 손익분기 66.7%·SB 60% + 마진 5%p). ${code}는 캡 값어치가 있습니다.`,'High');
+  }
+  if(!blind&&ob==='EP'&&rangeMatch(code,['QQ+','AK'])){
+    if(capNow)return p30RuleResult('Call',P30_PREFLOP.vsEPRule,`앞자리 레이즈에 ${code}는 프리미엄이지만 이미 캡이라 더 올릴 수 없습니다. 콜로 계속합니다.`,'High');
+    return p30RuleResult('3-bet',P30_PREFLOP.vsEPRule,`앞자리 레이즈 상대 ${code}는 캡(3벳) 구간입니다. AK는 캡 손익분기 50.0%에 AKs 49.7%·AKo 47.6%로 0.3~2.4%p 못 미치는 경계값이지만, 폴드 에퀴티 1명분(≈5%p)과 블로커 때문에 캡을 유지합니다(2026-11-27 정본 유지).`,'High');
+  }
+  const cell=(P30_PREFLOP.facing[b+'|'+ob]||{})[Math.max(0,Math.min(3,Number(callers)||0))];
+  if(!cell)return null;
+  const inCap=p30InList(code,cell.cap);
+  const inEdge=p30InList(code,cell.edge);
+  const inCall=cell.callAllExcept?(!rangeMatch(code,cell.callAllExcept)):p30InList(code,cell.call);
+  const label=`표 B · ${b} vs ${ob} 오픈·콜러 ${Math.max(0,Math.min(3,Number(callers)||0))}명`;
+  if(inCap){
+    if(blind)return p30RuleResult('Call',P30_PREFLOP.gateRule,`${label}: ${code}는 매트릭스상 캡 구간이지만 블라인드 캡 손익분기(BB 66.7%·SB 60%+5%p)를 넘지 못해 캡을 금지하고 콜로 내립니다.`,'High');
+    if(capNow)return p30RuleResult('Call',P30_PREFLOP.facingRule,`${label}: ${code}는 캡 구간이지만 이미 캡(60,000)이라 더 올릴 수 없습니다. 콜로 계속합니다.`,'High');
+    return p30RuleResult('3-bet',P30_PREFLOP.facingRule,`${label}: ${code}는 캡(3벳) 구간입니다.`,'Medium');
+  }
+  if(inEdge){
+    if(blind)return p30RuleResult('Call',P30_PREFLOP.gateRule,`${label}: ${code}는 캡 손익분기 직상(마진 5%p 미만)이고 블라인드는 AA·KK만 캡하므로 콜입니다.`,'High');
+    return p30RuleResult('Call',P30_PREFLOP.facingRule,`${label}: ${code}는 캡 손익분기 직상(마진 5%p 미만, 표의 △)이라 캡과 콜이 모두 정답입니다.`,'Medium','3-bet');
+  }
+  if(inCall)return p30RuleResult('Call',P30_PREFLOP.facingRule,`${label}: ${code}는 콜 구간입니다(필요 승률+1.5%p 이상).`,'Medium');
+  return p30RuleResult('Fold',P30_PREFLOP.facingRule,`${label}: ${code}는 콜 기준(필요 승률+1.5%p)에 못 미쳐 폴드입니다.`,'Medium');
+}
+function p30PreflopCanon(o){
+  if(!o||!o.code||!o.pos)return null;
+  if(o.facing==='Limpers')return p30LimpedPot(o.code,o.pos,o.limpers);
+  if(o.facing==='Raised'||o.facing==='Capped')return p30FacingRaise(o.code,o.pos,o.raiserPos,o.callers,o.facing);
+  return null;
+}
 
 /* --- POKER OS POSTFLOP CANON v1 : PURE FUNCTIONS (BEGIN) ---
    강원랜드 10만·30만 포스트플랍 정본. 프리플랍 CANON과 같은 자리·같은 철학.
@@ -2641,6 +2817,14 @@ function canonicalRecommendation(){
   if(S.street==='preflop'){
     const facing=preflopFacing();
 
+    // 2026-11-27 30만 프리플랍 정본 v3: 림프 팟(표 A)·레이즈 대응(표 B).
+    // 오픈(P30-PF01~04)은 아래 기존 분기를 그대로 쓴다.
+    if(limit==='30만'){
+      const rp=S.preflopRaiserSeat==null?'':pos(S.preflopRaiserSeat);
+      const r30=p30PreflopCanon({code,pos:ps,facing,limpers:S.preflopLimpers,raiserPos:rp,callers:p30CallersBefore(S.publicActionHistory||[])});
+      if(r30)return r30;
+    }
+
     if(ps==='BB' && tc===0){
       // Patch 8 / Strategy v1.1: evaluate limper value-raise rules BEFORE the
       // free-check fallback. This prevents AK/AQ/TT+ style value raises from
@@ -2727,7 +2911,8 @@ function canonicalRecommendation(){
     if(facing==='Raised'){
       const rp=S.preflopRaiserSeat==null?'':pos(S.preflopRaiserSeat);
       const ep=['UTG','UTG+1'].includes(rp);
-      if(ep && cfg.vsEP3bet && rangeMatch(code,cfg.vsEP3bet.range))
+      // P30-PF15: 30만 블라인드는 AA·KK만 캡할 수 있다(BB 캡 손익분기 66.7%).
+      if(ep && cfg.vsEP3bet && rangeMatch(code,cfg.vsEP3bet.range) && !(limit==='30만'&&p30BlindNoCap(code,ps)))
         return friendlyRuleResult(cfg.vsEP3bet.action,cfg.vsEP3bet.rule,cfg.vsEP3bet.explain,'High',true,'Poker Decision Rule DB');
       if(ep && limit==='10만' && cfg.vsEPFold && cfg.vsEPFold.exact.includes(code))
         return friendlyRuleResult('Fold',cfg.vsEPFold.rule,cfg.vsEPFold.explain,'High',true,'Poker Decision Rule DB');
@@ -3489,13 +3674,23 @@ const DRILL_BANK={
   {s:'10만 PF · BTN · 87s · unopened',o:['Fold','Call','Raise'],a:'Raise',r:'P10-PF04',w:'BTN의 position edge를 활용하는 open 범위.'},
   {s:'10만 PF · CO · 앞에 1 limper · Hero KJo',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF14 | Limped Pot Offsuit Fold',w:'2026-11-13 실전 교정: 림퍼 앞에서 KJo 레이즈 → 턴 A에 벳 → 레이즈 맞음. KJo는 1 limper 레이즈 범위(late 조건부 AJo·KQo 포함) 밖이고, 오프수트는 오버림프하지 않는다.'},
   {s:'10만 PF · BTN · 앞에 2 limpers · Hero KQo',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF14 | Limped Pot Offsuit Fold',w:'2~3 limpers 레이즈 범위는 TT+, AQs+, AQo+, AK, KQs. KQo는 밖이고 오프수트는 림프콜하지 않는다. 정본 기준 폴드(약한 림퍼+조용한 블라인드면 레이즈 검토는 개인 판단).'},
-  {s:'10만 PF · MP · 앞에 3 limpers · Hero ATo',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF14 | Limped Pot Offsuit Fold',w:'Strategy v1.1: 2~3 limpers에서 ATo·KJo·QJo·KTo는 크게 축소. 오프수트는 레이즈 아니면 폴드.'}
+  {s:'10만 PF · MP · 앞에 3 limpers · Hero ATo',o:['Fold','Call','Raise'],a:'Fold',r:'P10-PF14 | Limped Pot Offsuit Fold',w:'Strategy v1.1: 2~3 limpers에서 ATo·KJo·QJo·KTo는 크게 축소. 오프수트는 레이즈 아니면 폴드.'},
+  {s:'30만 PF · BTN · 앞에 1 limper · Hero 88',o:['Fold','Call','Raise'],a:'Raise',r:'P30-PF05 | 1 Limper Value Raise',w:'표 A: BTN·림퍼1 88은 실현보정 32.9%로 레이즈 기준(30.0%)을 넘습니다. 같은 88이 EP·림퍼1에서는 18.2%로 콜 기준(19.0%) 미달 — 정본을 포지션별로 나눈 이유.'},
+  {s:'30만 PF · UTG · 앞에 1 limper · Hero 88',o:['Fold','Call','Raise'],a:'Fold',r:'P30-PF10 | Overlimp Range by Position',w:'표 A: EP·림퍼1 88은 18.2% vs 콜 기준 19.0%로 폴드. 뒤에 3~4명이 더 남는 6인 팟입니다.'},
+  {s:'30만 PF · BTN · 앞에 1 limper · Hero A8s',o:['Fold','Call','Raise'],a:'Call',r:'P30-PF10 | Overlimp Range by Position',w:'BTN·림퍼1 A8s 28.4% vs 필요 26.3% → +0.6%p 콜. A7s는 27.4%로 −0.4%p라 폴드 — "Axs는 8 이상만" 규칙과 계산이 일치합니다.'},
+  {s:'30만 PF · BTN · 앞에 1 limper · Hero K5s',o:['Fold','Call','Raise'],a:'Fold',r:'P30-PF14 | Overlimp Forbidden',w:'K5s 24.5% vs 26.3% → −3.3%p. 오버림프 금지 목록(실전 8건 교차)입니다. BTN에서도 따라가지 않습니다.'},
+  {s:'30만 PF · BTN · 앞에 2 limpers · Hero A9s',o:['Fold','Call','Raise'],a:'Call',r:'P30-PF10 | Overlimp Range by Position',w:'BTN·림퍼2 A9s 22.6% vs 21.1% → +1.6%p 콜. 림퍼 3명이면 18.6% vs 17.5%로 경계(실현율에 따라 뒤집힘).'},
+  {s:'30만 PF · BB · 앞에 2 limpers · Hero AQo · 추가금액 0',o:['Check','Raise'],a:'Check',r:'P30-PF12 | Blind Defense',w:'BB·림퍼2 AQo 25.4% < 레이즈 기준 30.0%. 기존 정본(P30-PF06)은 AQo·KQs를 BB에서 레이즈했지만 계산은 체크 쪽 — BB 레이즈를 99+,AQs+로 줄였습니다.'},
+  {s:'30만 PF · BB · 앞에 2 limpers · Hero AA · 추가금액 0',o:['Check','Raise'],a:'Raise',r:'P30-PF16 | 2-3 Limpers Value Raise',w:'BB는 추가금액 0원이라 폴드가 없지만 프리미엄은 체크가 아니라 레이즈(P30-PF12 예외).'}
  ],
  blind:[
   {s:'10만 PF · BB · 림퍼만 있음 · 이미 BB 5,000 납부 · 추가 Call 0 · 보통 패',o:['Fold','Check','Call'],a:'Check',r:'P10-PF12',w:'추가금액 0이면 Fold/Call이 아니라 Check. 단, 강한 value hand는 별도 Review 경계.'},
   {s:'10만 PF · BB · 앞에 1 limper · Hero AJs · 추가 Call 0',o:['Check','Raise'],a:'Raise',r:'P10-PF05 | 1 Limper Value Raise',w:'Strategy v1.1 우선순위: BB Free Check보다 limper value-raise 정본을 먼저 적용한다. 1 limper의 AJs는 Raise.'},
   {s:'10만 PF · BB · 앞에 3 limpers · Hero AJs · 추가 Call 0',o:['자동 Check','자동 Raise','재평가'],a:'재평가',r:'BB Value/Free Option Review',w:'3 limpers의 AJs는 Free Check 단독 정답으로 채점하지 않는다. 테이블 성향과 뒤 cap 위험을 보고 Review Only.'},
-  {s:'10만 PF · SB · 멀티웨이 림프 팟 · suited connector · 추가 3,000만 내면 BB 완성',o:['Fold','Call','Raise'],a:'Call',r:'Blind price',w:'이미 낸 SB와 지금 추가금액을 분리. 싸고 멀티웨이형 패면 complete 후보.'}
+  {s:'10만 PF · SB · 멀티웨이 림프 팟 · suited connector · 추가 3,000만 내면 BB 완성',o:['Fold','Call','Raise'],a:'Call',r:'Blind price',w:'이미 낸 SB와 지금 추가금액을 분리. 싸고 멀티웨이형 패면 complete 후보.'},
+  {s:'30만 PF · BB · BTN Raise · Hero QQ',o:['Fold','Call','Cap'],a:'Call',r:'P30-PF15 | Cap Break-even Gate',w:'BB 캡 손익분기 66.7%(+마진 5%p). QQ 69.1%·AK 48.5%는 캡이 아니라 콜 — 블라인드 캡은 AA·KK만입니다.'},
+  {s:'30만 PF · BB · BTN Raise · Hero AA',o:['Fold','Call','Cap'],a:'Cap',r:'P30-PF12 | Blind Defense',w:'블라인드는 AA·KK만 캡. AA 84%는 BB 손익분기를 크게 넘습니다.'},
+  {s:'30만 PF · SB · BTN Raise · Hero AKs',o:['Fold','Call','Cap'],a:'Call',r:'P30-PF11 | Facing Raise Matrix',w:'SB 캡 손익분기 60%. AKs 49.7%는 콜 — SB는 이미 1만을 넣어 캡 추가투입이 3만으로 커집니다.'}
  ],
  facing_raise:[
   {s:'10만 PF · MP · EP Raise · Hero KJo',o:['Fold','Call','Cap'],a:'Fold',r:'P10-PF09',w:'EP raise에 dominated offsuit hand를 싸다는 이유로 따라가지 않는다.'},
@@ -3696,6 +3891,11 @@ function legacySnapshotCanonicalRecommendation(d,hand){
   const canon=(action,rule,why,confidence='High')=>({action,rule,why,confidence,gradeable:true,source:'Poker Decision Rule DB',tier:'canonical'});
 
   if(st==='preflop'){
+    // 2026-11-27 30만 프리플랍 정본 v3: 림프 팟(표 A)·레이즈 대응(표 B). live와 같은 순수 함수를 쓴다.
+    if(limit==='30만'){
+      const r30=p30PreflopCanon({code,pos:ps,facing,limpers:n,raiserPos:d.preflopRaiserPos,callers:p30CallersBefore(d.publicActionHistory||[])});
+      if(r30)return r30;
+    }
     // Free-check is a fallback after value-raise rules. Raise is legal when tc=0.
     if(ps==='BB' && tc===0){
       if(facing==='Limpers' && n>0){
@@ -3744,7 +3944,7 @@ function legacySnapshotCanonicalRecommendation(d,hand){
     if((facing==='Raised'||facing==='Capped') && d.preflopRaiserPos){
       const ep=['UTG','UTG+1'].includes(d.preflopRaiserPos);
       if(ep && limit==='10만' && cfg.vsEPFold && cfg.vsEPFold.exact.includes(code))return canon('Fold',cfg.vsEPFold.rule,cfg.vsEPFold.explain);
-      if(ep && cfg.vsEP3bet && rangeMatch(code,cfg.vsEP3bet.range)){
+      if(ep && cfg.vsEP3bet && rangeMatch(code,cfg.vsEP3bet.range) && !(limit==='30만'&&p30BlindNoCap(code,ps))){
         if(facing==='Capped'&&limit==='10만')return canon('Call','P10-PF08 | vs EP Raise Premium','이미 캡이므로 QQ+/AK는 추가금액을 Call.');
         return canon(cfg.vsEP3bet.action,cfg.vsEP3bet.rule,cfg.vsEP3bet.explain);
       }
@@ -4361,6 +4561,7 @@ function drillIsCanonical(d){
  if(/Test|Review|Override|Candidate|재평가|비채점/.test(r+' '+w))return false;
  const m=r.match(/PFX-[A-Z0-9]+/);
  if(m)return PFX_CANON_IDS.has(m[0]);
+ if(/^P30-(PF0[1-9]|PF1[0-6])(?: |$)/.test(r))return true;
  return /^P10-(PF0[1-589]|PF1[234]|R0[1-4]|F01|T0[45])(?: |$| v)/.test(r);
 }
 
@@ -4826,6 +5027,7 @@ if(!restored){
 }
 // Patch 2026-11-13: rake cap 확정 · EP raise call/fold 보강 · 림프 팟 오프수트 폴드 · 턴 T04/T05/T06 · 현장 field profile
 Object.assign(PokerOSDebug,{patch:'6.19-candidate-20261126-postflop-canon',POSTFLOP_CANON,PFX_CANON_IDS,pfClassify,pfxTexture,pfxPrice,pfxOuts,pfxGhat,pfxMatch,pfxContextFromSnapshot,pfContext,decisionMatches,canonicalRecommendation});
+Object.assign(PokerOSDebug,{patch:'6.21-candidate-20261127-p30-preflop-canon',P30_PREFLOP,p30PreflopCanon,p30LimpedPot,p30FacingRaise,p30CallersBefore,p30BlindNoCap,p30Bucket});
 Object.assign(PokerOSDebug,{patch:'5.2-candidate-20261113-field-corrections',p10TurnRule,canonicalRecommendation,CANON,RAKE_CAP,calcRake});
 // ===== Patch 2026-11-15 v5.3: 강원랜드 현장형 업데이트 =====
 // 1) 10만/30만 필드 분리(30만은 레귤러·공격형 비중↑)  2) 단골 레귤러(이름 고정, 관찰 기록이 세션 간 누적)
@@ -4846,7 +5048,9 @@ const KANGWON_REGULARS={
   {name:'도경민',type:'Loose-Passive',loose:.70,agg:.22,skill:'Recreational'},
   {name:'석현수',type:'Calling Station',loose:.80,agg:.18,skill:'Recreational'},
   {name:'왕지석',type:'Loose-Aggressive',loose:.64,agg:.72,skill:'Average'},
-  {name:'곽정훈',type:'Nit',loose:.20,agg:.26,skill:'Average'}
+  {name:'곽정훈',type:'Nit',loose:.20,agg:.26,skill:'Average'},
+  {s:'30만 PF · BTN · CO Raise · Hero 72o',o:['Fold','Call','Cap'],a:'Fold',r:'P30-PF11 | Facing Raise Matrix',w:'BTN은 CO 오픈 상대 거의 전부 콜이지만 72o는 예외 목록입니다(29.7% vs 필요 38.3%).'},
+  {s:'30만 PF · CO · MP Raise · Hero 55',o:['Fold','Call','Cap'],a:'Fold',r:'P30-PF11 | Facing Raise Matrix',w:'CO·콜러0의 콜 하단은 66입니다. 55는 필요 승률 38.3%에 못 미쳐 폴드.'}
  ],
  '30만':[
   {name:'장도현',type:'Tight-Aggressive',loose:.30,agg:.72,skill:'Strong'},

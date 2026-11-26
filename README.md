@@ -2,12 +2,23 @@
 
 강원랜드 10만 Fixed-Limit Hold'em 개인화 트레이닝 웹앱 (단일 파일 `index.html`).
 
-## Current build (2026-11-26 기준)
-- Trainer: **v6.20** (2026-11-26 오염 핸드 정화 후속) — v6.19 기반
+## Current build (2026-11-27 기준)
+- Trainer: **v6.21** (2026-11-27 30만 프리플랍 정본 v3) — v6.20 기반
 - Decision Engine: v3.0 Candidate / Range Engine v2.1 Dual Public Range
 - Solver: Core v0.3 Candidate — 현재 비활성(`SOLVER_ENABLED=false`)
 - Strategy: 10만 Strategy v1.1 (Canonical만 채점, Solver·Model·Exploit은 참고 layer)
 - Population / Field Model: v0.2 Provisional + `Kangwon Live` 프로필(2026-11-13 관찰, 잠정)
+
+## v6.21 변경점 (2026-11-27) · 30만 프리플랍 정본 v3 (확률·팟오즈 보강)
+- **`P30_PREFLOP`(표 A·B)** 추가: 근거 `reports/30만-프리플랍-정본-보강-2026-11-27.md`(칸당 몬테카를로 7만회, 7장 평가기 오라클 불일치 0/20,000). live 추천과 기록 재채점이 같은 순수 함수(`p30LimpedPot`·`p30FacingRaise`)를 씁니다.
+- **표 A — 림프 팟(포지션 × 림퍼 1~4+).** 1림퍼 정본(P30-PF05)을 포지션별로 나눴습니다: BTN 88은 레이즈(32.9% vs 기준 30.0%)인데 EP·림퍼1 88은 18.2% vs 콜 기준 19.0%로 폴드. 오버림프 콜/폴드 경계를 처음으로 채웠습니다(BTN A8s +0.6%p 콜, A7s −0.4%p 폴드 → "Axs는 8 이상만"과 계산 일치).
+- **표 B — 레이즈 대응(포지션 × 콜러 0~3).** EP·MP/HJ·CO·BTN·SB·BB 6개 조합을 캡(▲)/캡 경계(△, 캡·콜 모두 정답)/콜/폴드로 채웠습니다. 캡 손익분기(비블라인드 50/33.3/25/20%, SB 60%, BB 66.7%)를 넘지 못하는 패는 캡하지 않습니다.
+- **블라인드 캡 축소(P30-PF15).** BB에서 QQ(69.1%)·AK(48.5%)는 캡 손익분기 66.7%에 못 미쳐 **AA·KK만 캡**. 기존 "vs EP QQ+·AK 3벳"을 BB에 그대로 쓰면 −EV였습니다. SB 캡도 KK+.
+- **BB 레이즈 축소.** 림퍼 2~3명에서 AQo(25.4%)·KQs(28.3%)는 레이즈 기준 30.0% 미달 → 체크. BB 밸류 레이즈는 99+,AQs+(림퍼 1명)로 좁혔습니다.
+- **ID 충돌 정리.** 앱의 `P30-PF06`(2-3 Limpers Value Raise)은 노션 `P30-PF06`(Multiway Speculative Trim)과 ID가 겹쳐 **`P30-PF16`** 으로 옮기고, `P30-PF07b`는 `P30-PF13`으로 정식 등록했습니다. 노션에는 `P30-PF10~PF16` 7행을 같은 속성 형식으로 등록했습니다.
+- **`P30-PF09`(Cap-heavy Trim) 근거 문구 교정.** 30만이 10만보다 타이트한 이유는 레이크·캡 비용이 아닙니다(레이크 5%·상한 2만 → 30만 1BB·10만 4BB로 동일, 오픈 콜 필요승률 38.3% vs 38.9%). 상대 레인지 강도(Regular 20%·TAG 11%)와 실현율입니다.
+- **드릴 뱅크**: 30만 프리플랍 드릴 12개(림프 콜/폴드 경계 7, 블라인드 캡 3, 레이즈 대응 2) 추가. `drillIsCanonical`이 `P30-PF01~PF16`을 채점 대상으로 인식합니다.
+- 회귀: `runP30PreflopCanonRegression`(40검사) — 표 A·B 경계, BB·SB 캡 게이트, 그리고 10만 경로 불변(10만 BB AKo vs UTG Cap 유지 등)을 확인합니다.
 
 ## v6.20 변경점 (2026-11-26) · 오염 핸드 완전 정화 + 비교 그래프 필터 정합
 - **남아 있던 오염 경로**: v6.16은 손익 장부(`poker_os_pl_ledger_v1`)만 정리했습니다. 핸드 기록(`poker_os_history_v5_lzw1` LZW 아카이브 · `kangwon_limit_holdem_trainer_history_v30` · IndexedDB `poker_os_archive_v1`)에는 시뮬레이션 25세션·314핸드가 남아, 리포트 `histAll()`을 타고 KPI·누적 곡선·전략 실험 비교·세션 경과 시간대·누적 시간별 개선 제안·세션 목록·다른 플레이어와 비교·상대별 리뷰·현장 관찰 비교까지 다시 반영됩니다. 특히 `loadTrainerRows()`가 장부에 없는 핸드를 핸드 기록에서 보충하므로, 장부에서 지운 오염 세션이 표에 그대로 되살아났습니다.
